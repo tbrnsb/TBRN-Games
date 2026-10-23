@@ -1,21 +1,22 @@
 # Handoff
 
 - Current phase and step: F4 — reconnect/leave, selection, Darts, UI.
-  Implemented and locally green; commit, push, and CI pending.
-- Last commit: `acb8e34` docs: record F3 commit and CI results.
-- Status: `foundation/f4` from `acb8e34`. F0–F3 remain on their branches;
-  `main` is `5b0e54e`. Not merged. The 24 Same Wave prompts still need owner
-  review. Commit, push, and CI are the remaining steps.
+  Committed, pushed, and CI green on Ubuntu and Windows.
+- Last commit: `3e5f702` F4: harden reconnects, add leaving, selection, Darts,
+  and new UI.
+- Status: `foundation/f4` from `acb8e34`, pushed to `origin/foundation/f4`.
+  Ubuntu and Windows CI passed (run 39997799007). F0–F3 remain on their
+  branches; `main` is `5b0e54e`. Not merged. The 24 Same Wave prompts still need
+  owner review, and the real-phone checklist is unrun.
 
 ## Done
 
 - Diagnosed the logout: a resume hit `seat_connected` while the old socket
   lingered; the phone stalled after five retries; a backgrounded tab past the
-  two-minute TTL was silently dropped.
-- Reconnect: a valid token takes over the seat, the old socket receives
-  `seat_replaced` and close code 4001, the heartbeat terminates silent sockets,
-  the TTL is five minutes, and the phone uses bounded backoff plus a recovery
-  overlay.
+  two-minute TTL was silently dropped. The fix is a valid resume token taking
+  over the seat, the old socket receiving `seat_replaced` and close code 4001, a
+  heartbeat that terminates silent sockets, a five-minute TTL, and bounded
+  phone backoff with a recovery overlay.
 - Leave: persistent confirmed control in lobby and game. The server releases the
   seat, transfers host control, removes the player's ballot, and clears the
   session when empty; the old token cannot resume. The host's return-to-lobby
@@ -30,21 +31,18 @@
   (50/25/20/10/5/0), deadline auto-miss, shared ties. The phone sends only a
   throw action.
 - UI: rebuilt phone and laptop pages on shared `public/theme.css` served at
-  `/theme.css`. Phone-first controls, laptop shared display, explicit connection,
-  lobby, vote, gameplay, score, and end states, and per-game adapters. Server time
-  is sent on connect and heartbeat so countdowns track server deadlines; scoring
-  remains server-side.
+  `/theme.css`, with explicit connection, lobby, vote, gameplay, score, and end
+  states plus per-game adapters. Server time is sent on connect and heartbeat so
+  countdowns track server deadlines; scoring remains server-side.
 - Tests: 117 pass, covering reconnect/resume/refresh/expiry, leave, selection
   privacy/eligibility/ties/deadline/disconnects, Darts, heartbeat, theme, and
-  time sync.
-- Reviewer: first pass hit its step limit with no confirmed defects; second pass
-  and the clock-sync re-review returned CLEAR.
+  time sync. Reviewer returned CLEAR on the final two passes.
 
 ## Next three actions
 
-1. Commit and push `foundation/f4`.
-2. Confirm CI and update this handoff with the commit and CI result.
-3. Run the real-phone checklist; do not merge until the owner decides.
+1. Run the real-phone checklist below and report the results.
+2. Address any real-device findings with tests first.
+3. Wait for owner approval before merging `foundation/f4`.
 
 ## Run and test
 
@@ -53,10 +51,19 @@
 - `npm start` runs `dist/server/main.js`. CI runs lint, typecheck, and tests on
   Ubuntu and Windows.
 
+## Real-phone checklist (unrun)
+
+1. Laptop plus 2–4 phones on one Wi-Fi; open the printed `/play` LAN URL.
+2. Refresh one phone and toggle another's Wi-Fi off for ~10s: both must resume
+   the same seat with the retry overlay, never create a new player.
+3. Leave as host and as non-host in the lobby: the seat disappears and host
+   control transfers.
+4. Vote, then play Darts to the end: ballots stay private, one game starts, and
+   turn order, countdown, scores, and ties match on every screen.
+
 ## Failing tests and known issues
 
 - No failing tests or known code defects.
-- No real-phone check has been run for F4 reconnect, leave, selection, or Darts.
 - G2–G18 roadmap names and order are not in the repository; only G1 Darts is
   recorded and implemented. Supply the list before the next game phase.
 
@@ -77,4 +84,3 @@
 - Confirm the theme palette and font.
 - Confirm whether a mid-game leaver should stay as an abstention/auto-miss or
   leave the roster (current: stay).
-- Run and report the real-phone checks.
