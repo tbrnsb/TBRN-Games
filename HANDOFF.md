@@ -1,10 +1,10 @@
 # Handoff
 
-- Current phase and step: F1 Lobby — implementation complete, awaiting review
-- Last commit: `cbaf5f3` F0 commit; F1 is uncommitted on `foundation/f1`
-- Status: F1 is implemented in the working tree, branched from `cbaf5f3`. Local
-  lint, typecheck, 35 tests, and build pass after the review fixes. F1 is not
-  committed, pushed, or CI-tested yet. `foundation/f0` remains unmerged.
+- Current phase and step: F1 Lobby — committed, pushed, CI green
+- Last commit: `a26c505` F1: add four-player WebSocket lobby with seat resume
+- Status: F1 is pushed on `foundation/f1`. Ubuntu and Windows CI passed (run
+  39980280605). The real laptop + phone lobby check is still pending.
+  `foundation/f0` remains unmerged.
 
 ## Done
 - F0: committed as `cbaf5f3`, pushed, and green on Ubuntu/Windows CI (run
@@ -30,24 +30,27 @@
   added bounded resume retries and a binary-frame assertion; checks were rerun
   and pass.
 - A final Reviewer pass verified both fixes and returned CLEAR with no findings.
+- Committed as `a26c505` and pushed to `origin/foundation/f1`; Ubuntu and
+  Windows CI passed in run 39980280605.
 
 ## In progress
-- Final review is clear; commit and push of `foundation/f1` are authorized.
+- Real laptop + phone lobby check on `foundation/f1`.
 
 ## Next three actions
-1. Commit and push `foundation/f1`; watch Ubuntu/Windows CI.
-2. Run the real laptop + phone lobby check.
-3. Plan the next step (game/plugin interface) after F1 is accepted.
+1. Run the real laptop + phone lobby check.
+2. Plan the next step (game/plugin interface) after F1 is accepted.
+3. Update the handoff after the phone check.
 
 ## Run and test
 - `npm run dev` or `PORT=4000 npm run dev`.
 - Linux checks with Node 24.22.1, all exit 0: `npm run lint`,
   `npm run typecheck`, `npm test` (35 pass), `npm run build`.
 - `npm start` runs the compiled `dist/server/main.js`.
+- CI runs lint, typecheck, and tests on Ubuntu and Windows for every push.
 
 ## Failing tests and known issues
 - No failing tests or known code issues.
-- F1 has not been pushed, so it has no CI run yet.
+- Ubuntu and Windows CI passed for `a26c505`.
 - The real F1 phone/laptop lobby check has not been run.
 - Resume retry is bounded to five attempts after a `seat_connected` error.
 
@@ -57,7 +60,8 @@
 - Four players, 1-20 character names, server IDs and tokens, two-minute seat
   reservation, public lobby plus private controller state.
 - The game/plugin interface is deferred to its later step.
-- `actions/checkout@v7` and `actions/setup-node@v7` ran successfully in F0 CI.
+- `actions/checkout@v7` and `actions/setup-node@v7` ran successfully in F0 and F1
+  CI.
 - Dependencies were installed outside Build; ESLint is `^10.13.0` and `ws` is
   the new runtime dependency.
 
