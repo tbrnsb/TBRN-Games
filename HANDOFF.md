@@ -1,73 +1,72 @@
 # Handoff
 
-- Current phase and step: F1 Lobby — committed, pushed, CI green
-- Last commit: `a26c505` F1: add four-player WebSocket lobby with seat resume
-- Status: F1 is pushed on `foundation/f1`. Ubuntu and Windows CI passed (run
-  39980280605). The real laptop + phone lobby check is still pending.
-  `foundation/f0` remains unmerged.
+- Current phase and step: F2 game/plugin interface — implemented, awaiting review
+- Last commit: `f5278b4` docs: record F1 commit and CI results
+- Status: F1 is complete on `foundation/f1`; CI is green and the real laptop +
+  phone lobby check passed on the same Wi-Fi (both players and names appeared;
+  reconnect was not tested). F2 is implemented in the working tree on
+  `foundation/f2`, branched from `f5278b4`. Lint, typecheck, 47 tests, and build
+  pass, and Reviewer is clear. F2 is not committed or pushed yet. `main` and
+  `foundation/f0` are untouched.
 
 ## Done
-- F0: committed as `cbaf5f3`, pushed, and green on Ubuntu/Windows CI (run
-  39975503218); real phone check showed "Connected to the game server."
-- F1 transport: `ws` runtime dependency and `@types/ws` dev dependency; the
-  lockfile was refreshed with install scripts disabled.
-- Room: four players; names trimmed to 1-20 characters, with blank and
-  control-character names rejected and duplicates allowed; server-generated IDs
-  and random resume tokens; two-minute disconnected-seat reservation; restart
-  clears the room.
-- Protocol: WebSocket endpoint `/ws`; public lobby broadcast; private controller
-  state only to its owner; malformed input rejected; 4 KB payload cap; tokens
-  never appear in lobby state.
-- Pages: laptop shows the public lobby; phone joins, stores its token in
-  localStorage, resumes after reconnect, and shows its own controller.
-- Tests: 35 total (18 new for room rules and WebSocket behavior), written before
-  implementation.
-- Compiled-server smoke check passed (lobby, joined, lobby, controller).
-- README and DECISIONS updated for F1; LESSONS already recorded the phase-size
-  guidance in F0.
-- Reviewer found two low-severity issues: a phone could stall after a
-  `seat_connected` resume race, and binary-frame rejection was untested. Fixer
-  added bounded resume retries and a binary-frame assertion; checks were rerun
-  and pass.
-- A final Reviewer pass verified both fixes and returned CLEAR with no findings.
-- Committed as `a26c505` and pushed to `origin/foundation/f1`; Ubuntu and
-  Windows CI passed in run 39980280605.
+- F0: committed as `cbaf5f3`, pushed, and green on Ubuntu/Windows CI; the real
+  phone check showed "Connected to the game server."
+- F1: four-player WebSocket lobby, server names/IDs/tokens, two-minute seat
+  reservation, public lobby plus private controller state; committed as
+  `a26c505`, pushed, and green on Ubuntu/Windows CI (run 39980280605).
+- F1 real check: both devices were on the same Wi-Fi, and the lobby showed both
+  players and their names. Reconnect was not tested.
+- F2 contract: a server-side `GamePlugin` with private state, action reducer,
+  public screen view, per-player controller view, finish check, and injected
+  `random`/`now`; `defineGame` gives typed plugins a safe wrapper.
+- F2 registry: validates game IDs, names, player counts, and required methods;
+  rejects duplicate IDs; lists public metadata; `createGameRegistry` builds a
+  registry from a game list.
+- F2 session: validates the seated players, keeps state private, routes actions,
+  rejects unknown players, invalid actions, and actions after the game ends, and
+  produces screen and controller views.
+- F2 tests: 12 new tests (6 registry, 6 session) using a fixture counter plugin,
+  including hidden-state and per-player view isolation checks.
+- Reviewer requested a guard-order fix in `GameSession.apply` and a README intro
+  update; both were applied, the checks reran, and the re-review returned CLEAR.
+- README and DECISIONS updated for F2; HANDOFF records the F1 real check.
 
 ## In progress
-- Real laptop + phone lobby check on `foundation/f1`.
+- Human review of the F2 diff and commit approval. No F2 commit or push.
 
 ## Next three actions
-1. Run the real laptop + phone lobby check.
-2. Plan the next step (game/plugin interface) after F1 is accepted.
-3. Update the handoff after the phone check.
+1. Review F2 and fix any clear findings; rerun the checks.
+2. Commit and push F2 after human approval; watch Ubuntu/Windows CI.
+3. Define and wire the first game (rules, start/host flow, and UI).
 
 ## Run and test
 - `npm run dev` or `PORT=4000 npm run dev`.
 - Linux checks with Node 24.22.1, all exit 0: `npm run lint`,
-  `npm run typecheck`, `npm test` (35 pass), `npm run build`.
+  `npm run typecheck`, `npm test` (47 pass), `npm run build`.
 - `npm start` runs the compiled `dist/server/main.js`.
 - CI runs lint, typecheck, and tests on Ubuntu and Windows for every push.
 
 ## Failing tests and known issues
 - No failing tests or known code issues.
-- Ubuntu and Windows CI passed for `a26c505`.
-- The real F1 phone/laptop lobby check has not been run.
-- Resume retry is bounded to five attempts after a `seat_connected` error.
+- F2 is interface-only: no WebSocket wiring, start/host flow, UI, or playable
+  game yet.
+- Reconnect has not been tested on a real phone.
+- CI is green for `f5278b4`; F2 has no CI run yet.
 
 ## Decisions
 - Repository is private for now; free OpenCode models only.
 - F0 is HTTP-only; F1 adds the WebSocket lobby described in `DECISIONS.md`.
-- Four players, 1-20 character names, server IDs and tokens, two-minute seat
-  reservation, public lobby plus private controller state.
-- The game/plugin interface is deferred to its later step.
+- F2 defines the server-side plugin contract, registry, and session; games are
+  added as plugins without editing the engine.
+- F2 adds no game rules or content. The first game and its start flow are the
+  next step.
 - `actions/checkout@v7` and `actions/setup-node@v7` ran successfully in F0 and F1
   CI.
-- Dependencies were installed outside Build; ESLint is `^10.13.0` and `ws` is
-  the new runtime dependency.
 
 ## Open questions
+- Define the first game's rules, player count, win condition, and start/host flow.
 - Confirm the theme palette and font before finalizing the theme.
 - Confirm the separate content-pack license before publishing packs.
 - Confirm stricter PORT parsing (reject `0x1F`, `1e2`, surrounding spaces).
 - Confirm whether all non-GET methods should stay 404 before gameplay builds on it.
-- Define the game/plugin interface scope for the next step.

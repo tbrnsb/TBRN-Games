@@ -3,6 +3,20 @@
 Append new decisions at the top. Keep each entry short: the decision, the
 reason, and the date.
 
+## 2026-10-23 — F2 game/plugin interface
+
+- Games implement one server-side `GamePlugin` contract: private state, action
+  reducer, public screen view, per-player controller view, and a finish check.
+- The engine injects `random` and `now`; plugins must validate raw actions.
+- `GameRegistry` validates metadata and stores games. `GameSession` owns one
+  running game, checks seat membership, and delegates rule validation.
+- Only plugin-produced views leave the server; private state stays server-side.
+- F2 adds no game rules, content, start/host flow, or UI; those come with the
+  first game.
+
+Reason: fix the engine boundary so a new game is a plugin plus registration,
+not an engine edit.
+
 ## 2026-10-23 — F1 lobby and transport
 
 - Use WebSockets via the `ws` runtime dependency; install with scripts disabled.

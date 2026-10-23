@@ -6,7 +6,7 @@ network.
 
 F1 adds a WebSocket lobby: up to four phones join with a name, the laptop screen
 shows the public lobby, and each phone receives only its own controller state.
-Gameplay and the game/plugin interface arrive in later phases.
+F2 adds the game/plugin interface; gameplay arrives in a later phase.
 
 ## Requirements
 
@@ -76,6 +76,14 @@ CI runs lint, typecheck, and tests on Ubuntu and Windows.
   the phone browser and sent only over the WebSocket connection.
 - A disconnected seat is reserved for two minutes and resumes with the saved
   token. A server restart clears the room.
+
+## Game plugins
+
+The engine loads games through a server-side plugin contract
+(`src/server/games/`). A plugin owns private state and returns a public screen
+view plus a private controller view for each player. The server never sends the
+private state. The lobby is still the only user-facing flow; the first game and
+its start flow are the next step.
 
 ## Test from your phone
 
