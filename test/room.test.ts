@@ -39,6 +39,7 @@ test("trims names, assigns server IDs and tokens, and hides tokens from public s
   assert.deepEqual(room.publicState(), {
     phase: "lobby",
     maxPlayers: 4,
+    hostId: joined.player.id,
     players: [{ id: joined.player.id, name: "Alice", connected: true }],
   });
   assert.ok(!JSON.stringify(room.publicState()).includes(joined.token));
@@ -173,6 +174,89 @@ test("a new room starts empty, as after a server restart", () => {
   assert.deepEqual(new Room().publicState(), {
     phase: "lobby",
     maxPlayers: 4,
+    hostId: null,
     players: [],
   });
+});
+
+test("makes the earliest seated player the host", () => {
+  const room = makeRoom(() => 0);
+  const alice = join(room, "Alice");
+  const bob = join(room, "Bob");
+
+  assert.equal(room.hostId(), alice.player.id);
+  assert.equal(room.publicState().hostId, alice.player.id);
+  assert.notEqual(room.hostId(), bob.player.id);
+});
+
+test("passes host to the earliest connected player and does not restore it on resume", () => {
+  const room = makeRoom(() => 0);
+  const alice = join(room, "Alice");
+  const bob = join(room, "Bob");
+  const carol = join(room, "Carol");
+
+  assert.equal(room.disconnect(alice.player.id), true);
+  assert.equal(room.hostId(), bob.player.id);
+
+  const resumed = room.resume(alice.token);
+
+  if (!resumed.ok) {
+    assert.fail(resumed.message);
+  }
+
+  assert.equal(room.hostId(), bob.player.id);
+
+  room.disconnect(alice.player.id);
+  room.disconnect(bob.player.id);
+  assert.equal(room.hostId(), carol.player.id);
+  assert.equal(room.publicState().hostId, carol.player.id);
+});
+
+test("the first connected player becomes host when no host remains", () => {
+  const room = makeRoom(() => 0);
+  const alice = join(room, "Alice");
+  const bob = join(room, "Bob");
+
+  room.disconnect(alice.player.id);
+  room.disconnect(bob.player.id);
+
+  assert.equal(room.hostId(), null);
+
+  const resumed = room.resume(alice.token);
+
+  if (!resumed.ok) {
+    assert.fail(resumed.message);
+  }
+
+  assert.equal(room.hostId(), alice.player.id);
+});
+
+test("keeps the host when another seat expires", () => {
+  let now = 1_000;
+  const room = makeRoom(() => now);
+  const alice = join(room, "Alice");
+  const bob = join(room, "Bob");
+  const carol = join(room, "Carol");
+
+  room.disconnect(bob.player.id);
+  now += SEAT_TTL_MS;
+
+  assert.deepEqual(room.pruneExpired(), [bob.player.id]);
+  assert.equal(room.hostId(), alice.player.id);
+  assert.equal(room.publicState().hostId, alice.player.id);
+  assert.equal(carol.player.connected, true);
+});
+
+test("lists connected players in seat order", () => {
+  const room = makeRoom(() => 0);
+  const alice = join(room, "Alice");
+  const bob = join(room, "Bob");
+  const carol = join(room, "Carol");
+
+  room.disconnect(bob.player.id);
+
+  assert.deepEqual(
+    room.connectedPlayers().map((player) => player.id),
+    [alice.player.id, carol.player.id],
+  );
 });

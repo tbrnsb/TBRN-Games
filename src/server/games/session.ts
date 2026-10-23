@@ -1,4 +1,9 @@
-import type { GameContext, GamePlayer, GamePlugin } from "./types.js";
+import type {
+  GameActionResult,
+  GameContext,
+  GamePlayer,
+  GamePlugin,
+} from "./types.js";
 
 export type SessionErrorCode =
   | "unknown_player"
@@ -70,6 +75,10 @@ export class GameSession {
     return this.#finished;
   }
 
+  hasPlayer(playerId: string): boolean {
+    return this.#playersById.has(playerId);
+  }
+
   apply(playerId: string, action: unknown): SessionActionResult {
     if (!this.#playersById.has(playerId)) {
       return {
@@ -94,6 +103,71 @@ export class GameSession {
       action,
     );
 
+    if (!result.ok) {
+      return {
+        ok: false,
+        code: "invalid_action",
+        message: result.message,
+      };
+    }
+
+    this.#state = result.state;
+    this.#finished = this.game.isFinished(this.context, this.#state);
+
+    return { ok: true, finished: this.#finished };
+  }
+
+  applyHostAction(action: unknown): SessionActionResult {
+    if (this.#finished) {
+      return {
+        ok: false,
+        code: "game_over",
+        message: "The game is already over.",
+      };
+    }
+
+    if (!this.game.applyHostAction) {
+      return {
+        ok: false,
+        code: "invalid_action",
+        message: "This game does not accept host actions.",
+      };
+    }
+
+    const result = this.game.applyHostAction(this.context, this.#state, action);
+
+    return this.#commit(result);
+  }
+
+  deadline(): number | null {
+    if (!this.game.deadline) {
+      return null;
+    }
+
+    return this.game.deadline(this.context, this.#state);
+  }
+
+  handleDeadline(): SessionActionResult {
+    if (this.#finished) {
+      return {
+        ok: false,
+        code: "game_over",
+        message: "The game is already over.",
+      };
+    }
+
+    if (!this.game.onDeadline) {
+      return {
+        ok: false,
+        code: "invalid_action",
+        message: "This game has no deadline.",
+      };
+    }
+
+    return this.#commit(this.game.onDeadline(this.context, this.#state));
+  }
+
+  #commit(result: GameActionResult<unknown>): SessionActionResult {
     if (!result.ok) {
       return {
         ok: false,

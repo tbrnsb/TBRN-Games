@@ -108,6 +108,26 @@ test("throws when a controller view is requested for an unknown player", () => {
   );
 });
 
+test("reports missing optional hooks without changing state", () => {
+  const session = new GameSession(createCounterGame(), players);
+  const before = JSON.stringify(session.screenView());
+
+  assert.equal(session.hasPlayer(alice.id), true);
+  assert.equal(session.hasPlayer("missing"), false);
+  assert.equal(session.deadline(), null);
+  assert.deepEqual(session.applyHostAction({ type: "next_round" }), {
+    ok: false,
+    code: "invalid_action",
+    message: "This game does not accept host actions.",
+  });
+  assert.deepEqual(session.handleDeadline(), {
+    ok: false,
+    code: "invalid_action",
+    message: "This game has no deadline.",
+  });
+  assert.equal(JSON.stringify(session.screenView()), before);
+});
+
 test("passes the injected random and time sources to the plugin", () => {
   interface ProbeState {
     random: number;

@@ -6,7 +6,9 @@ network.
 
 F1 adds a WebSocket lobby: up to four phones join with a name, the laptop screen
 shows the public lobby, and each phone receives only its own controller state.
-F2 adds the game/plugin interface; gameplay arrives in a later phase.
+F2 adds the game/plugin interface. F3 adds the first playable game, Same Wave:
+three or four players answer five two-option prompts and score when they land
+with the majority.
 
 ## Requirements
 
@@ -76,23 +78,50 @@ CI runs lint, typecheck, and tests on Ubuntu and Windows.
   the phone browser and sent only over the WebSocket connection.
 - A disconnected seat is reserved for two minutes and resumes with the saved
   token. A server restart clears the room.
+- The earliest seated connected player is the host. If the host disconnects,
+  control passes to the earliest connected player; reconnecting does not
+  automatically restore control to the original host.
+
+## Same Wave
+
+Same Wave needs three or four connected players and runs for five rounds.
+
+1. The laptop shows a two-option prompt. Every phone secretly picks A or B.
+2. Voting closes when every player has voted or after 30 seconds. Players who do
+   not vote abstain.
+3. The reveal shows only the vote counts. The side with more votes scores one
+   point for each player on it. A tie, or fewer than two cast votes, scores
+   nothing.
+4. The host starts the next round from their phone. After round five, the host
+   returns everyone to the lobby. The highest score wins, and tied leaders share
+   the win.
+5. The host can end the game early from their phone. The laptop is display-only.
+
+The 24 original prompts live in
+`src/server/games/same-wave/prompts.ts`. That file is a draft that the project
+owner reviews before the branch is merged or released.
 
 ## Game plugins
 
 The engine loads games through a server-side plugin contract
 (`src/server/games/`). A plugin owns private state and returns a public screen
 view plus a private controller view for each player. The server never sends the
-private state. The lobby is still the only user-facing flow; the first game and
-its start flow are the next step.
+private state. Plugins may also expose an optional deadline, a deadline handler,
+and host-only actions; the game manager checks host control before routing them.
+
+Same Wave is registered in `src/server/main.ts`. Adding another game means
+adding a plugin and registering it, without editing the engine.
 
 ## Test from your phone
 
-1. Put the laptop and phone on the same Wi-Fi network.
+1. Put the laptop and at least three phones on the same Wi-Fi network.
 2. Run `npm run dev` on the laptop.
-3. Open the printed `/play` URL on the phone, for example
+3. Open the printed `/play` URL on each phone, for example
    `http://192.168.1.20:3000/play`. Do not use `localhost`.
 4. Enter a name and join. Closing the page reserves your seat for two minutes.
-5. If the page does not load, check that the laptop firewall allows Node on
+5. The host starts Same Wave from their phone; the laptop shows the shared
+   screen.
+6. If the page does not load, check that the laptop firewall allows Node on
    port 3000 and that the Wi-Fi network does not isolate clients from each
    other (guest networks often do).
 

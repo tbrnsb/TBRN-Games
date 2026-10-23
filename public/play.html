@@ -83,7 +83,24 @@
       }
 
       button:disabled {
-        opacity: 0.5;
+        opacity: 0.45;
+      }
+
+      .secondary {
+        background: #2f3548;
+        color: #f2f4f8;
+      }
+
+      button.choice {
+        width: 100%;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        text-align: left;
+        font-size: 1.05rem;
+      }
+
+      button.choice[aria-pressed="true"] {
+        outline: 2px solid #9fe0a8;
       }
 
       .controller {
@@ -98,6 +115,58 @@
         display: block;
         font-size: 1.25rem;
         margin-top: 0.25rem;
+      }
+
+      .badge {
+        display: inline-block;
+        margin: 0.5rem 0 0;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        background: #6f9dff;
+        color: #10131c;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .muted {
+        color: #9aa3b8;
+      }
+
+      .round {
+        margin: 0;
+        color: #9aa3b8;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .prompt {
+        margin: 0.35rem 0 1rem;
+        font-size: 1.15rem;
+        line-height: 1.35;
+      }
+
+      .vote-buttons,
+      .host-controls,
+      .start-controls {
+        display: grid;
+        gap: 0.6rem;
+      }
+
+      .timer {
+        color: #ffd28a;
+      }
+
+      .result {
+        font-size: 1.05rem;
+      }
+
+      .winner {
+        color: #9fe0a8;
+      }
+
+      .winner[data-result="none"] {
+        color: #ffd28a;
       }
 
       ul {
@@ -134,23 +203,110 @@
         <button id="join" type="submit">Join the lobby</button>
       </form>
 
-      <section class="controller" id="controller" hidden>
-        <span>You are</span>
-        <strong id="player-name"></strong>
+      <section id="lobby-panel" hidden>
+        <div class="controller">
+          <span>You are</span>
+          <strong id="player-name"></strong>
+          <span class="badge" id="host-badge" hidden>Host</span>
+        </div>
+
+        <div class="start-controls" id="start-controls" hidden>
+          <h2>Start a game</h2>
+          <div class="start-controls" id="games"></div>
+        </div>
+        <p class="muted" id="lobby-hint"></p>
+
+        <h2>Players <span id="count">0 / 4</span></h2>
+        <ul id="players" aria-live="polite"></ul>
       </section>
 
-      <h2>Players <span id="count">0 / 4</span></h2>
-      <ul id="players" aria-live="polite"></ul>
+      <section id="game-panel" hidden>
+        <p class="round" id="game-round"></p>
+        <p class="prompt" id="game-prompt"></p>
+
+        <div class="vote-buttons" id="vote-controls" hidden>
+          <button class="choice" id="vote-a" type="button"></button>
+          <button class="choice" id="vote-b" type="button"></button>
+        </div>
+
+        <p class="timer" id="vote-timer" hidden></p>
+        <p class="muted" id="my-vote"></p>
+        <p class="result" id="game-result"></p>
+        <p class="winner" id="game-winner"></p>
+        <p id="my-score"></p>
+        <ol id="game-scores" hidden></ol>
+        <p class="muted" id="game-waiting"></p>
+
+        <div class="host-controls" id="host-controls" hidden>
+          <button class="secondary" id="next-round" type="button">Next round</button>
+          <button class="secondary" id="return-lobby" type="button">
+            Return to lobby
+          </button>
+        </div>
+      </section>
+
+      <section id="spectator-panel" hidden>
+        <div class="controller">
+          <span>You are</span>
+          <strong id="spectator-name"></strong>
+          <span class="badge" id="spectator-host-badge" hidden>Host</span>
+        </div>
+        <p class="muted">
+          A game is in progress. You will join the next one.
+        </p>
+        <div class="host-controls" id="spectator-host-controls" hidden>
+          <button class="secondary" id="spectator-next-round" type="button" hidden>
+            Next round
+          </button>
+          <button class="secondary" id="spectator-return-lobby" type="button">
+            Return to lobby
+          </button>
+        </div>
+      </section>
     </main>
     <script>
       const status = document.getElementById("status");
       const form = document.getElementById("join-form");
       const nameInput = document.getElementById("name");
       const joinButton = document.getElementById("join");
-      const controller = document.getElementById("controller");
+      const lobbyPanel = document.getElementById("lobby-panel");
       const playerName = document.getElementById("player-name");
+      const hostBadge = document.getElementById("host-badge");
+      const startControls = document.getElementById("start-controls");
+      const games = document.getElementById("games");
+      const lobbyHint = document.getElementById("lobby-hint");
       const count = document.getElementById("count");
       const players = document.getElementById("players");
+      const gamePanel = document.getElementById("game-panel");
+      const gameRound = document.getElementById("game-round");
+      const gamePrompt = document.getElementById("game-prompt");
+      const voteControls = document.getElementById("vote-controls");
+      const voteA = document.getElementById("vote-a");
+      const voteB = document.getElementById("vote-b");
+      const voteTimer = document.getElementById("vote-timer");
+      const myVote = document.getElementById("my-vote");
+      const gameResult = document.getElementById("game-result");
+      const gameWinner = document.getElementById("game-winner");
+      const myScore = document.getElementById("my-score");
+      const gameScores = document.getElementById("game-scores");
+      const gameWaiting = document.getElementById("game-waiting");
+      const hostControls = document.getElementById("host-controls");
+      const nextRound = document.getElementById("next-round");
+      const returnLobby = document.getElementById("return-lobby");
+      const spectatorPanel = document.getElementById("spectator-panel");
+      const spectatorName = document.getElementById("spectator-name");
+      const spectatorHostBadge = document.getElementById(
+        "spectator-host-badge",
+      );
+      const spectatorHostControls = document.getElementById(
+        "spectator-host-controls",
+      );
+      const spectatorNextRound = document.getElementById(
+        "spectator-next-round",
+      );
+      const spectatorReturnLobby = document.getElementById(
+        "spectator-return-lobby",
+      );
       const tokenKey = "tbrn-games.resume-token";
       const socketUrl =
         (location.protocol === "https:" ? "wss:" : "ws:") +
@@ -164,15 +320,31 @@
       let socket;
       let resumeRetries = 0;
       let resumeTimer;
+      let countdownTimer;
+      let currentController;
+      let latestLobby;
+      let latestScreen;
 
       function setStatus(text, state) {
         status.textContent = text;
         status.dataset.state = state;
       }
 
+      function showOnly(panel) {
+        form.hidden = true;
+        lobbyPanel.hidden = panel !== lobbyPanel;
+        gamePanel.hidden = panel !== gamePanel;
+        spectatorPanel.hidden = panel !== spectatorPanel;
+      }
+
       function showJoinForm() {
+        currentController = undefined;
+        latestLobby = undefined;
+        latestScreen = undefined;
         form.hidden = false;
-        controller.hidden = true;
+        lobbyPanel.hidden = true;
+        gamePanel.hidden = true;
+        spectatorPanel.hidden = true;
       }
 
       function storeToken(token) {
@@ -199,23 +371,6 @@
         }
       }
 
-      function renderLobby(state) {
-        count.textContent = state.players.length + " / " + state.maxPlayers;
-        players.replaceChildren();
-
-        for (const player of state.players) {
-          const item = document.createElement("li");
-          item.textContent = player.name;
-          if (!player.connected) {
-            const away = document.createElement("span");
-            away.className = "away";
-            away.textContent = " (reconnecting)";
-            item.append(away);
-          }
-          players.append(item);
-        }
-      }
-
       function send(message) {
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify(message));
@@ -230,6 +385,36 @@
           clearTimeout(resumeTimer);
           resumeTimer = undefined;
         }
+      }
+
+      function clearCountdown() {
+        if (countdownTimer !== undefined) {
+          clearInterval(countdownTimer);
+          countdownTimer = undefined;
+        }
+      }
+
+      function startCountdown(deadline) {
+        clearCountdown();
+
+        function tick() {
+          const seconds = Math.max(
+            0,
+            Math.ceil((deadline - Date.now()) / 1000),
+          );
+
+          if (seconds === 0) {
+            voteTimer.textContent = "Time is up.";
+            clearCountdown();
+            return;
+          }
+
+          voteTimer.textContent = "Voting closes in " + seconds + "s";
+        }
+
+        voteTimer.hidden = false;
+        tick();
+        countdownTimer = setInterval(tick, 250);
       }
 
       function retryResume() {
@@ -248,8 +433,199 @@
         }, resumeRetryDelayMs);
       }
 
+      function renderPlayers(state) {
+        count.textContent = state.players.length + " / " + state.maxPlayers;
+        players.replaceChildren();
+
+        for (const player of state.players) {
+          const item = document.createElement("li");
+          item.textContent = player.name;
+          if (!player.connected) {
+            const away = document.createElement("span");
+            away.className = "away";
+            away.textContent = " (reconnecting)";
+            item.append(away);
+          }
+          players.append(item);
+        }
+      }
+
+      function renderGames() {
+        startControls.hidden = true;
+        lobbyHint.textContent = "";
+
+        if (
+          !latestLobby ||
+          !currentController ||
+          currentController.phase !== "lobby"
+        ) {
+          return;
+        }
+
+        if (!currentController.isHost) {
+          return;
+        }
+
+        if (!currentController.canStart) {
+          lobbyHint.textContent = "Waiting for enough connected players.";
+          return;
+        }
+
+        const connected = latestLobby.players.filter(
+          (player) => player.connected,
+        ).length;
+        const fitting = latestLobby.games.filter(
+          (game) =>
+            connected >= game.minPlayers && connected <= game.maxPlayers,
+        );
+
+        if (fitting.length === 0) {
+          lobbyHint.textContent = "No registered game fits this player count.";
+          return;
+        }
+
+        games.replaceChildren();
+        startControls.hidden = false;
+
+        for (const game of fitting) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Start " + game.name;
+          button.addEventListener("click", () => {
+            button.disabled = true;
+            send({ type: "start_game", gameId: game.id });
+          });
+          games.append(button);
+        }
+      }
+
+      function showLobby(state) {
+        showOnly(lobbyPanel);
+        playerName.textContent = state.name;
+        hostBadge.hidden = !state.isHost;
+        renderGames();
+      }
+
+      function scoreList(target, scores) {
+        target.replaceChildren();
+
+        for (const score of scores) {
+          const item = document.createElement("li");
+          item.textContent = score.name + " — " + score.score;
+          target.append(item);
+        }
+      }
+
+      function winnerText(view) {
+        const cast = view.counts.a + view.counts.b;
+
+        if (view.winner === null) {
+          return cast < 2
+            ? "Fewer than two votes — no points."
+            : "A tie — no points.";
+        }
+
+        return "Side " + view.winner.toUpperCase() + " takes the round.";
+      }
+
+      function renderGame(state) {
+        showOnly(gamePanel);
+        clearCountdown();
+
+        const view = state.view;
+        gameRound.textContent =
+          "Round " + view.round + " of " + view.totalRounds;
+        gamePrompt.textContent = view.prompt.text;
+        gameScores.hidden = true;
+        gameResult.hidden = true;
+        gameWinner.hidden = true;
+        myScore.textContent = "";
+        gameWaiting.textContent = "";
+        hostControls.hidden = !state.isHost;
+
+        if (view.phase === "voting") {
+          voteControls.hidden = false;
+          voteA.textContent = "A — " + view.prompt.a;
+          voteB.textContent = "B — " + view.prompt.b;
+          voteA.disabled = view.myVote !== null;
+          voteB.disabled = view.myVote !== null;
+          voteA.setAttribute("aria-pressed", String(view.myVote === "a"));
+          voteB.setAttribute("aria-pressed", String(view.myVote === "b"));
+          myVote.textContent =
+            view.myVote === null
+              ? "Pick A or B."
+              : "Vote locked: " + view.myVote.toUpperCase();
+          nextRound.hidden = true;
+          returnLobby.hidden = false;
+          gameWaiting.textContent = state.isHost
+            ? ""
+            : "Waiting for everyone to vote.";
+          startCountdown(view.deadline);
+          return;
+        }
+
+        voteControls.hidden = true;
+        voteTimer.hidden = true;
+        voteA.disabled = false;
+        voteB.disabled = false;
+        myVote.textContent =
+          view.myVote === null
+            ? "You abstained."
+            : "You picked " + view.myVote.toUpperCase() + ".";
+        gameResult.hidden = false;
+        gameResult.textContent =
+          "A: " + view.counts.a + " · B: " + view.counts.b;
+        gameWinner.hidden = false;
+        gameWinner.dataset.result = view.winner === null ? "none" : "win";
+        gameWinner.textContent = winnerText(view);
+        myScore.textContent = "Your score: " + view.myScore;
+        gameScores.hidden = false;
+        scoreList(gameScores, view.scores);
+
+        if (view.phase === "finished") {
+          nextRound.hidden = true;
+          gameWaiting.textContent = state.isHost
+            ? "Return to the lobby when everyone is ready."
+            : "Waiting for the host to return to the lobby.";
+          return;
+        }
+
+        nextRound.hidden = false;
+        returnLobby.hidden = false;
+        gameWaiting.textContent = state.isHost
+          ? "Start the next round when everyone is ready."
+          : "Waiting for the host to start the next round.";
+      }
+
+      function renderSpectator(state) {
+        showOnly(spectatorPanel);
+        spectatorName.textContent = state.name;
+        spectatorHostBadge.hidden = !state.isHost;
+        spectatorHostControls.hidden = !state.isHost;
+        spectatorNextRound.hidden = !(
+          state.isHost && latestScreen?.view?.phase === "reveal"
+        );
+      }
+
+      function renderController(state) {
+        currentController = state;
+
+        if (state.phase === "lobby") {
+          showLobby(state);
+          return;
+        }
+
+        if (state.phase === "game") {
+          renderGame(state);
+          return;
+        }
+
+        renderSpectator(state);
+      }
+
       function connect() {
         clearResumeTimer();
+        clearCountdown();
         setStatus("Contacting the server…", "pending");
         joinButton.disabled = true;
         socket = new WebSocket(socketUrl);
@@ -277,17 +653,27 @@
           if (message.type === "joined") {
             resumeRetries = 0;
             storeToken(message.token);
-            form.hidden = true;
           }
 
           if (message.type === "controller") {
-            playerName.textContent = message.state.name;
-            controller.hidden = false;
-            form.hidden = true;
+            renderController(message.state);
           }
 
           if (message.type === "lobby") {
-            renderLobby(message.state);
+            latestLobby = message.state;
+            renderPlayers(message.state);
+
+            if (currentController?.phase === "lobby") {
+              renderGames();
+            }
+          }
+
+          if (message.type === "screen") {
+            latestScreen = message.state;
+
+            if (currentController?.phase === "spectating") {
+              renderSpectator(currentController);
+            }
           }
 
           if (message.type === "error") {
@@ -301,11 +687,18 @@
             if (message.code === "seat_connected") {
               retryResume();
             }
+
+            if (currentController) {
+              renderController(currentController);
+            }
           }
         });
 
         socket.addEventListener("close", () => {
           clearResumeTimer();
+          clearCountdown();
+          currentController = undefined;
+          latestScreen = undefined;
           setStatus("Disconnected. Reconnecting…", "error");
           joinButton.disabled = true;
           setTimeout(connect, 2000);
@@ -320,11 +713,45 @@
         }
       });
 
+      voteA.addEventListener("click", () => {
+        voteA.disabled = true;
+        voteB.disabled = true;
+        send({ type: "game_action", action: { type: "vote", side: "a" } });
+      });
+
+      voteB.addEventListener("click", () => {
+        voteA.disabled = true;
+        voteB.disabled = true;
+        send({ type: "game_action", action: { type: "vote", side: "b" } });
+      });
+
+      nextRound.addEventListener("click", () => {
+        send({ type: "host_action", action: { type: "next_round" } });
+      });
+
+      spectatorNextRound.addEventListener("click", () => {
+        send({ type: "host_action", action: { type: "next_round" } });
+      });
+
+      returnLobby.addEventListener("click", () => {
+        if (window.confirm("End the game and return everyone to the lobby?")) {
+          send({ type: "return_to_lobby" });
+        }
+      });
+
+      spectatorReturnLobby.addEventListener("click", () => {
+        if (window.confirm("End the game and return everyone to the lobby?")) {
+          send({ type: "return_to_lobby" });
+        }
+      });
+
       if (!readToken()) {
         showJoinForm();
       } else {
         form.hidden = true;
-        controller.hidden = true;
+        lobbyPanel.hidden = true;
+        gamePanel.hidden = true;
+        spectatorPanel.hidden = true;
       }
 
       connect();

@@ -1,5 +1,7 @@
 import { createServer } from "./app.js";
 import { resolvePort } from "./config.js";
+import { createGameRegistry } from "./games/registry.js";
+import { createSameWaveGame } from "./games/same-wave/index.js";
 import { listLanUrls } from "./lan-urls.js";
 import { attachGameSocket } from "./ws.js";
 
@@ -15,7 +17,8 @@ try {
 }
 
 const server = createServer();
-attachGameSocket(server);
+const registry = createGameRegistry([createSameWaveGame()]);
+attachGameSocket(server, { registry });
 
 server.on("error", (error) => {
   console.error("Server failed to start:", error);

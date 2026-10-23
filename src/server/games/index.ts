@@ -10,6 +10,11 @@ export {
   type SessionErrorCode,
 } from "./session.js";
 export {
+  GameManager,
+  type GameManagerOptions,
+  type GameManagerResult,
+} from "./manager.js";
+export {
   defineGame,
   type GameActionResult,
   type GameContext,

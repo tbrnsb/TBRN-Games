@@ -5,8 +5,8 @@ import {
   MAX_PLAYERS,
   SEAT_TTL_MS,
   type ErrorCode,
-  type PublicLobbyState,
   type PublicPlayer,
+  type RoomLobbyState,
 } from "../shared/protocol.js";
 
 interface Player {
@@ -87,6 +87,7 @@ export class Room {
   private readonly generateId: () => string;
   private readonly generateToken: () => string;
   private readonly seats: Player[] = [];
+  private currentHostId: string | null = null;
 
   constructor(options: RoomOptions = {}) {
     this.maxPlayers = options.maxPlayers ?? MAX_PLAYERS;
@@ -123,6 +124,7 @@ export class Room {
     };
 
     this.seats.push(player);
+    this.ensureHost();
 
     return { ok: true, player: toPublicPlayer(player), token: player.token };
   }
@@ -158,6 +160,7 @@ export class Room {
 
     player.connected = true;
     player.expiresAt = null;
+    this.ensureHost();
 
     return { ok: true, player: toPublicPlayer(player), token: player.token };
   }
@@ -171,6 +174,7 @@ export class Room {
 
     player.connected = false;
     player.expiresAt = this.now() + this.seatTtlMs;
+    this.ensureHost();
 
     return true;
   }
@@ -193,14 +197,43 @@ export class Room {
 
     this.seats.length = 0;
     this.seats.push(...remaining);
+    this.ensureHost();
 
     return removed;
   }
 
-  publicState(): PublicLobbyState {
+  hostId(): string | null {
+    return this.currentHostId;
+  }
+
+  connectedPlayers(): PublicPlayer[] {
+    return this.seats.filter((player) => player.connected).map(toPublicPlayer);
+  }
+
+  playerById(playerId: string): PublicPlayer | undefined {
+    const player = this.seats.find((seat) => seat.id === playerId);
+
+    return player ? toPublicPlayer(player) : undefined;
+  }
+
+  private ensureHost(): void {
+    const current = this.seats.find(
+      (player) => player.id === this.currentHostId,
+    );
+
+    if (current?.connected) {
+      return;
+    }
+
+    const nextHost = this.seats.find((player) => player.connected);
+    this.currentHostId = nextHost?.id ?? null;
+  }
+
+  publicState(): RoomLobbyState {
     return {
       phase: "lobby",
       maxPlayers: this.maxPlayers,
+      hostId: this.currentHostId,
       players: this.seats.map(toPublicPlayer),
     };
   }

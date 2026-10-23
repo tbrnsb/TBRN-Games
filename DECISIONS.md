@@ -3,6 +3,36 @@
 Append new decisions at the top. Keep each entry short: the decision, the
 reason, and the date.
 
+## 2026-10-23 — F3 Same Wave
+
+- Same Wave is the only game in F3: 3–4 connected players, five rounds, a
+  30-second vote window, two secret options per round, and no free text.
+- A player's first vote is final for that round. Voting also closes early when
+  every player in the game roster has voted. Non-voters abstain.
+- The majority side scores 1 point per player on it. A tie, or fewer than two
+  cast votes, scores 0. Highest score wins; tied leaders share the win.
+- The host starts, starts each next round, ends the game early, and returns
+  everyone to the lobby. The laptop stays display-only.
+- The earliest seated connected player is host. On host disconnect, control
+  passes to the earliest connected player. A reconnect never automatically
+  restores control; if the original host is later the earliest connected player
+  when another host disconnects, the ordinary transfer rule applies.
+- Start uses the connected players only; reserved disconnected seats are
+  excluded. Players who join during a game spectate until the next lobby.
+- "Return to lobby" is the early-end control: it ends the game immediately and
+  returns everyone to the lobby; there is no separate early-final screen.
+- A game-roster player whose reserved seat expires mid-game stays in the
+  scoreboard as an abstention for the rest of the game; the game continues.
+- Extend the F2 contract with optional `deadline`, `onDeadline`, and
+  `applyHostAction` hooks. The game manager checks the current host before
+  routing host actions; plugins still validate phase and action shape.
+- Keep the 24 original prompts in
+  `src/server/games/same-wave/prompts.ts` as a draft. Show their text to the
+  project owner before merge or release.
+
+Reason: settle the first playable game and the generic hooks it needs without
+putting game-specific branches in the engine.
+
 ## 2026-10-23 — F2 game/plugin interface
 
 - Games implement one server-side `GamePlugin` contract: private state, action

@@ -64,6 +64,14 @@ function validateGame(game: GamePlugin): void {
       throw new Error(`Game "${game.id}" is missing ${method}().`);
     }
   }
+
+  for (const method of ["deadline", "applyHostAction", "onDeadline"] as const) {
+    const value = game[method];
+
+    if (value !== undefined && typeof value !== "function") {
+      throw new Error(`Game "${game.id}" has an invalid ${method}().`);
+    }
+  }
 }
 
 export class GameRegistry {

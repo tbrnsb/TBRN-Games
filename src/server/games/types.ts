@@ -40,9 +40,25 @@ export interface GamePlugin {
     playerId: string,
   ): unknown;
   isFinished(context: GameContext, state: unknown): boolean;
+  /** Optional server-side deadline for timed phases. */
+  deadline?(context: GameContext, state: unknown): number | null;
+  /** Optional host-only action, routed only after the manager checks the host. */
+  applyHostAction?(
+    context: GameContext,
+    state: unknown,
+    action: unknown,
+  ): GameActionResult<unknown>;
+  /** Optional handler for when the deadline from `deadline()` is reached. */
+  onDeadline?(context: GameContext, state: unknown): GameActionResult<unknown>;
 }
 
-export interface TypedGamePlugin<TState, TAction, TScreen, TController> {
+export interface TypedGamePlugin<
+  TState,
+  TAction,
+  TScreen,
+  TController,
+  THostAction = unknown,
+> {
   readonly id: string;
   readonly name: string;
   readonly minPlayers: number;
@@ -61,16 +77,32 @@ export interface TypedGamePlugin<TState, TAction, TScreen, TController> {
     playerId: string,
   ): TController;
   isFinished?(context: GameContext, state: TState): boolean;
+  deadline?(context: GameContext, state: TState): number | null;
+  applyHostAction?(
+    context: GameContext,
+    state: TState,
+    action: THostAction,
+  ): GameActionResult<TState>;
+  onDeadline?(context: GameContext, state: TState): GameActionResult<TState>;
 }
 
 /**
  * Wraps a typed plugin in the type-erased contract used by the engine. The
  * plugin must validate raw actions before using them as TAction.
  */
-export function defineGame<TState, TAction, TScreen, TController>(
-  plugin: TypedGamePlugin<TState, TAction, TScreen, TController>,
+export function defineGame<
+  TState,
+  TAction,
+  TScreen,
+  TController,
+  THostAction = unknown,
+>(
+  plugin: TypedGamePlugin<TState, TAction, TScreen, TController, THostAction>,
 ): GamePlugin {
   const isFinished = plugin.isFinished;
+  const deadline = plugin.deadline;
+  const applyHostAction = plugin.applyHostAction;
+  const onDeadline = plugin.onDeadline;
 
   return {
     id: plugin.id,
@@ -92,5 +124,26 @@ export function defineGame<TState, TAction, TScreen, TController>(
     isFinished: isFinished
       ? (context, state) => isFinished(context, state as TState)
       : () => false,
+    ...(deadline
+      ? {
+          deadline: (context: GameContext, state: unknown) =>
+            deadline(context, state as TState),
+        }
+      : {}),
+    ...(applyHostAction
+      ? {
+          applyHostAction: (
+            context: GameContext,
+            state: unknown,
+            action: unknown,
+          ) => applyHostAction(context, state as TState, action as THostAction),
+        }
+      : {}),
+    ...(onDeadline
+      ? {
+          onDeadline: (context: GameContext, state: unknown) =>
+            onDeadline(context, state as TState),
+        }
+      : {}),
   };
 }

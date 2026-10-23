@@ -68,6 +68,9 @@ test("rejects invalid game metadata", () => {
     ["missing screenView", { screenView: undefined as never }],
     ["missing controllerView", { controllerView: undefined as never }],
     ["missing isFinished", { isFinished: undefined as never }],
+    ["invalid deadline", { deadline: "soon" as never }],
+    ["invalid host action", { applyHostAction: 1 as never }],
+    ["invalid deadline handler", { onDeadline: {} as never }],
   ];
 
   for (const [label, overrides] of invalidGames) {

@@ -2,6 +2,15 @@
 
 Append new lessons at the top.
 
+## 2026-10-23 — Timed, host-driven games need generic engine hooks
+
+F2 covered actions and views but not clocks or host controls. F3 needed a vote
+deadline, a deadline handler, and host-only actions. Adding optional
+`deadline`, `onDeadline`, and `applyHostAction` hooks to the plugin contract
+kept Same Wave out of the engine; the manager checks the current host, and the
+plugin checks phase and action shape. Prefer optional, generic hooks over
+game-specific branches in the session or socket layer.
+
 ## 2026-10-23 — Keep configuration parsing out of entry points
 
 `main.ts` parsed `PORT` and also started the server at import time, so the
