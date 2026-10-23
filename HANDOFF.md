@@ -1,13 +1,12 @@
 # Handoff
 
-- Current phase and step: F2 game/plugin interface — implemented, awaiting review
-- Last commit: `f5278b4` docs: record F1 commit and CI results
+- Current phase and step: F2 game/plugin interface — committed, pushed, CI green
+- Last commit: `1873ab1` F2: add server-side game plugin interface
 - Status: F1 is complete on `foundation/f1`; CI is green and the real laptop +
   phone lobby check passed on the same Wi-Fi (both players and names appeared;
-  reconnect was not tested). F2 is implemented in the working tree on
-  `foundation/f2`, branched from `f5278b4`. Lint, typecheck, 47 tests, and build
-  pass, and Reviewer is clear. F2 is not committed or pushed yet. `main` and
-  `foundation/f0` are untouched.
+  reconnect was not tested). F2 is pushed on `foundation/f2`; Ubuntu and Windows
+  CI passed (run 39983766864). The first-game rules and host/start-flow proposal
+  is the next step. `main` and `foundation/f0` are untouched.
 
 ## Done
 - F0: committed as `cbaf5f3`, pushed, and green on Ubuntu/Windows CI; the real
@@ -30,15 +29,18 @@
   including hidden-state and per-player view isolation checks.
 - Reviewer requested a guard-order fix in `GameSession.apply` and a README intro
   update; both were applied, the checks reran, and the re-review returned CLEAR.
+- F2 committed as `1873ab1` and pushed to `origin/foundation/f2`; Ubuntu and
+  Windows CI passed in run 39983766864.
 - README and DECISIONS updated for F2; HANDOFF records the F1 real check.
 
 ## In progress
-- Human review of the F2 diff and commit approval. No F2 commit or push.
+- First-game rules and host/start-flow proposal; no game-specific implementation
+  until the proposal is settled.
 
 ## Next three actions
-1. Review F2 and fix any clear findings; rerun the checks.
-2. Commit and push F2 after human approval; watch Ubuntu/Windows CI.
-3. Define and wire the first game (rules, start/host flow, and UI).
+1. Settle the first-game rules and host/start flow.
+2. Implement the first game plugin and start flow test-first.
+3. Run Reviewer/Fixer, checks, and the commit gate.
 
 ## Run and test
 - `npm run dev` or `PORT=4000 npm run dev`.
@@ -52,20 +54,21 @@
 - F2 is interface-only: no WebSocket wiring, start/host flow, UI, or playable
   game yet.
 - Reconnect has not been tested on a real phone.
-- CI is green for `f5278b4`; F2 has no CI run yet.
+- CI is green for `1873ab1`; the first game has not been implemented.
 
 ## Decisions
 - Repository is private for now; free OpenCode models only.
 - F0 is HTTP-only; F1 adds the WebSocket lobby described in `DECISIONS.md`.
 - F2 defines the server-side plugin contract, registry, and session; games are
   added as plugins without editing the engine.
-- F2 adds no game rules or content. The first game and its start flow are the
-  next step.
-- `actions/checkout@v7` and `actions/setup-node@v7` ran successfully in F0 and F1
-  CI.
+- F2 is committed and CI-green. It adds no game rules or content; the first game
+  and its start flow are the next step.
+- `actions/checkout@v7` and `actions/setup-node@v7` ran successfully in F0, F1,
+  and F2 CI.
 
 ## Open questions
-- Define the first game's rules, player count, win condition, and start/host flow.
+- Settle the first game's rules, player count, win condition, and start/host
+  flow from the pending proposal.
 - Confirm the theme palette and font before finalizing the theme.
 - Confirm the separate content-pack license before publishing packs.
 - Confirm stricter PORT parsing (reject `0x1F`, `1e2`, surrounding spaces).
