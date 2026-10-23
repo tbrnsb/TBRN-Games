@@ -1,0 +1,28 @@
+{
+  "name": "tbrn-games",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local-first party games: a laptop runs the authoritative server and shared screen; phones join as controllers over the same network.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.13.0",
+    "globals": "^16.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.35.0"
+  }
+}

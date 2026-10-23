@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TBRN-Games — Phone</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #11131a;
+        color: #f2f4f8;
+      }
+
+      main {
+        width: min(22rem, 88vw);
+        padding: 1.5rem;
+        border: 1px solid #2c3040;
+        border-radius: 1rem;
+        background: #191c26;
+        text-align: center;
+      }
+
+      h1 {
+        margin-top: 0;
+        font-size: 1.5rem;
+      }
+
+      .status {
+        font-size: 1.125rem;
+        color: #9fe0a8;
+      }
+
+      .status[data-state="error"] {
+        color: #ff9a9a;
+      }
+
+      button {
+        margin-top: 1rem;
+        padding: 0.75rem 1.25rem;
+        border: 0;
+        border-radius: 999px;
+        background: #6f9dff;
+        color: #10131c;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body data-page="phone">
+    <main>
+      <h1>TBRN-Games</h1>
+      <p>Phone controller check</p>
+      <p class="status" id="status" data-state="pending">Contacting the server…</p>
+      <button id="retry" type="button">Check again</button>
+    </main>
+    <script>
+      const status = document.getElementById("status");
+
+      function checkServer() {
+        status.textContent = "Contacting the server…";
+        status.dataset.state = "pending";
+
+        fetch("/api/health")
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(() => {
+            status.textContent = "Connected to the game server.";
+            status.dataset.state = "ok";
+          })
+          .catch(() => {
+            status.textContent = "Cannot reach the game server.";
+            status.dataset.state = "error";
+          });
+      }
+
+      document.getElementById("retry").addEventListener("click", checkServer);
+      checkServer();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TBRN-Games — Laptop</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #11131a;
+        color: #f2f4f8;
+      }
+
+      main {
+        width: min(44rem, 90vw);
+        padding: 2rem;
+        border: 1px solid #2c3040;
+        border-radius: 1rem;
+        background: #191c26;
+      }
+
+      h1 {
+        margin-top: 0;
+      }
+
+      .status {
+        font-size: 1.25rem;
+        color: #9fe0a8;
+      }
+
+      .status[data-state="error"] {
+        color: #ff9a9a;
+      }
+
+      a {
+        color: #9cc4ff;
+      }
+    </style>
+  </head>
+  <body data-page="laptop">
+    <main>
+      <h1>TBRN-Games</h1>
+      <p>This laptop is running the game server and shared screen.</p>
+      <p class="status" id="status" data-state="pending">Checking the server…</p>
+      <p>
+        Open <a href="/play">/play</a> on a phone connected to the same Wi-Fi.
+      </p>
+    </main>
+    <script>
+      const status = document.getElementById("status");
+
+      fetch("/api/health")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(() => {
+          status.textContent = "Server is running.";
+          status.dataset.state = "ok";
+        })
+        .catch(() => {
+          status.textContent = "Server is not responding.";
+          status.dataset.state = "error";
+        });
+    </script>
+  </body>
+</html>
