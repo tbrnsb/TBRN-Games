@@ -1,12 +1,12 @@
 # Handoff
 
-- Current phase and step: F3 Same Wave — reviewed, checks green, committing
-- Last commit: `da30b7a` docs: record F2 commit and CI results
+- Current phase and step: F3 Same Wave — committed, pushed, CI green
+- Last commit: `7fb4e1a` F3: add Same Wave game with host flow
 - Status: F0–F2 are complete and CI-green on their foundation branches. F3 is
-  implemented in the working tree on `foundation/f3` (branched from `da30b7a`).
-  Lint, typecheck, 74 tests, and build pass, and the re-review is CLEAR. F3 is
-  not committed or pushed yet. `main` and `foundation/f0` are untouched, and
-  nothing is merged.
+  pushed on `foundation/f3` (branched from `da30b7a`); Ubuntu and Windows CI
+  passed (run 39989107606). The 24 prompt texts still need owner review before
+  merge or release. `main` and `foundation/f0` are untouched, and nothing is
+  merged.
 
 ## Done
 - F0: HTTP hello-world server, laptop page, phone page; `cbaf5f3`; CI green.
@@ -37,15 +37,17 @@
   `src/server/games/same-wave/prompts.ts`, marked as a draft for owner review.
 - Reviewer round 1 requested a phone countdown fix; Fixer applied it, checks
   reran green, and round 2 returned CLEAR with no clear findings.
+- F3 committed as `7fb4e1a` and pushed to `origin/foundation/f3`; Ubuntu and
+  Windows CI passed in run 39989107606.
 - README, DECISIONS, and LESSONS updated for F3.
 
 ## In progress
-- Commit and push `foundation/f3`, then watch Ubuntu/Windows CI. No merge.
+- Owner review of the 24 prompt texts. No merge or release.
 
 ## Next three actions
-1. Commit and push `foundation/f3`; monitor CI and fix clear failures.
-2. Show the 24 prompt texts to the project owner for approval.
-3. After approval, keep the branch unmerged until the human decides.
+1. Review and approve or revise the 24 prompt texts.
+2. Run a real Same Wave check with three or four phones.
+3. Keep `foundation/f3` unmerged until the human decides.
 
 ## Run and test
 - `npm run dev` or `PORT=4000 npm run dev`.
@@ -57,8 +59,9 @@
 
 ## Failing tests and known issues
 - No failing tests or known code issues.
-- F3 is uncommitted and has no CI run yet.
+- CI is green for `7fb4e1a`.
 - Reconnect has not been tested on a real phone.
+- A real Same Wave check with three or four phones has not been run.
 - The 24 prompts are draft content and need owner review before merge/release.
 
 ## Decisions
