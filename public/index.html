@@ -31,13 +31,36 @@
         margin-top: 0;
       }
 
+      h2 {
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9aa3b8;
+      }
+
       .status {
-        font-size: 1.25rem;
+        font-size: 1.125rem;
         color: #9fe0a8;
       }
 
       .status[data-state="error"] {
         color: #ff9a9a;
+      }
+
+      ol {
+        margin: 0;
+        padding-left: 1.25rem;
+        font-size: 1.25rem;
+        line-height: 1.8;
+      }
+
+      .empty {
+        color: #9aa3b8;
+      }
+
+      .away {
+        color: #9aa3b8;
+        font-size: 0.9em;
       }
 
       a {
@@ -49,29 +72,86 @@
     <main>
       <h1>TBRN-Games</h1>
       <p>This laptop is running the game server and shared screen.</p>
-      <p class="status" id="status" data-state="pending">Checking the server…</p>
+      <p class="status" id="status" data-state="pending">Contacting the server…</p>
+
+      <h2>Lobby</h2>
+      <p id="count">0 / 4 players</p>
+      <ol id="players" aria-live="polite"></ol>
+      <p class="empty" id="empty">Waiting for phones to join.</p>
+
       <p>
         Open <a href="/play">/play</a> on a phone connected to the same Wi-Fi.
       </p>
     </main>
     <script>
       const status = document.getElementById("status");
+      const count = document.getElementById("count");
+      const players = document.getElementById("players");
+      const empty = document.getElementById("empty");
+      const socketUrl =
+        (location.protocol === "https:" ? "wss:" : "ws:") +
+        "//" +
+        location.host +
+        "/ws";
 
-      fetch("/api/health")
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+      let socket;
+
+      function setStatus(text, state) {
+        status.textContent = text;
+        status.dataset.state = state;
+      }
+
+      function renderLobby(state) {
+        count.textContent = state.players.length + " / " + state.maxPlayers + " players";
+        players.replaceChildren();
+        empty.hidden = state.players.length > 0;
+
+        for (const player of state.players) {
+          const item = document.createElement("li");
+          item.textContent = player.name;
+          if (!player.connected) {
+            const away = document.createElement("span");
+            away.className = "away";
+            away.textContent = " (reconnecting)";
+            item.append(away);
           }
-          return response.json();
-        })
-        .then(() => {
-          status.textContent = "Server is running.";
-          status.dataset.state = "ok";
-        })
-        .catch(() => {
-          status.textContent = "Server is not responding.";
-          status.dataset.state = "error";
+          players.append(item);
+        }
+      }
+
+      function connect() {
+        setStatus("Contacting the server…", "pending");
+        socket = new WebSocket(socketUrl);
+
+        socket.addEventListener("open", () => {
+          setStatus("Connected to the game server.", "ok");
         });
+
+        socket.addEventListener("message", (event) => {
+          let message;
+
+          try {
+            message = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+
+          if (message.type === "lobby") {
+            renderLobby(message.state);
+          }
+
+          if (message.type === "error") {
+            setStatus(message.message, "error");
+          }
+        });
+
+        socket.addEventListener("close", () => {
+          setStatus("Disconnected. Reconnecting…", "error");
+          setTimeout(connect, 2000);
+        });
+      }
+
+      connect();
     </script>
   </body>
 </html>

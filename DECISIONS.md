@@ -3,6 +3,21 @@
 Append new decisions at the top. Keep each entry short: the decision, the
 reason, and the date.
 
+## 2026-10-23 — F1 lobby and transport
+
+- Use WebSockets via the `ws` runtime dependency; install with scripts disabled.
+- Allow four players. Trim names, require 1–20 characters, reject blank names
+  and control characters, and allow duplicate names; server IDs distinguish
+  players. Reject a fifth player with a clear message.
+- Generate player IDs and random resume tokens on the server. The phone stores
+  its token; tokens are sent only in WebSocket messages, never URLs or logs.
+- Reserve a disconnected seat for two minutes. A valid token resumes the same
+  seat; expiry frees it; a server restart clears the room.
+- Broadcast public lobby state to everyone. Send each player's private
+  controller state only to that player. Defer the game/plugin interface.
+
+Reason: the lobby needs a real-time channel without expanding into gameplay.
+
 ## 2026-10-23 — Review-fix-review workflow
 
 - Project-local subagents: `reviewer` (GLM-5.3 Flash Free, read-only) and

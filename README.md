@@ -4,9 +4,9 @@ Local-first party games. A laptop runs the authoritative server and the shared
 screen; up to four phones join as browser controllers over the same local
 network.
 
-F0 is the setup phase: a cross-platform HTTP hello-world server with a laptop
-page and a simple phone connectivity page. Gameplay, joining, player IDs, and
-real-time protocols arrive in later phases.
+F1 adds a WebSocket lobby: up to four phones join with a name, the laptop screen
+shows the public lobby, and each phone receives only its own controller state.
+Gameplay and the game/plugin interface arrive in later phases.
 
 ## Requirements
 
@@ -66,13 +66,25 @@ npm test
 
 CI runs lint, typecheck, and tests on Ubuntu and Windows.
 
+## Lobby
+
+- Up to four players can join from `/play` with a display name.
+- Names are trimmed and must be 1–20 characters with no control characters.
+  Duplicate names are allowed; the server assigns each player a unique ID.
+- The laptop screen and every phone see the same public lobby.
+- Each phone gets its own private controller state; resume tokens are stored in
+  the phone browser and sent only over the WebSocket connection.
+- A disconnected seat is reserved for two minutes and resumes with the saved
+  token. A server restart clears the room.
+
 ## Test from your phone
 
 1. Put the laptop and phone on the same Wi-Fi network.
 2. Run `npm run dev` on the laptop.
 3. Open the printed `/play` URL on the phone, for example
    `http://192.168.1.20:3000/play`. Do not use `localhost`.
-4. If the page does not load, check that the laptop firewall allows Node on
+4. Enter a name and join. Closing the page reserves your seat for two minutes.
+5. If the page does not load, check that the laptop firewall allows Node on
    port 3000 and that the Wi-Fi network does not isolate clients from each
    other (guest networks often do).
 

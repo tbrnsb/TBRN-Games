@@ -25,25 +25,54 @@
         border: 1px solid #2c3040;
         border-radius: 1rem;
         background: #191c26;
-        text-align: center;
       }
 
       h1 {
         margin-top: 0;
         font-size: 1.5rem;
+        text-align: center;
+      }
+
+      h2 {
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9aa3b8;
       }
 
       .status {
-        font-size: 1.125rem;
+        font-size: 1rem;
         color: #9fe0a8;
+        text-align: center;
       }
 
       .status[data-state="error"] {
         color: #ff9a9a;
       }
 
-      button {
+      form {
+        display: grid;
+        gap: 0.75rem;
         margin-top: 1rem;
+      }
+
+      label {
+        font-size: 0.9rem;
+        color: #c8cede;
+      }
+
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.75rem;
+        border: 1px solid #3a4054;
+        border-radius: 0.5rem;
+        background: #11131a;
+        color: #f2f4f8;
+        font-size: 1rem;
+      }
+
+      button {
         padding: 0.75rem 1.25rem;
         border: 0;
         border-radius: 999px;
@@ -52,41 +81,253 @@
         font-size: 1rem;
         font-weight: 600;
       }
+
+      button:disabled {
+        opacity: 0.5;
+      }
+
+      .controller {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        background: #11131a;
+        text-align: center;
+      }
+
+      .controller strong {
+        display: block;
+        font-size: 1.25rem;
+        margin-top: 0.25rem;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 1.25rem;
+        line-height: 1.7;
+      }
+
+      .away {
+        color: #9aa3b8;
+        font-size: 0.9em;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
     </style>
   </head>
   <body data-page="phone">
     <main>
       <h1>TBRN-Games</h1>
-      <p>Phone controller check</p>
       <p class="status" id="status" data-state="pending">Contacting the server…</p>
-      <button id="retry" type="button">Check again</button>
+
+      <form id="join-form">
+        <label for="name">Your name</label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          maxlength="20"
+          autocomplete="nickname"
+          required
+        />
+        <button id="join" type="submit">Join the lobby</button>
+      </form>
+
+      <section class="controller" id="controller" hidden>
+        <span>You are</span>
+        <strong id="player-name"></strong>
+      </section>
+
+      <h2>Players <span id="count">0 / 4</span></h2>
+      <ul id="players" aria-live="polite"></ul>
     </main>
     <script>
       const status = document.getElementById("status");
+      const form = document.getElementById("join-form");
+      const nameInput = document.getElementById("name");
+      const joinButton = document.getElementById("join");
+      const controller = document.getElementById("controller");
+      const playerName = document.getElementById("player-name");
+      const count = document.getElementById("count");
+      const players = document.getElementById("players");
+      const tokenKey = "tbrn-games.resume-token";
+      const socketUrl =
+        (location.protocol === "https:" ? "wss:" : "ws:") +
+        "//" +
+        location.host +
+        "/ws";
 
-      function checkServer() {
-        status.textContent = "Contacting the server…";
-        status.dataset.state = "pending";
+      const resumeRetryDelayMs = 1000;
+      const maxResumeRetries = 5;
 
-        fetch("/api/health")
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`);
-            }
-            return response.json();
-          })
-          .then(() => {
-            status.textContent = "Connected to the game server.";
-            status.dataset.state = "ok";
-          })
-          .catch(() => {
-            status.textContent = "Cannot reach the game server.";
-            status.dataset.state = "error";
-          });
+      let socket;
+      let resumeRetries = 0;
+      let resumeTimer;
+
+      function setStatus(text, state) {
+        status.textContent = text;
+        status.dataset.state = state;
       }
 
-      document.getElementById("retry").addEventListener("click", checkServer);
-      checkServer();
+      function showJoinForm() {
+        form.hidden = false;
+        controller.hidden = true;
+      }
+
+      function storeToken(token) {
+        try {
+          localStorage.setItem(tokenKey, token);
+        } catch {
+          // Storage can be unavailable; the seat still works for this session.
+        }
+      }
+
+      function readToken() {
+        try {
+          return localStorage.getItem(tokenKey);
+        } catch {
+          return null;
+        }
+      }
+
+      function clearToken() {
+        try {
+          localStorage.removeItem(tokenKey);
+        } catch {
+          // Nothing to clear if storage is unavailable.
+        }
+      }
+
+      function renderLobby(state) {
+        count.textContent = state.players.length + " / " + state.maxPlayers;
+        players.replaceChildren();
+
+        for (const player of state.players) {
+          const item = document.createElement("li");
+          item.textContent = player.name;
+          if (!player.connected) {
+            const away = document.createElement("span");
+            away.className = "away";
+            away.textContent = " (reconnecting)";
+            item.append(away);
+          }
+          players.append(item);
+        }
+      }
+
+      function send(message) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify(message));
+          return true;
+        }
+
+        return false;
+      }
+
+      function clearResumeTimer() {
+        if (resumeTimer !== undefined) {
+          clearTimeout(resumeTimer);
+          resumeTimer = undefined;
+        }
+      }
+
+      function retryResume() {
+        const token = readToken();
+
+        if (!token || resumeRetries >= maxResumeRetries) {
+          return;
+        }
+
+        resumeRetries += 1;
+        setStatus("Restoring your seat…", "pending");
+
+        resumeTimer = setTimeout(() => {
+          resumeTimer = undefined;
+          send({ type: "resume", token });
+        }, resumeRetryDelayMs);
+      }
+
+      function connect() {
+        clearResumeTimer();
+        setStatus("Contacting the server…", "pending");
+        joinButton.disabled = true;
+        socket = new WebSocket(socketUrl);
+
+        socket.addEventListener("open", () => {
+          setStatus("Connected to the game server.", "ok");
+          joinButton.disabled = false;
+
+          const token = readToken();
+
+          if (token) {
+            send({ type: "resume", token });
+          }
+        });
+
+        socket.addEventListener("message", (event) => {
+          let message;
+
+          try {
+            message = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+
+          if (message.type === "joined") {
+            resumeRetries = 0;
+            storeToken(message.token);
+            form.hidden = true;
+          }
+
+          if (message.type === "controller") {
+            playerName.textContent = message.state.name;
+            controller.hidden = false;
+            form.hidden = true;
+          }
+
+          if (message.type === "lobby") {
+            renderLobby(message.state);
+          }
+
+          if (message.type === "error") {
+            setStatus(message.message, "error");
+
+            if (message.code === "invalid_token") {
+              clearToken();
+              showJoinForm();
+            }
+
+            if (message.code === "seat_connected") {
+              retryResume();
+            }
+          }
+        });
+
+        socket.addEventListener("close", () => {
+          clearResumeTimer();
+          setStatus("Disconnected. Reconnecting…", "error");
+          joinButton.disabled = true;
+          setTimeout(connect, 2000);
+        });
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        if (!send({ type: "join", name: nameInput.value })) {
+          setStatus("Not connected to the server yet.", "error");
+        }
+      });
+
+      if (!readToken()) {
+        showJoinForm();
+      } else {
+        form.hidden = true;
+        controller.hidden = true;
+      }
+
+      connect();
     </script>
   </body>
 </html>
