@@ -24,8 +24,8 @@ function join(room: Room, name: unknown) {
   return result;
 }
 
-test("uses four players and a two-minute seat reservation by default", () => {
-  assert.equal(SEAT_TTL_MS, 120_000);
+test("uses four players and a five-minute seat reservation by default", () => {
+  assert.equal(SEAT_TTL_MS, 300_000);
   assert.equal(makeRoom(() => 0).publicState().maxPlayers, 4);
 });
 
@@ -150,7 +150,7 @@ test("expiry frees the seat after the reservation window", () => {
   assert.equal(room.publicState().players.length, 1);
 });
 
-test("rejects unknown tokens and resumes of seats that are still connected", () => {
+test("rejects unknown tokens and lets a valid token take over its seat", () => {
   const room = makeRoom(() => 0);
   const unknown = room.resume("not-a-token");
 
@@ -161,13 +161,51 @@ test("rejects unknown tokens and resumes of seats that are still connected", () 
   }
 
   const joined = join(room, "Alice");
-  const stillConnected = room.resume(joined.token);
+  const takenOver = room.resume(joined.token);
 
-  assert.equal(stillConnected.ok, false);
+  assert.equal(takenOver.ok, true);
 
-  if (!stillConnected.ok) {
-    assert.equal(stillConnected.code, "seat_connected");
+  if (takenOver.ok) {
+    assert.equal(takenOver.player.id, joined.player.id);
+    assert.equal(takenOver.player.connected, true);
+    assert.equal(takenOver.token, joined.token);
   }
+
+  assert.equal(room.publicState().players.length, 1);
+  assert.equal(room.hostId(), joined.player.id);
+});
+
+test("leave releases the seat immediately, frees capacity, and transfers the host", () => {
+  const room = makeRoom(() => 0);
+  const alice = join(room, "Alice");
+  const bob = join(room, "Bob");
+
+  assert.equal(room.leave(alice.player.id), true);
+  assert.equal(room.leave(alice.player.id), false);
+  assert.equal(room.hostId(), bob.player.id);
+  assert.deepEqual(
+    room.publicState().players.map((player) => player.id),
+    [bob.player.id],
+  );
+
+  const tokenAfterLeave = room.resume(alice.token);
+
+  assert.equal(tokenAfterLeave.ok, false);
+
+  join(room, "Carol");
+  join(room, "Dave");
+  join(room, "Eve");
+
+  assert.equal(room.publicState().players.length, 4);
+});
+
+test("leaving the last seat clears the host", () => {
+  const room = makeRoom(() => 0);
+  const alice = join(room, "Alice");
+
+  assert.equal(room.leave(alice.player.id), true);
+  assert.equal(room.hostId(), null);
+  assert.deepEqual(room.publicState().players, []);
 });
 
 test("a new room starts empty, as after a server restart", () => {

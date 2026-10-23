@@ -32,6 +32,7 @@ export function createCounterGame(options: { target?: number } = {}) {
   >({
     id: "counter",
     name: "Counter",
+    description: "Tap to count. A test fixture.",
     minPlayers: 2,
     maxPlayers: 4,
     createState(context) {

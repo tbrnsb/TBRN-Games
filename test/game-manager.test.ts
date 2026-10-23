@@ -347,3 +347,85 @@ test("reports canStart only when a host has a game that fits", () => {
     message: "That game is not available.",
   });
 });
+
+test("leaving the lobby releases the seat and transfers host control", () => {
+  const { manager, room, join } = setup();
+  const alice = join("Alice");
+  const bob = join("Bob");
+
+  assert.deepEqual(manager.leaveRoom(alice.player.id), {
+    ok: true,
+    finished: false,
+  });
+  assert.equal(room.publicState().players.length, 1);
+  assert.equal(manager.lobbyState().hostId, bob.player.id);
+  assert.deepEqual(manager.leaveRoom(alice.player.id), {
+    ok: false,
+    code: "not_joined",
+    message: "You are not in the room.",
+  });
+});
+
+test("leaving during a game keeps the game alive for the remaining players", () => {
+  const { manager, room, join } = setup();
+  const alice = join("Alice");
+  const bob = join("Bob");
+  const carol = join("Carol");
+
+  manager.startGame(alice.player.id, "same-wave");
+
+  assert.deepEqual(manager.leaveRoom(bob.player.id), {
+    ok: true,
+    finished: false,
+  });
+  assert.equal(manager.gameId, "same-wave");
+  assert.equal(manager.screenState()?.hostId, alice.player.id);
+  assert.equal(room.publicState().players.length, 2);
+  assert.equal(
+    (manager.controllerState(carol.player.id) as GameControllerState).phase,
+    "game",
+  );
+});
+
+test("the host can leave during a game and the new host can end it", () => {
+  const { manager, join } = setup();
+  const alice = join("Alice");
+  const bob = join("Bob");
+  const carol = join("Carol");
+
+  manager.startGame(alice.player.id, "same-wave");
+
+  assert.deepEqual(manager.leaveRoom(alice.player.id), {
+    ok: true,
+    finished: false,
+  });
+  assert.equal(manager.screenState()?.hostId, bob.player.id);
+  assert.deepEqual(manager.returnToLobby(bob.player.id), {
+    ok: true,
+    finished: false,
+  });
+  assert.equal(manager.gameId, null);
+  assert.equal(manager.lobbyState().players.length, 2);
+  assert.equal(manager.lobbyState().hostId, bob.player.id);
+  assert.equal(
+    (manager.controllerState(carol.player.id) as LobbyControllerState).phase,
+    "lobby",
+  );
+});
+
+test("leaving the last player ends the game and clears the room", () => {
+  const { manager, room, join } = setup();
+  const alice = join("Alice");
+  const bob = join("Bob");
+  const carol = join("Carol");
+
+  manager.startGame(alice.player.id, "same-wave");
+  manager.leaveRoom(alice.player.id);
+  manager.leaveRoom(bob.player.id);
+  manager.leaveRoom(carol.player.id);
+
+  assert.equal(manager.gameId, null);
+  assert.equal(manager.screenState(), null);
+  assert.equal(manager.lobbyState().hostId, null);
+  assert.deepEqual(room.publicState().players, []);
+});

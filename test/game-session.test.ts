@@ -137,6 +137,7 @@ test("passes the injected random and time sources to the plugin", () => {
   const probe = defineGame<ProbeState, never, ProbeState, ProbeState>({
     id: "probe",
     name: "Probe",
+    description: "A probe fixture.",
     minPlayers: 1,
     maxPlayers: 1,
     createState(context) {

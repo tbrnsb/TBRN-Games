@@ -21,7 +21,13 @@ test("registers games and lists their public metadata", () => {
   assert.equal(registry.has("counter"), true);
   assert.equal(registry.get("counter"), game);
   assert.deepEqual(registry.list(), [
-    { id: "counter", name: "Counter", minPlayers: 2, maxPlayers: 4 },
+    {
+      id: "counter",
+      name: "Counter",
+      description: "Tap to count. A test fixture.",
+      minPlayers: 2,
+      maxPlayers: 4,
+    },
   ]);
 });
 
@@ -56,6 +62,9 @@ test("rejects invalid game metadata", () => {
     ["long id", { id: "a".repeat(41) }],
     ["blank name", { name: "   " }],
     ["long name", { name: "x".repeat(61) }],
+    ["missing description", { description: undefined as never }],
+    ["blank description", { description: "   " }],
+    ["long description", { description: "x".repeat(161) }],
     ["zero min players", { minPlayers: 0 }],
     ["too many min players", { minPlayers: 5 }],
     ["fractional min players", { minPlayers: 1.5 }],

@@ -9,6 +9,10 @@ const PAGES = new Map<string, string>([
   ["/play", "play.html"],
 ]);
 
+const ASSETS = new Map<string, { file: string; contentType: string }>([
+  ["/theme.css", { file: "theme.css", contentType: "text/css; charset=utf-8" }],
+]);
+
 const HTML = "text/html; charset=utf-8";
 const TEXT = "text/plain; charset=utf-8";
 const JSON_TYPE = "application/json; charset=utf-8";
@@ -53,6 +57,18 @@ async function handleRequest(
     try {
       const html = await readFile(path.join(PUBLIC_DIR, page), "utf8");
       send(response, 200, HTML, html);
+    } catch {
+      send(response, 500, TEXT, "Internal server error");
+    }
+    return;
+  }
+
+  const asset = method === "GET" ? ASSETS.get(pathname) : undefined;
+
+  if (asset) {
+    try {
+      const body = await readFile(path.join(PUBLIC_DIR, asset.file), "utf8");
+      send(response, 200, asset.contentType, body);
     } catch {
       send(response, 500, TEXT, "Internal server error");
     }

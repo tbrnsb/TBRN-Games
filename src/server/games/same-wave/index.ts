@@ -270,6 +270,7 @@ export function createSameWaveGame(options: SameWaveOptions = {}) {
   >({
     id: SAME_WAVE_ID,
     name: "Same Wave",
+    description: "Two secret options, one majority. Pick a side and ride the wave.",
     minPlayers: 3,
     maxPlayers: 4,
     createState(context) {

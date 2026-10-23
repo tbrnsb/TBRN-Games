@@ -1,80 +1,80 @@
 # Handoff
 
-- Current phase and step: F3 Same Wave — committed, pushed, CI green
-- Last commit: `7fb4e1a` F3: add Same Wave game with host flow
-- Status: F0–F2 are complete and CI-green on their foundation branches. F3 is
-  pushed on `foundation/f3` (branched from `da30b7a`); Ubuntu and Windows CI
-  passed (run 39989107606). The 24 prompt texts still need owner review before
-  merge or release. `main` and `foundation/f0` are untouched, and nothing is
-  merged.
+- Current phase and step: F4 — reconnect/leave, selection, Darts, UI.
+  Implemented and locally green; commit, push, and CI pending.
+- Last commit: `acb8e34` docs: record F3 commit and CI results.
+- Status: `foundation/f4` from `acb8e34`. F0–F3 remain on their branches;
+  `main` is `5b0e54e`. Not merged. The 24 Same Wave prompts still need owner
+  review. Commit, push, and CI are the remaining steps.
 
 ## Done
-- F0: HTTP hello-world server, laptop page, phone page; `cbaf5f3`; CI green.
-- F1: four-player WebSocket lobby, server names/IDs/tokens, two-minute seat
-  reservation, public lobby plus private controller state; `a26c505`; CI green.
-- F1 real check: both devices on the same Wi-Fi showed both players and names.
-  Reconnect was not tested.
-- F2: server-side `GamePlugin` contract, registry, session, injected
-  `random`/`now`, and hidden-state tests; `1873ab1`; CI green.
-- F3 rules: Same Wave, 3–4 connected players, five rounds, 30-second window,
-  secret A/B votes, first vote final, non-voters abstain, majority +1, ties and
-  fewer than two votes score 0, tied leaders share the win.
-- F3 engine: optional `deadline`, `onDeadline`, and `applyHostAction` plugin
-  hooks; `GameSession` routes them; `GameManager` checks the current host and
-  builds lobby, game, and spectating controller states.
-- F3 host flow: earliest seated connected player is host; on disconnect control
-  passes to the earliest connected player; reconnect never restores it
-  automatically. Start uses connected players only; late joiners spectate.
-- F3 transport: `start_game`, `game_action`, `host_action`, `return_to_lobby`,
-  public `screen`, private `controller`, deadline timers, and game-aware
-  reconnect/resume.
-- F3 UI: laptop lobby plus voting/reveal/final screen; phone lobby start button,
-  secret vote buttons, countdown, reveal, score, next-round, early end, and
-  return-to-lobby controls; spectator panel.
-- F3 tests: room host rules, Same Wave rules/privacy/deadlines, game manager,
-  and WebSocket end-to-end flows. 74 tests total.
-- Prompt pack: 24 original prompts in
-  `src/server/games/same-wave/prompts.ts`, marked as a draft for owner review.
-- Reviewer round 1 requested a phone countdown fix; Fixer applied it, checks
-  reran green, and round 2 returned CLEAR with no clear findings.
-- F3 committed as `7fb4e1a` and pushed to `origin/foundation/f3`; Ubuntu and
-  Windows CI passed in run 39989107606.
-- README, DECISIONS, and LESSONS updated for F3.
 
-## In progress
-- Owner review of the 24 prompt texts. No merge or release.
+- Diagnosed the logout: a resume hit `seat_connected` while the old socket
+  lingered; the phone stalled after five retries; a backgrounded tab past the
+  two-minute TTL was silently dropped.
+- Reconnect: a valid token takes over the seat, the old socket receives
+  `seat_replaced` and close code 4001, the heartbeat terminates silent sockets,
+  the TTL is five minutes, and the phone uses bounded backoff plus a recovery
+  overlay.
+- Leave: persistent confirmed control in lobby and game. The server releases the
+  seat, transfers host control, removes the player's ballot, and clears the
+  session when empty; the old token cannot resume. The host's return-to-lobby
+  control stays separate.
+- Selection: direct start, Random, and group vote. Random is uniform over
+  eligible games. A vote uses private ballots, closes on all connected votes or
+  after 30 seconds, abstains missing votes, breaks ties with the injected random,
+  falls back to a uniform eligible game when nobody votes, and starts exactly one
+  game. Disconnected seats are not voters.
+- Darts (G1): 1–4 players, three rounds, seat-order throws, three-second aim plus
+  two-second grace, server receipt-time absolute-distance scoring
+  (50/25/20/10/5/0), deadline auto-miss, shared ties. The phone sends only a
+  throw action.
+- UI: rebuilt phone and laptop pages on shared `public/theme.css` served at
+  `/theme.css`. Phone-first controls, laptop shared display, explicit connection,
+  lobby, vote, gameplay, score, and end states, and per-game adapters. Server time
+  is sent on connect and heartbeat so countdowns track server deadlines; scoring
+  remains server-side.
+- Tests: 117 pass, covering reconnect/resume/refresh/expiry, leave, selection
+  privacy/eligibility/ties/deadline/disconnects, Darts, heartbeat, theme, and
+  time sync.
+- Reviewer: first pass hit its step limit with no confirmed defects; second pass
+  and the clock-sync re-review returned CLEAR.
 
 ## Next three actions
-1. Review and approve or revise the 24 prompt texts.
-2. Run a real Same Wave check with three or four phones.
-3. Keep `foundation/f3` unmerged until the human decides.
+
+1. Commit and push `foundation/f4`.
+2. Confirm CI and update this handoff with the commit and CI result.
+3. Run the real-phone checklist; do not merge until the owner decides.
 
 ## Run and test
+
 - `npm run dev` or `PORT=4000 npm run dev`.
-- Linux checks with Node 24.22.1, all exit 0: `npm run lint`,
-  `npm run typecheck`, `npm test` (74 pass), `npm run build`.
-- `npm start` runs the compiled `dist/server/main.js`.
-- CI runs lint, typecheck, and tests on Ubuntu and Windows for every push.
-- Real Same Wave check on three or four phones has not been run.
+- `npm run lint`, `npm run typecheck`, `npm test` (117 pass), `npm run build`.
+- `npm start` runs `dist/server/main.js`. CI runs lint, typecheck, and tests on
+  Ubuntu and Windows.
 
 ## Failing tests and known issues
-- No failing tests or known code issues.
-- CI is green for `7fb4e1a`.
-- Reconnect has not been tested on a real phone.
-- A real Same Wave check with three or four phones has not been run.
-- The 24 prompts are draft content and need owner review before merge/release.
+
+- No failing tests or known code defects.
+- No real-phone check has been run for F4 reconnect, leave, selection, or Darts.
+- G2–G18 roadmap names and order are not in the repository; only G1 Darts is
+  recorded and implemented. Supply the list before the next game phase.
 
 ## Decisions
-- Same Wave is the only F3 game; no other game or content work.
-- Host control is dynamic and follows the room's earliest-connected rule.
-- A player's first vote is final for that round; voting also closes early when
-  the whole game roster has voted.
-- Laptop is display-only; all inputs come from phones.
-- Prompt text is kept in a separate draft file until approved.
+
+- A valid resume token owns the seat; old sockets are replaced and closed.
+- Intentional leave is distinct from disconnect and never resumes.
+- Host is the earliest seated connected player; leaving/disconnect transfers it.
+- Selection is server-authoritative, private until close, and registry-driven.
+- Darts uses absolute-distance timing tiers and shares ties.
+- Clock sync is display-only; the server still owns scoring and deadlines.
+- A mid-game leaver stays as an abstention/auto-miss.
 
 ## Open questions
-- Approve or revise the 24 prompt texts.
-- Confirm the theme palette and font before finalizing the theme.
-- Confirm the separate content-pack license before publishing packs.
-- Confirm stricter PORT parsing (reject `0x1F`, `1e2`, surrounding spaces).
-- Confirm whether all non-GET methods should stay 404.
+
+- Approve or revise the 24 Same Wave prompts.
+- Supply the G2–G18 roadmap names and order.
+- Confirm the theme palette and font.
+- Confirm whether a mid-game leaver should stay as an abstention/auto-miss or
+  leave the roster (current: stay).
+- Run and report the real-phone checks.

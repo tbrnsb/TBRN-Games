@@ -4,6 +4,7 @@ import test from "node:test";
 import WebSocket from "ws";
 
 import { createServer } from "../src/server/app.js";
+import { createDartsGame } from "../src/server/games/darts/index.js";
 import { createGameRegistry } from "../src/server/games/registry.js";
 import { createSameWaveGame } from "../src/server/games/same-wave/index.js";
 import { attachGameSocket } from "../src/server/ws.js";
@@ -14,6 +15,7 @@ type JoinedMessage = Extract<ServerMessage, { type: "joined" }>;
 type ControllerMessage = Extract<ServerMessage, { type: "controller" }>;
 type ErrorMessage = Extract<ServerMessage, { type: "error" }>;
 type ScreenMessage = Extract<ServerMessage, { type: "screen" }>;
+type TimeMessage = Extract<ServerMessage, { type: "time" }>;
 
 class TestClient {
   readonly messages: ServerMessage[] = [];
@@ -27,9 +29,12 @@ class TestClient {
     });
   }
 
-  static connect(url: string): Promise<TestClient> {
+  static connect(
+    url: string,
+    options?: WebSocket.ClientOptions,
+  ): Promise<TestClient> {
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(url);
+      const socket = new WebSocket(url, options);
       const client = new TestClient(socket);
 
       socket.once("open", () => {
@@ -64,6 +69,16 @@ function joinedMessage(client: TestClient): JoinedMessage | undefined {
   );
 }
 
+function lastJoined(client: TestClient): JoinedMessage | undefined {
+  return client.messages
+    .filter((message): message is JoinedMessage => message.type === "joined")
+    .at(-1);
+}
+
+function hasLeft(client: TestClient): boolean {
+  return client.messages.some((message) => message.type === "left");
+}
+
 function controllerMessage(client: TestClient): ControllerMessage | undefined {
   return client.messages.find(
     (message): message is ControllerMessage => message.type === "controller",
@@ -90,6 +105,12 @@ function errorMessages(client: TestClient): ErrorMessage[] {
   );
 }
 
+function timeMessages(client: TestClient): TimeMessage[] {
+  return client.messages.filter(
+    (message): message is TimeMessage => message.type === "time",
+  );
+}
+
 async function waitFor(
   predicate: () => boolean,
   label: string,
@@ -112,16 +133,40 @@ async function waitFor(
   throw new Error(`Timed out waiting for ${label}`);
 }
 
-async function connect(url: string, clients: TestClient[]): Promise<TestClient> {
-  const client = await TestClient.connect(url);
+async function connect(
+  url: string,
+  clients: TestClient[],
+  options?: WebSocket.ClientOptions,
+): Promise<TestClient> {
+  const client = await TestClient.connect(url, options);
   clients.push(client);
   return client;
+}
+
+async function joinPlayers<const T extends readonly string[]>(
+  url: string,
+  clients: TestClient[],
+  names: T,
+): Promise<{ [K in keyof T]: TestClient }> {
+  const players: TestClient[] = [];
+
+  for (const name of names) {
+    const client = await connect(url, clients);
+    client.send({ type: "join", name });
+    await waitFor(() => joinedMessage(client) !== undefined, `${name} joined`);
+    players.push(client);
+  }
+
+  return players as { [K in keyof T]: TestClient };
 }
 
 async function startGame(
   options: {
     seatTtlMs?: number;
     sweepIntervalMs?: number;
+    heartbeatIntervalMs?: number;
+    selectionWindowMs?: number;
+    random?: () => number;
     registry?: ReturnType<typeof createGameRegistry>;
   } = {},
 ) {
@@ -164,6 +209,30 @@ function terminateAll(clients: TestClient[]): void {
     client.terminate();
   }
 }
+
+test("sends server time on connect and refreshes it on the heartbeat", async () => {
+  const game = await startGame({ heartbeatIntervalMs: 30 });
+  const clients: TestClient[] = [];
+
+  try {
+    const client = await connect(game.url, clients);
+
+    await waitFor(() => timeMessages(client).length >= 1, "initial server time");
+    const first = timeMessages(client)[0];
+
+    assert.ok(first);
+    assert.ok(Math.abs(first.now - Date.now()) < 5_000);
+
+    await waitFor(
+      () => timeMessages(client).length >= 2,
+      "heartbeat server time",
+      4_000,
+    );
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
 
 test("broadcasts public lobby state and keeps controllers and tokens private", async () => {
   const game = await startGame();
@@ -345,7 +414,7 @@ test("reserves a disconnected seat and resumes it with the valid token", async (
   }
 });
 
-test("rejects an invalid token and a resume while the seat is connected", async () => {
+test("rejects an invalid token and lets a valid token take over a live seat", async () => {
   const game = await startGame();
   const clients: TestClient[] = [];
 
@@ -361,13 +430,57 @@ test("rejects an invalid token and a resume while the seat is connected", async 
     const joined = joinedMessage(alice);
     assert.ok(joined);
 
-    const intruder = await connect(game.url, clients);
-    intruder.send({ type: "resume", token: joined.token });
+    const replacement = await connect(game.url, clients);
+    replacement.send({ type: "resume", token: joined.token });
     await waitFor(
-      () => errorMessages(intruder).length === 1,
-      "connected seat error",
+      () => joinedMessage(replacement)?.playerId === joined.playerId,
+      "seat takeover",
     );
-    assert.equal(errorMessages(intruder)[0]?.code, "seat_connected");
+    await waitFor(
+      () => errorMessages(alice).some((error) => error.code === "seat_replaced"),
+      "old connection replaced",
+    );
+
+    assert.equal(game.room.publicState().players.length, 1);
+    assert.equal(game.room.publicState().players[0]?.id, joined.playerId);
+    assert.equal(game.room.publicState().players[0]?.connected, true);
+    assert.equal(game.room.hostId(), joined.playerId);
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("recovers a brief disconnect by resuming the same seat, not joining again", async () => {
+  const game = await startGame();
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const alice = await connect(game.url, clients);
+
+    alice.send({ type: "join", name: "Alice" });
+    await waitFor(() => joinedMessage(alice) !== undefined, "Alice joined");
+    const joined = joinedMessage(alice);
+    assert.ok(joined);
+
+    alice.terminate();
+
+    const resumer = await connect(game.url, clients);
+    resumer.send({ type: "resume", token: joined.token });
+
+    await waitFor(
+      () => joinedMessage(resumer)?.playerId === joined.playerId,
+      "same seat resumed",
+    );
+    await waitFor(
+      () => lastController(resumer)?.state.phase === "lobby",
+      "resumed controller",
+    );
+
+    assert.equal(game.room.publicState().players.length, 1);
+    assert.equal(game.room.publicState().players[0]?.id, joined.playerId);
+    assert.equal(lastLobby(observer)?.state.hostId, joined.playerId);
   } finally {
     terminateAll(clients);
     await game.close();
@@ -825,6 +938,477 @@ test("rejects game messages before joining and moves late players to spectating"
       "spectator action error",
     );
     assert.equal(errorMessages(dave)[0]?.code, "not_in_game");
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("host leaving the lobby releases the seat, transfers control, and cannot silently resume", async () => {
+  const registry = createGameRegistry([
+    createSameWaveGame(),
+    createDartsGame(),
+  ]);
+  const game = await startGame({ registry });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice, bob] = await joinPlayers(game.url, clients, ["Alice", "Bob"]);
+    const aliceId = joinedMessage(alice)?.playerId;
+    const aliceToken = joinedMessage(alice)?.token;
+    const bobId = joinedMessage(bob)?.playerId;
+
+    assert.ok(aliceId && aliceToken && bobId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+
+    alice.send({ type: "leave_room" });
+    await waitFor(() => hasLeft(alice), "left acknowledgement");
+    await waitFor(
+      () => game.room.publicState().players.length === 1,
+      "seat released",
+    );
+
+    assert.equal(game.room.publicState().players[0]?.id, bobId);
+    assert.equal(game.room.hostId(), bobId);
+    assert.equal(lastLobby(bob)?.state.hostId, bobId);
+    assert.equal(lastLobby(observer)?.state.players.length, 1);
+
+    const resumer = await connect(game.url, clients);
+    resumer.send({ type: "resume", token: aliceToken });
+    await waitFor(() => errorMessages(resumer).length === 1, "left token invalid");
+    assert.equal(errorMessages(resumer)[0]?.code, "invalid_token");
+
+    alice.send({ type: "join", name: "Alice again" });
+    await waitFor(
+      () => lastJoined(alice)?.playerId !== undefined && lastJoined(alice)?.playerId !== aliceId,
+      "same phone can join again",
+    );
+    assert.equal(game.room.publicState().players.length, 2);
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("a non-host can leave during a game without ending it", async () => {
+  const registry = createGameRegistry([
+    createSameWaveGame(),
+    createDartsGame(),
+  ]);
+  const game = await startGame({ registry });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice, bob, carol] = await joinPlayers(game.url, clients, [
+      "Alice",
+      "Bob",
+      "Carol",
+    ]);
+    const aliceId = joinedMessage(alice)?.playerId;
+    const bobId = joinedMessage(bob)?.playerId;
+
+    assert.ok(aliceId && bobId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+    alice.send({ type: "start_game", gameId: "same-wave" });
+    await waitFor(() => lastScreen(observer) !== undefined, "game screen");
+
+    bob.send({ type: "leave_room" });
+    await waitFor(() => hasLeft(bob), "Bob left");
+    await waitFor(
+      () => game.room.publicState().players.length === 2,
+      "Bob seat released",
+    );
+
+    assert.equal(game.manager.gameId, "same-wave");
+    assert.equal(lastScreen(observer)?.state.hostId, aliceId);
+    assert.equal(
+      lastController(alice)?.state.phase,
+      "game",
+    );
+    assert.equal(
+      lastController(carol)?.state.phase,
+      "game",
+    );
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("a host can leave during a game and the new host can return everyone to the lobby", async () => {
+  const registry = createGameRegistry([
+    createSameWaveGame(),
+    createDartsGame(),
+  ]);
+  const game = await startGame({ registry });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice, bob, carol] = await joinPlayers(game.url, clients, [
+      "Alice",
+      "Bob",
+      "Carol",
+    ]);
+    const aliceId = joinedMessage(alice)?.playerId;
+    const bobId = joinedMessage(bob)?.playerId;
+
+    assert.ok(aliceId && bobId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+    alice.send({ type: "start_game", gameId: "same-wave" });
+    await waitFor(() => lastScreen(observer) !== undefined, "game screen");
+
+    alice.send({ type: "leave_room" });
+    await waitFor(() => hasLeft(alice), "Alice left");
+    await waitFor(
+      () => lastScreen(observer)?.state.hostId === bobId,
+      "Bob host during game",
+    );
+    await waitFor(
+      () =>
+        lastController(bob)?.state.phase === "game" &&
+        lastController(bob)?.state.isHost === true,
+      "Bob has host controls",
+    );
+
+    bob.send({ type: "return_to_lobby" });
+    await waitFor(
+      () => lastController(bob)?.state.phase === "lobby",
+      "returned to lobby",
+    );
+    assert.equal(game.manager.gameId, null);
+    assert.equal(lastLobby(observer)?.state.players.length, 2);
+    assert.equal(lastLobby(observer)?.state.hostId, bobId);
+    assert.equal(lastController(carol)?.state.phase, "lobby");
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("random selection starts exactly one eligible game", async () => {
+  const registry = createGameRegistry([
+    createSameWaveGame(),
+    createDartsGame(),
+  ]);
+  const game = await startGame({ registry, random: () => 0.99 });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice] = await joinPlayers(game.url, clients, [
+      "Alice",
+      "Bob",
+      "Carol",
+    ]);
+    const aliceId = joinedMessage(alice)?.playerId;
+
+    assert.ok(aliceId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+
+    alice.send({ type: "select_random" });
+    await waitFor(() => lastScreen(observer) !== undefined, "random game");
+    await waitFor(
+      () => game.manager.gameId !== null,
+      "game started",
+    );
+
+    assert.equal(game.manager.gameId, "darts");
+    assert.equal(lastScreen(observer)?.state.gameId, "darts");
+    assert.equal(lastLobby(observer)?.state.selection, null);
+    assert.equal(lastController(alice)?.state.phase, "game");
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("group vote keeps ballots private, closes early, and starts the winner", async () => {
+  const registry = createGameRegistry([
+    createSameWaveGame(),
+    createDartsGame(),
+  ]);
+  const game = await startGame({ registry });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice, bob, carol] = await joinPlayers(game.url, clients, [
+      "Alice",
+      "Bob",
+      "Carol",
+    ]);
+    const aliceId = joinedMessage(alice)?.playerId;
+
+    assert.ok(aliceId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+
+    alice.send({ type: "start_game_vote" });
+    await waitFor(
+      () => lastLobby(observer)?.state.selection !== null,
+      "vote open",
+    );
+
+    const selection = lastLobby(observer)?.state.selection;
+
+    assert.ok(selection);
+    assert.equal(selection.ballotsCast, 0);
+    assert.equal(selection.voterCount, 3);
+    assert.deepEqual(
+      selection.games.map((entry) => entry.id),
+      ["same-wave", "darts"],
+    );
+    assert.ok(!JSON.stringify(selection).includes('"myBallot"'));
+    assert.ok(!JSON.stringify(selection).includes('"winner"'));
+
+    await waitFor(
+      () => lastController(alice)?.state.phase === "lobby",
+      "lobby controller",
+    );
+    const aliceLobby = lastController(alice)?.state;
+
+    if (aliceLobby?.phase !== "lobby") {
+      assert.fail("expected lobby controller");
+    }
+
+    assert.ok(aliceLobby.selection);
+    assert.equal(aliceLobby.selection.myBallot, null);
+
+    alice.send({ type: "cast_ballot", gameId: "same-wave" });
+    bob.send({ type: "cast_ballot", gameId: "same-wave" });
+    await waitFor(
+      () => lastLobby(observer)?.state.selection?.ballotsCast === 2,
+      "two ballots",
+    );
+
+    carol.send({ type: "cast_ballot", gameId: "same-wave" });
+    await waitFor(() => lastScreen(observer) !== undefined, "winner started");
+
+    assert.equal(game.manager.gameId, "same-wave");
+    assert.equal(lastScreen(observer)?.state.gameId, "same-wave");
+    assert.equal(game.manager.lobbyState().selection, null);
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("a disconnect during the vote removes a voter and can close the vote early", async () => {
+  const registry = createGameRegistry([
+    createSameWaveGame(),
+    createDartsGame(),
+  ]);
+  const game = await startGame({ registry });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice, bob, carol, dave] = await joinPlayers(game.url, clients, [
+      "Alice",
+      "Bob",
+      "Carol",
+      "Dave",
+    ]);
+    const aliceId = joinedMessage(alice)?.playerId;
+
+    assert.ok(aliceId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+    alice.send({ type: "start_game_vote" });
+    await waitFor(
+      () => lastLobby(observer)?.state.selection !== null,
+      "vote open",
+    );
+
+    alice.send({ type: "cast_ballot", gameId: "same-wave" });
+    bob.send({ type: "cast_ballot", gameId: "same-wave" });
+    carol.send({ type: "cast_ballot", gameId: "same-wave" });
+    await waitFor(
+      () => lastLobby(observer)?.state.selection?.ballotsCast === 3,
+      "three ballots",
+    );
+
+    dave.terminate();
+
+    await waitFor(
+      () => lastScreen(observer) !== undefined,
+      "vote closed on disconnect",
+    );
+    assert.equal(game.manager.gameId, "same-wave");
+    assert.equal(game.manager.lobbyState().selection, null);
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("the vote deadline closes with abstentions and starts one game", async () => {
+  const registry = createGameRegistry([
+    createSameWaveGame(),
+    createDartsGame(),
+  ]);
+  const game = await startGame({ registry, selectionWindowMs: 100 });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice] = await joinPlayers(game.url, clients, [
+      "Alice",
+      "Bob",
+      "Carol",
+    ]);
+    const aliceId = joinedMessage(alice)?.playerId;
+
+    assert.ok(aliceId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+
+    alice.send({ type: "start_game_vote" });
+    await waitFor(
+      () => lastLobby(observer)?.state.selection !== null,
+      "vote open",
+    );
+    alice.send({ type: "cast_ballot", gameId: "darts" });
+
+    await waitFor(
+      () => lastScreen(observer) !== undefined,
+      "deadline started a game",
+      4_000,
+    );
+    assert.equal(game.manager.gameId, "darts");
+    assert.equal(game.manager.lobbyState().selection, null);
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("a heartbeat frees a silent socket and the seat can still be resumed", async () => {
+  const game = await startGame({
+    heartbeatIntervalMs: 30,
+    sweepIntervalMs: 10,
+  });
+  const clients: TestClient[] = [];
+
+  try {
+    const silent = await connect(game.url, clients, { autoPong: false });
+
+    silent.send({ type: "join", name: "Silent" });
+    await waitFor(() => joinedMessage(silent) !== undefined, "Silent joined");
+    const joined = joinedMessage(silent);
+    assert.ok(joined);
+
+    await waitFor(
+      () =>
+        game.room.publicState().players[0]?.connected === false,
+      "heartbeat disconnect",
+      4_000,
+    );
+
+    const resumer = await connect(game.url, clients);
+    resumer.send({ type: "resume", token: joined.token });
+    await waitFor(
+      () => joinedMessage(resumer)?.playerId === joined.playerId,
+      "resumed after heartbeat",
+    );
+    assert.equal(game.room.publicState().players[0]?.connected, true);
+  } finally {
+    terminateAll(clients);
+    await game.close();
+  }
+});
+
+test("Darts routes one-button throws through the server and advances turns", async () => {
+  const registry = createGameRegistry([createDartsGame()]);
+  const game = await startGame({ registry });
+  const clients: TestClient[] = [];
+
+  try {
+    const observer = await connect(game.url, clients);
+    const [alice, bob] = await joinPlayers(game.url, clients, ["Alice", "Bob"]);
+    const aliceId = joinedMessage(alice)?.playerId;
+    const bobId = joinedMessage(bob)?.playerId;
+
+    assert.ok(aliceId && bobId);
+    await waitFor(
+      () => lastLobby(observer)?.state.hostId === aliceId,
+      "Alice host",
+    );
+
+    alice.send({ type: "start_game", gameId: "darts" });
+    await waitFor(() => lastScreen(observer) !== undefined, "Darts screen");
+
+    const start = lastScreen(observer)?.state.view as {
+      phase: string;
+      currentPlayer: { id: string };
+    };
+
+    assert.equal(start.phase, "playing");
+    assert.equal(start.currentPlayer.id, aliceId);
+
+    await waitFor(
+      () =>
+        (lastController(alice)?.state as { view?: { isMyTurn?: boolean } })
+          .view?.isMyTurn === true,
+      "Alice turn",
+    );
+    assert.equal(
+      (lastController(bob)?.state as { view?: { isMyTurn?: boolean } }).view
+        ?.isMyTurn,
+      false,
+    );
+
+    bob.send({ type: "game_action", action: { type: "throw" } });
+    await waitFor(
+      () => errorMessages(bob).length === 1,
+      "wrong turn rejected",
+    );
+    assert.equal(errorMessages(bob)[0]?.code, "invalid_action");
+
+    alice.send({
+      type: "game_action",
+      action: { type: "throw", score: 180, elapsedMs: 0 },
+    });
+
+    await waitFor(
+      () =>
+        (lastScreen(observer)?.state.view as { currentPlayer?: { id: string } })
+          ?.currentPlayer?.id === bobId,
+      "Bob turn",
+    );
+
+    const view = lastScreen(observer)?.state.view as {
+      lastThrow: { playerId: string; score: number };
+      scores: Array<{ playerId: string; score: number }>;
+    };
+
+    assert.equal(view.lastThrow.playerId, aliceId);
+    assert.equal(view.lastThrow.score, 0);
+    assert.equal(
+      view.scores.find((entry) => entry.playerId === aliceId)?.score,
+      0,
+    );
   } finally {
     terminateAll(clients);
     await game.close();

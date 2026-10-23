@@ -1,5 +1,6 @@
 import { createServer } from "./app.js";
 import { resolvePort } from "./config.js";
+import { createDartsGame } from "./games/darts/index.js";
 import { createGameRegistry } from "./games/registry.js";
 import { createSameWaveGame } from "./games/same-wave/index.js";
 import { listLanUrls } from "./lan-urls.js";
@@ -17,7 +18,10 @@ try {
 }
 
 const server = createServer();
-const registry = createGameRegistry([createSameWaveGame()]);
+const registry = createGameRegistry([
+  createSameWaveGame(),
+  createDartsGame(),
+]);
 attachGameSocket(server, { registry });
 
 server.on("error", (error) => {

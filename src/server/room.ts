@@ -150,19 +150,30 @@ export class Room {
       };
     }
 
-    if (player.connected) {
-      return {
-        ok: false,
-        code: "seat_connected",
-        message: "That seat is already connected.",
-      };
-    }
-
+    // A valid token owns the seat. Taking it over is what lets a phone
+    // reconnect while the server has not yet noticed the old socket died.
     player.connected = true;
     player.expiresAt = null;
     this.ensureHost();
 
     return { ok: true, player: toPublicPlayer(player), token: player.token };
+  }
+
+  /**
+   * Releases a seat on purpose. Unlike a disconnect, the seat is removed
+   * immediately instead of being reserved for reconnection.
+   */
+  leave(playerId: string): boolean {
+    const index = this.seats.findIndex((seat) => seat.id === playerId);
+
+    if (index === -1) {
+      return false;
+    }
+
+    this.seats.splice(index, 1);
+    this.ensureHost();
+
+    return true;
   }
 
   disconnect(playerId: string): boolean {

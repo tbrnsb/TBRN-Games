@@ -50,6 +50,23 @@ test("GET /play serves the phone page as HTML", async () => {
   assert.match(body, /data-page="phone"/);
 });
 
+test("GET /theme.css serves the shared stylesheet as CSS", async () => {
+  const response = await fetch(`${baseUrl}/theme.css`);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.ok(response.headers.get("content-type")?.startsWith("text/css"));
+  assert.match(body, /--accent:/);
+});
+
+test("the phone and laptop pages load the shared stylesheet", async () => {
+  for (const path of ["/", "/play"]) {
+    const body = await (await fetch(`${baseUrl}${path}`)).text();
+
+    assert.match(body, /href="\/theme\.css"/, `missing theme link on ${path}`);
+  }
+});
+
 test("GET /api/health reports server health as JSON", async () => {
   const response = await fetch(`${baseUrl}/api/health`);
 

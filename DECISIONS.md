@@ -3,6 +3,58 @@
 Append new decisions at the top. Keep each entry short: the decision, the
 reason, and the date.
 
+## 2026-10-23 — F4 reconnect, leaving, selection, Darts, and UI
+
+- Logout fix: a valid resume token takes over its seat even if the server still
+  sees the old socket as open. The old socket receives `seat_replaced` and is
+  closed with code 4001. The server pings every 15 seconds and terminates
+  sockets that miss a heartbeat. The seat reservation is five minutes
+  (`SEAT_TTL_MS = 300_000`). The phone retries with bounded exponential backoff
+  and shows a recovery overlay instead of silently creating a new player.
+- Leave room: every phone has a persistent, confirmed "Leave room" control in
+  the lobby and during a game. The server removes the seat immediately, transfers
+  host control if needed, removes the player's open ballot, and clears the game
+  session if no connected players remain. The old token cannot resume a left
+  seat. This is separate from the host's "Return everyone to lobby" control.
+  A player who leaves mid-game stays in that game's roster as an abstention or
+  auto-miss, matching the existing expired-seat rule.
+- Game selection: the host can still start a game directly, or use Random or a
+  group vote. Random picks uniformly from games whose player range fits the
+  connected players. A group vote gives each connected player one private ballot,
+  closes when all connected players vote or after 30 seconds, treats missing
+  votes as abstentions, starts the most-voted eligible game, breaks ties
+  uniformly with the injected server random, and falls back to a uniform
+  eligible game when nobody votes. Only connected players count as voters;
+  disconnected reserved seats are excluded. Ballots and the winner are not
+  exposed before the vote closes. Exactly one game starts.
+- Game metadata: every plugin must provide a non-blank description of at most
+  160 characters. The lobby builds its library, descriptions, and eligibility
+  from the registry; the phone does not hardcode a game list.
+- Darts (G1): one to four players, three rounds, one dart per player per round
+  in seat order. Each turn has a three-second aim delay and a two-second grace
+  window. The server scores the absolute distance between receipt time and the
+  target: at most 80 ms = 50, 200 ms = 25, 400 ms = 20, 700 ms = 10, 1200 ms = 5,
+  otherwise 0. Missing the deadline scores 0. Highest total wins; tied leaders
+  share the win. The phone sends only a throw action; it never sends timing or a
+  score.
+- UI: the phone is a mobile-first, thumb-friendly controller; the laptop is the
+  shared display. Both pages share `public/theme.css` (served at `/theme.css`).
+  The phone uses per-game view adapters (`same-wave`, `darts`) so the engine stays
+  plugin-driven. Connection, lobby, selection, voting, gameplay, scoring, and
+  end states have explicit visual states; private choices stay on the phone.
+- Clock display: the server sends a `time` message on connect and on each
+  heartbeat. Phones and the laptop compute a clock offset and use it for
+  countdown displays only; the server remains authoritative for scoring and
+  deadlines.
+- Roadmap: G1 Darts is implemented in F4. Quiz is planned later and is not
+  implemented. The full G2–G18 names and order were not present in the
+  repository or the available F4 brief, so they remain an owner-supplied list;
+  do not invent or implement them in F4.
+
+Reason: fix the observed logout failure at its source, make leaving explicit,
+let the room choose games without leaking ballots, and add one complete
+server-authoritative game without expanding the engine or the F4 scope.
+
 ## 2026-10-23 — F3 Same Wave
 
 - Same Wave is the only game in F3: 3–4 connected players, five rounds, a

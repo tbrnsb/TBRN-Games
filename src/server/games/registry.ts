@@ -4,6 +4,7 @@ import type { GamePlugin } from "./types.js";
 export interface GameSummary {
   readonly id: string;
   readonly name: string;
+  readonly description: string;
   readonly minPlayers: number;
   readonly maxPlayers: number;
 }
@@ -11,6 +12,7 @@ export interface GameSummary {
 const GAME_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_GAME_ID_LENGTH = 40;
 const MAX_GAME_NAME_LENGTH = 60;
+const MAX_GAME_DESCRIPTION_LENGTH = 160;
 
 function validateGame(game: GamePlugin): void {
   if (
@@ -30,6 +32,16 @@ function validateGame(game: GamePlugin): void {
   ) {
     throw new Error(
       `Game name must be 1-${MAX_GAME_NAME_LENGTH} characters and not blank.`,
+    );
+  }
+
+  if (
+    typeof game.description !== "string" ||
+    game.description.trim().length === 0 ||
+    game.description.length > MAX_GAME_DESCRIPTION_LENGTH
+  ) {
+    throw new Error(
+      `Game description must be 1-${MAX_GAME_DESCRIPTION_LENGTH} characters and not blank.`,
     );
   }
 
@@ -99,6 +111,7 @@ export class GameRegistry {
     return [...this.#games.values()].map((game) => ({
       id: game.id,
       name: game.name,
+      description: game.description,
       minPlayers: game.minPlayers,
       maxPlayers: game.maxPlayers,
     }));

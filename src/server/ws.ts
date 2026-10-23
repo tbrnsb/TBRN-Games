@@ -14,6 +14,9 @@ export interface GameSocketOptions extends RoomOptions {
   room?: Room;
   registry?: GameRegistry;
   sweepIntervalMs?: number;
+  heartbeatIntervalMs?: number;
+  selectionWindowMs?: number;
+  random?: () => number;
 }
 
 export interface GameSocket {
@@ -48,8 +51,24 @@ function parseClientMessage(raw: string): ClientMessage | null {
     return { type: "resume", token: value.token };
   }
 
+  if (value.type === "leave_room") {
+    return { type: "leave_room" };
+  }
+
   if (value.type === "start_game" && typeof value.gameId === "string") {
     return { type: "start_game", gameId: value.gameId };
+  }
+
+  if (value.type === "select_random") {
+    return { type: "select_random" };
+  }
+
+  if (value.type === "start_game_vote") {
+    return { type: "start_game_vote" };
+  }
+
+  if (value.type === "cast_ballot" && typeof value.gameId === "string") {
+    return { type: "cast_ballot", gameId: value.gameId };
   }
 
   if (value.type === "game_action" && "action" in value) {
@@ -75,12 +94,17 @@ export function attachGameSocket(
     room: providedRoom,
     registry,
     sweepIntervalMs = 5_000,
+    heartbeatIntervalMs = 15_000,
+    selectionWindowMs,
+    random,
     ...roomOptions
   } = options;
   const now = roomOptions.now ?? Date.now;
   const room = providedRoom ?? new Room(roomOptions);
   const manager = new GameManager(room, registry ?? new GameRegistry(), {
     now,
+    ...(random ? { random } : {}),
+    ...(selectionWindowMs !== undefined ? { selectionWindowMs } : {}),
   });
   const wss = new WebSocketServer({
     server,
@@ -88,6 +112,7 @@ export function attachGameSocket(
     maxPayload: 4_096,
   });
   const playerBySocket = new Map<WebSocket, string>();
+  const liveSockets = new WeakSet<WebSocket>();
   let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
 
   function sendJson(socket: WebSocket, message: ServerMessage): void {
@@ -163,6 +188,52 @@ export function attachGameSocket(
     armDeadline();
   }
 
+  function replaceExistingConnection(
+    socket: WebSocket,
+    playerId: string,
+  ): void {
+    for (const [existing, existingPlayerId] of playerBySocket) {
+      if (existingPlayerId !== playerId || existing === socket) {
+        continue;
+      }
+
+      // Remove the old socket first so its close event cannot reserve the
+      // seat that the new connection has just taken over.
+      playerBySocket.delete(existing);
+      sendError(
+        existing,
+        "seat_replaced",
+        "This seat was resumed on another connection.",
+      );
+      existing.close(4001, "seat_replaced");
+    }
+  }
+
+  function handleJoinOrResume(
+    socket: WebSocket,
+    message: Extract<ClientMessage, { type: "join" | "resume" }>,
+  ): void {
+    const result =
+      message.type === "join"
+        ? room.join(message.name)
+        : room.resume(message.token);
+
+    if (!result.ok) {
+      sendError(socket, result.code, result.message);
+      return;
+    }
+
+    replaceExistingConnection(socket, result.player.id);
+    playerBySocket.set(socket, result.player.id);
+    manager.clearNotice();
+    sendJson(socket, {
+      type: "joined",
+      playerId: result.player.id,
+      token: result.token,
+    });
+    syncAll();
+  }
+
   function handleMessage(socket: WebSocket, raw: string): void {
     const message = parseClientMessage(raw);
 
@@ -179,23 +250,7 @@ export function attachGameSocket(
         return;
       }
 
-      const result =
-        message.type === "join"
-          ? room.join(message.name)
-          : room.resume(message.token);
-
-      if (!result.ok) {
-        sendError(socket, result.code, result.message);
-        return;
-      }
-
-      playerBySocket.set(socket, result.player.id);
-      sendJson(socket, {
-        type: "joined",
-        playerId: result.player.id,
-        token: result.token,
-      });
-      syncAll();
+      handleJoinOrResume(socket, message);
       return;
     }
 
@@ -204,8 +259,58 @@ export function attachGameSocket(
       return;
     }
 
+    if (message.type === "leave_room") {
+      const result = manager.leaveRoom(playerId);
+
+      if (!result.ok) {
+        sendError(socket, result.code, result.message);
+        return;
+      }
+
+      playerBySocket.delete(socket);
+      sendJson(socket, { type: "left" });
+      syncAll();
+      return;
+    }
+
     if (message.type === "start_game") {
       const result = manager.startGame(playerId, message.gameId);
+
+      if (!result.ok) {
+        sendError(socket, result.code, result.message);
+        return;
+      }
+
+      syncAll();
+      return;
+    }
+
+    if (message.type === "select_random") {
+      const result = manager.selectRandom(playerId);
+
+      if (!result.ok) {
+        sendError(socket, result.code, result.message);
+        return;
+      }
+
+      syncAll();
+      return;
+    }
+
+    if (message.type === "start_game_vote") {
+      const result = manager.startGameVote(playerId);
+
+      if (!result.ok) {
+        sendError(socket, result.code, result.message);
+        return;
+      }
+
+      syncAll();
+      return;
+    }
+
+    if (message.type === "cast_ballot") {
+      const result = manager.castBallot(playerId, message.gameId);
 
       if (!result.ok) {
         sendError(socket, result.code, result.message);
@@ -251,6 +356,8 @@ export function attachGameSocket(
   }
 
   wss.on("connection", (socket) => {
+    liveSockets.add(socket);
+    sendJson(socket, { type: "time", now: now() });
     const screen = manager.screenState();
 
     if (screen) {
@@ -258,6 +365,10 @@ export function attachGameSocket(
     } else {
       sendJson(socket, { type: "lobby", state: manager.lobbyState() });
     }
+
+    socket.on("pong", () => {
+      liveSockets.add(socket);
+    });
 
     socket.on("message", (data, isBinary) => {
       if (isBinary) {
@@ -278,6 +389,7 @@ export function attachGameSocket(
       playerBySocket.delete(socket);
 
       if (room.disconnect(playerId)) {
+        manager.handleRoomChange();
         syncAll();
       }
     });
@@ -287,8 +399,26 @@ export function attachGameSocket(
     });
   });
 
+  const heartbeat = setInterval(() => {
+    broadcast({ type: "time", now: now() });
+
+    for (const socket of wss.clients) {
+      if (!liveSockets.has(socket)) {
+        socket.terminate();
+        continue;
+      }
+
+      liveSockets.delete(socket);
+      socket.ping();
+    }
+  }, heartbeatIntervalMs);
+  heartbeat.unref();
+
   const sweep = setInterval(() => {
-    if (room.pruneExpired().length > 0) {
+    const removed = room.pruneExpired();
+
+    if (removed.length > 0) {
+      manager.handleRoomChange(removed);
       syncAll();
     }
   }, sweepIntervalMs);
@@ -300,6 +430,7 @@ export function attachGameSocket(
     manager,
     close(): void {
       clearInterval(sweep);
+      clearInterval(heartbeat);
 
       if (deadlineTimer !== null) {
         clearTimeout(deadlineTimer);

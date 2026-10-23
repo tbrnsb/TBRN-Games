@@ -24,6 +24,7 @@ export type GameActionResult<TState> =
 export interface GamePlugin {
   readonly id: string;
   readonly name: string;
+  readonly description: string;
   readonly minPlayers: number;
   readonly maxPlayers: number;
   createState(context: GameContext): unknown;
@@ -61,6 +62,7 @@ export interface TypedGamePlugin<
 > {
   readonly id: string;
   readonly name: string;
+  readonly description: string;
   readonly minPlayers: number;
   readonly maxPlayers: number;
   createState(context: GameContext): TState;
@@ -107,6 +109,7 @@ export function defineGame<
   return {
     id: plugin.id,
     name: plugin.name,
+    description: plugin.description,
     minPlayers: plugin.minPlayers,
     maxPlayers: plugin.maxPlayers,
     createState: (context) => plugin.createState(context),
