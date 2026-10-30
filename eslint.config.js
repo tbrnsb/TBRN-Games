@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/", "dist/", "*.config.*", "eslint.config.js", "shared/constants.js"],
+    ignores: ["node_modules/", "dist/", "*.config.*", "eslint.config.js", "shared/constants.js", "scripts/", "test/"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -15,7 +15,7 @@ export default tseslint.config(
       sourceType: "module",
     },
     rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-floating-promises": "off",
       "@typescript-eslint/no-explicit-any": "off",

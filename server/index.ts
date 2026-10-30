@@ -28,6 +28,7 @@ const rooms = new Map<string, RoomState>();
 const plugins = new Map<string, GamePlugin>();
 const playerSockets = new Map<string, WebSocket>(); // playerId -> ws
 const socketPlayers = new Map<WebSocket, string>(); // ws -> playerId
+const gameLoops = new Map<string, NodeJS.Timeout>(); // roomId -> interval
 
 // --- Helpers ---
 function generateRoomCode(): string {
@@ -121,6 +122,11 @@ const httpServer = createServer(async (req, res) => {
     const urls = await getLanUrls(PORT);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ urls }));
+    return;
+  }
+
+  // Handle start game
+  if (handleStartGame(req, res, url)) {
     return;
   }
 
@@ -218,6 +224,8 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
           timestamp: Date.now(),
           payload: { playerId: player.id, rejoinToken: player.rejoinToken, roomState: room },
         });
+        // Also send ROOM_STATE to the reconnecting player
+        send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room });
         broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room }, player.id);
         return;
       }
@@ -276,6 +284,8 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
     timestamp: Date.now(),
     payload: { playerId, rejoinToken: token, roomState: room },
   });
+  // Also send ROOM_STATE to the joining player so they have full room state
+  send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room });
   broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room }, playerId);
 }
 
@@ -305,9 +315,12 @@ function handleInput(ws: WebSocket, msg: ClientMessage & { type: "input" }): voi
   const screen = plugin.screenState(instance);
   for (const player of room.players) {
     const controller = plugin.controllerState(instance, player.id);
+    const controllerWithType = controller && typeof controller === "object"
+      ? { ...controller, controllerType: plugin.manifest.controllerType }
+      : { controllerType: plugin.manifest.controllerType };
     const pws = playerSockets.get(player.id);
     if (pws?.readyState === WebSocket.OPEN) {
-      send(pws, { type: MESSAGE_TYPES.GAME_STATE, roomId: room.id, playerId: player.id, timestamp: Date.now(), payload: { screen, controller } });
+      send(pws, { type: MESSAGE_TYPES.GAME_STATE, roomId: room.id, playerId: player.id, timestamp: Date.now(), payload: { screen, controller: controllerWithType } });
     }
   }
 }
@@ -342,6 +355,129 @@ function handleDisconnect(ws: WebSocket): void {
       }, PLAYER_TIMEOUT_MS);
     }
   }
+}
+
+// --- Game Loop ---
+function startGameLoop(roomId: string): void {
+  if (gameLoops.has(roomId)) return;
+
+  const room = rooms.get(roomId);
+  if (!room || !room.gameId) return;
+
+  const plugin = plugins.get(room.gameId);
+  if (!plugin) return;
+
+  const instance = room.gameState as { roomId: string; players: Player[]; state: unknown };
+  if (!instance) return;
+
+  let lastTick = Date.now();
+
+  const interval = setInterval(() => {
+    const now = Date.now();
+    const deltaMs = now - lastTick;
+    lastTick = now;
+
+    const currentRoom = rooms.get(roomId);
+    if (!currentRoom || currentRoom.status !== "playing" || !currentRoom.gameId) {
+      clearInterval(interval);
+      gameLoops.delete(roomId);
+      return;
+    }
+
+    const currentPlugin = plugins.get(currentRoom.gameId);
+    if (!currentPlugin) return;
+
+    const currentInstance = currentRoom.gameState as { roomId: string; players: Player[]; state: unknown };
+    if (!currentInstance) return;
+
+    currentPlugin.onTick(currentInstance, deltaMs);
+
+    const screen = currentPlugin.screenState(currentInstance);
+    for (const player of currentRoom.players) {
+      const controller = currentPlugin.controllerState(currentInstance, player.id);
+      // Add controllerType to controller state for client to know which layout to render
+      const controllerWithType = controller && typeof controller === "object"
+        ? { ...controller, controllerType: currentPlugin.manifest.controllerType }
+        : { controllerType: currentPlugin.manifest.controllerType };
+      const pws = playerSockets.get(player.id);
+      if (pws?.readyState === WebSocket.OPEN) {
+        send(pws, { type: MESSAGE_TYPES.GAME_STATE, roomId: currentRoom.id, playerId: player.id, timestamp: Date.now(), payload: { screen, controller: controllerWithType } });
+      }
+    }
+  }, 16); // ~60fps
+
+  gameLoops.set(roomId, interval);
+}
+
+function _stopGameLoop(roomId: string): void {
+  const interval = gameLoops.get(roomId);
+  if (interval) {
+    clearInterval(interval);
+    gameLoops.delete(roomId);
+  }
+}
+
+// HTTP endpoint to start a game
+function handleStartGame(req: any, res: any, url: URL): boolean {
+  if (req.method !== "POST" || !url.pathname.startsWith("/api/rooms/") || !url.pathname.endsWith("/start")) {
+    return false;
+  }
+
+  const roomId = url.pathname.split("/")[3];
+  const room = rooms.get(roomId);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+
+  let body = "";
+  req.on("data", (chunk: Buffer) => { body += chunk; });
+  req.on("end", () => {
+    try {
+      const { gameId } = JSON.parse(body);
+      const plugin = plugins.get(gameId);
+      if (!plugin) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ code: "INVALID_GAME", message: "Game not found" }));
+        return;
+      }
+
+      if (room.players.length < plugin.manifest.minPlayers) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ code: "NOT_ENOUGH_PLAYERS", message: `Need at least ${plugin.manifest.minPlayers} players` }));
+        return;
+      }
+
+      room.gameId = gameId;
+      room.status = "playing";
+      room.gameState = plugin.onStart(room, room.players);
+
+      // Broadcast initial game state
+      const screen = plugin.screenState(room.gameState as { roomId: string; players: Player[]; state: unknown });
+      for (const player of room.players) {
+        const controller = plugin.controllerState(room.gameState as { roomId: string; players: Player[]; state: unknown }, player.id);
+        const controllerWithType = controller && typeof controller === "object"
+          ? { ...controller, controllerType: plugin.manifest.controllerType }
+          : { controllerType: plugin.manifest.controllerType };
+        const pws = playerSockets.get(player.id);
+        if (pws?.readyState === WebSocket.OPEN) {
+          send(pws, { type: MESSAGE_TYPES.GAME_STATE, roomId: room.id, playerId: player.id, timestamp: Date.now(), payload: { screen, controller: controllerWithType } });
+        }
+      }
+
+      // Start game loop
+      startGameLoop(roomId);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+    } catch {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ code: "INVALID_REQUEST", message: "Invalid request body" }));
+    }
+  });
+
+  return true;
 }
 
 // --- Start ---

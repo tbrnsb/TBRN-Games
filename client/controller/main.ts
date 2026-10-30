@@ -1,17 +1,19 @@
 /**
  * Controller client — runs on phone, sends inputs, receives private game state.
- * Supports multiple controller types: one-button, left-right, dpad, text, choice, private-grid, card-hand.
+ * Uses shared controller layouts from shared/controllers.ts
  */
 
 import type { ClientMessage, ServerMessage, ControllerType } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
+import { getLayout } from "../../shared/controllers.ts";
 
 const wsUrl = `ws://${location.host}`;
 let ws: WebSocket;
 let roomId = "";
 let playerId = "";
 let rejoinToken = "";
-const controllerType: ControllerType = "one-button";
+let currentControllerType: ControllerType = "one-button";
+let currentLayout = getLayout(currentControllerType);
 
 const joinForm = document.getElementById("joinForm")!;
 const controllerArea = document.getElementById("controllerArea")!;
@@ -19,17 +21,7 @@ const nameInput = document.getElementById("nameInput") as HTMLInputElement;
 const joinBtn = document.getElementById("joinBtn")!;
 const playerNameEl = document.getElementById("playerName")!;
 const statusEl = document.getElementById("status")!;
-
-// Controller elements
-const btnOne = document.getElementById("btnOne") as HTMLButtonElement;
-const lrRow = document.getElementById("lrRow")!;
-const dpad = document.getElementById("dpad")!;
-const textInput = document.getElementById("textInput")!;
-const textArea = document.getElementById("textArea") as HTMLTextAreaElement;
-const textSubmit = document.getElementById("textSubmit")!;
-const choices = document.getElementById("choices")!;
-const grid = document.getElementById("grid")!;
-const hand = document.getElementById("hand")!;
+const controllerContainer = document.getElementById("controllerContainer")!;
 
 function connect() {
   ws = new WebSocket(wsUrl);
@@ -70,7 +62,17 @@ function handleMessage(msg: ServerMessage) {
       break;
     case MESSAGE_TYPES.GAME_STATE: {
       const payload = msg.payload as { screen: unknown; controller: unknown };
-      renderController(payload.controller);
+      // Update controller type from game state if provided
+      if (payload.controller && typeof payload.controller === "object" && "controllerType" in payload.controller) {
+        const newType = (payload.controller as { controllerType: ControllerType }).controllerType;
+        if (newType !== currentControllerType) {
+          currentControllerType = newType;
+          currentLayout = getLayout(currentControllerType);
+          controllerContainer.innerHTML = "";
+          currentLayout.render(controllerContainer, payload.controller, sendInput);
+        }
+      }
+      currentLayout.update(controllerContainer, payload.controller);
       statusEl.textContent = "Your turn";
       break;
     }
@@ -103,94 +105,9 @@ function sendInput(input: unknown) {
   ws.send(JSON.stringify(msg));
 }
 
-function renderController(controllerState: unknown) {
-  // Hide all controllers first
-  [btnOne, lrRow, dpad, textInput, choices, grid, hand].forEach(el => el.classList.add("hidden"));
-
-  // Determine controller type from state or default
-  // In real implementation, this comes from game manifest
-  if (controllerType === "one-button") {
-    btnOne.classList.remove("hidden");
-  } else if (controllerType === "left-right") {
-    lrRow.classList.remove("hidden");
-  } else if (controllerType === "dpad") {
-    dpad.classList.remove("hidden");
-  } else if (controllerType === "text") {
-    textInput.classList.remove("hidden");
-  } else if (controllerType === "choice") {
-    renderChoices(controllerState as Array<{ id: string; label: string }>);
-  } else if (controllerType === "private-grid") {
-    renderGrid(controllerState as { rows: number; cols: number; cells: unknown[][] });
-  } else if (controllerType === "card-hand") {
-    renderHand(controllerState as Array<{ suit: string; rank: string }>);
-  }
-}
-
-function renderChoices(options: Array<{ id: string; label: string }>) {
-  choices.innerHTML = "";
-  for (const opt of options) {
-    const btn = document.createElement("button");
-    btn.className = "choice-btn";
-    btn.textContent = opt.label;
-    btn.dataset.id = opt.id;
-    btn.addEventListener("click", () => sendInput({ choice: opt.id }));
-    choices.appendChild(btn);
-  }
-  choices.classList.remove("hidden");
-}
-
-function renderGrid(state: { rows: number; cols: number; cells: unknown[][] }) {
-  grid.style.gridTemplateColumns = `repeat(${state.cols}, 1fr)`;
-  grid.innerHTML = "";
-  for (let r = 0; r < state.rows; r++) {
-    for (let c = 0; c < state.cols; c++) {
-      const cell = document.createElement("div");
-      cell.className = "grid-cell";
-      cell.dataset.row = String(r);
-      cell.dataset.col = String(c);
-      cell.textContent = String(state.cells[r][c] ?? "");
-      cell.addEventListener("click", () => sendInput({ grid: { row: r, col: c } }));
-      grid.appendChild(cell);
-    }
-  }
-  grid.classList.remove("hidden");
-}
-
-function renderHand(cards: Array<{ suit: string; rank: string }>) {
-  hand.innerHTML = "";
-  for (const card of cards) {
-    const el = document.createElement("div");
-    el.className = `card ${card.suit === "hearts" || card.suit === "diamonds" ? "red" : ""}`;
-    el.textContent = `${card.rank} ${card.suit === "hearts" ? "♥" : card.suit === "diamonds" ? "♦" : card.suit === "clubs" ? "♣" : "♠"}`;
-    el.addEventListener("click", () => sendInput({ playCard: card }));
-    hand.appendChild(el);
-  }
-  hand.classList.remove("hidden");
-}
-
 // --- Event Listeners ---
 joinBtn.addEventListener("click", () => sendJoin());
 nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendJoin(); });
-
-// One-button
-btnOne.addEventListener("click", () => sendInput({ tap: true }));
-
-// Left-Right
-lrRow.querySelectorAll("button").forEach(btn => {
-  btn.addEventListener("click", () => sendInput({ move: btn.dataset.input }));
-});
-
-// D-Pad
-dpad.querySelectorAll("button").forEach(btn => {
-  btn.addEventListener("click", () => sendInput({ move: btn.dataset.input }));
-});
-
-// Text
-textSubmit.addEventListener("click", () => {
-  const text = textArea.value.trim();
-  if (text) { sendInput({ text }); textArea.value = ""; }
-});
-textArea.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); textSubmit.click(); } });
 
 // Restore rejoin token from localStorage on load
 const storedToken = localStorage.getItem("tbrn_rejoin_token");

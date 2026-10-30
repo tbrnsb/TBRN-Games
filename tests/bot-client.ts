@@ -6,6 +6,7 @@ export interface BotConfig {
   name: string;
   roomUrl: string; // ws://host:port
   rejoinToken?: string;
+  roomId?: string; // If provided, join this room instead of creating new
 }
 
 export interface BotPlayer extends Player {
@@ -17,6 +18,7 @@ export interface BotPlayer extends Player {
 export class BotClient {
   public player: BotPlayer | null = null;
   public roomId: string = "";
+  public roomState: ServerMessage["payload"] | null = null;
   private ws: WebSocket | null = null;
   private messageHandlers: Map<string, (msg: ServerMessage) => void> = new Map();
   private pendingRequests: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timeout: NodeJS.Timeout }> = new Map();
@@ -39,6 +41,7 @@ export class BotClient {
       this.ws.on("message", (data) => {
         try {
           const msg = JSON.parse(data.toString()) as ServerMessage;
+          console.log(`[${this.config.name}] Received:`, msg.type);
           this.handleMessage(msg);
         } catch (e) {
           console.error(`[${this.config.name}] Parse error:`, e);
@@ -84,6 +87,11 @@ export class BotClient {
     if (msg.type === MESSAGE_TYPES.PONG && this.player) {
       this.player.lastPing = Date.now();
     }
+
+    // Store room state for immediate access
+    if (msg.type === MESSAGE_TYPES.ROOM_STATE) {
+      this.roomState = msg.payload;
+    }
   }
 
   once(type: string, handler: (msg: ServerMessage) => void): void {
@@ -102,7 +110,7 @@ export class BotClient {
   private sendJoin(): void {
     const msg: ClientMessage = {
       type: MESSAGE_TYPES.JOIN,
-      roomId: "",
+      roomId: this.config.roomId ?? "",
       timestamp: Date.now(),
       payload: { name: this.config.name, rejoinToken: this.config.rejoinToken },
     };
@@ -164,9 +172,18 @@ export class BotClient {
 
 export async function createBots(count: number, baseUrl: string, namePrefix = "Bot"): Promise<BotClient[]> {
   const bots: BotClient[] = [];
+  let roomId = "";
+  
   for (let i = 0; i < count; i++) {
-    const bot = new BotClient({ name: `${namePrefix}-${i + 1}`, roomUrl: baseUrl });
+    const config = { name: `${namePrefix}-${i + 1}`, roomUrl: baseUrl };
+    if (i > 0 && roomId) {
+      config.roomId = roomId;
+    }
+    const bot = new BotClient(config);
     await bot.connect();
+    if (i === 0) {
+      roomId = bot.roomId;
+    }
     bots.push(bot);
   }
   return bots;

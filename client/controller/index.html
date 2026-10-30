@@ -23,13 +23,14 @@
       --spacing-6: 1.5rem;
       --radius-lg: 0.5rem;
       --radius-full: 9999px;
+      --spacing-3: 0.75rem;
     }
     body {
       font-family: var(--font-sans);
       background: var(--color-bg);
       color: var(--color-text);
       min-height: 100vh;
-      min-height: 100dvh; /* Dynamic viewport for mobile */
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       -webkit-tap-highlight-color: transparent;
@@ -58,13 +59,18 @@
     .controller { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: var(--spacing-6); }
     .controller.hidden { display: none; }
 
+    /* Dynamic controller container */
+    #controllerContainer { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: var(--spacing-4); }
+
     /* One-button controller */
-    .btn-one { width: 200px; height: 200px; border-radius: var(--radius-full); background: var(--color-primary); border: none; color: white; font-size: 2rem; font-weight: 700; cursor: pointer; touch-action: manipulation; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 40px rgb(46 125 255 / 0.4); transition: transform 0.1s, box-shadow 0.1s; }
+    .btn-one { width: 200px; height: 200px; border-radius: var(--radius-full); background: var(--color-primary); border: none; color: white; font-size: 2rem; font-weight: 700; cursor: pointer; touch-action: manipulation; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 40px rgb(46 125 255 / 0.4); transition: transform 0.1s, box-shadow 0.1s; }
     .btn-one:active { transform: scale(0.95); box-shadow: 0 0 60px rgb(46 125 255 / 0.6); }
     .btn-one:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: 0 0 40px rgb(46 125 255 / 0.4); }
+    .btn-label { font-size: 1.5rem; }
+    .btn-count { font-size: 3rem; font-weight: 700; font-family: "JetBrains Mono", monospace; }
 
     /* Left-Right controller */
-    .lr-row { display: flex; gap: var-spacing(4); }
+    .lr-row { display: flex; gap: var(--spacing-4); width: 100%; justify-content: center; }
     .btn-lr { width: 140px; height: 140px; border-radius: var(--radius-lg); background: var(--color-surface); border: 2px solid #334155; color: var(--color-text); font-size: 1.5rem; font-weight: 600; cursor: pointer; touch-action: manipulation; display: flex; align-items: center; justify-content: center; }
     .btn-lr:active { background: var(--color-primary); border-color: var(--color-primary); }
     .btn-lr.left:active { background: #1A66E0; }
@@ -84,6 +90,7 @@
     .text-input textarea { width: 100%; min-height: 120px; padding: 1rem; font-size: 1.125rem; font-family: var(--font-sans); border: 2px solid #334155; border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-text); resize: none; }
     .text-input textarea:focus { outline: none; border-color: var(--color-primary); }
     .text-input button { margin-top: var(--spacing-4); width: 100%; }
+    .char-count { text-align: right; font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.25rem; }
 
     /* Choice/Vote */
     .choices { display: flex; flex-direction: column; gap: var(--spacing-3); width: 100%; max-width: 400px; }
@@ -100,6 +107,9 @@
     .card { width: 80px; height: 112px; border-radius: 8px; background: white; color: #0F172A; box-shadow: 0 4px 12px rgb(0 0 0 / 0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 600; cursor: pointer; touch-action: manipulation; transition: transform 0.1s; }
     .card:active { transform: translateY(-8px); }
     .card.red { color: #EF4444; }
+    .card.face-down { background: var(--color-primary); color: white; }
+    .rank { font-size: 1.5rem; }
+    .suit { font-size: 2rem; }
 
     .status { text-align: center; color: var(--color-text-muted); font-size: 0.875rem; padding: var(--spacing-4); }
     .hidden { display: none !important; }
@@ -120,38 +130,7 @@
     <!-- Controller Area (shown after join) -->
     <section class="controller hidden" id="controllerArea">
       <div class="status" id="status">Waiting for host to start...</div>
-
-      <!-- One Button -->
-      <button class="btn-one hidden" id="btnOne" data-type="one-button">TAP</button>
-
-      <!-- Left-Right -->
-      <div class="lr-row hidden" id="lrRow" data-type="left-right">
-        <button class="btn-lr left" data-input="left">LEFT</button>
-        <button class="btn-lr right" data-input="right">RIGHT</button>
-      </div>
-
-      <!-- D-Pad -->
-      <div class="dpad hidden" id="dpad" data-type="dpad">
-        <button class="dpad-btn up" data-input="up">▲</button>
-        <button class="dpad-btn left" data-input="left">◀</button>
-        <button class="dpad-btn right" data-input="right">▶</button>
-        <button class="dpad-btn down" data-input="down">▼</button>
-      </div>
-
-      <!-- Text Input -->
-      <div class="text-input hidden" id="textInput" data-type="text">
-        <textarea id="textArea" placeholder="Type your answer..."></textarea>
-        <button id="textSubmit">Submit</button>
-      </div>
-
-      <!-- Choice/Vote -->
-      <div class="choices hidden" id="choices" data-type="choice"></div>
-
-      <!-- Private Grid -->
-      <div class="grid hidden" id="grid" data-type="private-grid"></div>
-
-      <!-- Card Hand -->
-      <div class="hand hidden" id="hand" data-type="card-hand"></div>
+      <div id="controllerContainer"></div>
     </section>
   </main>
   <script type="module" src="./main.ts"></script>

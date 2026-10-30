@@ -1,9 +1,9 @@
 # HANDOFF.md — TBRN-Games
 
 **Updated:** 2026-10-31
-**Last commit:** F1: Engine core complete - WebSocket server, rooms, QR join, lobby, reconnect, plugin loader, game loop, bot tests
-**Phase:** F1 Engine Core ✓ (done gate passed)
-**Step:** All tests passing, lint clean, ready for F2
+**Last commit:** F2: Controller Kit complete - 7 controller layouts with shared rendering
+**Phase:** F2 Controller Kit ✓ (done gate passed)
+**Step:** All tests passing, lint clean, ready for G1 Darts
 
 ---
 
@@ -13,42 +13,34 @@
 - Repo created & cloned: `github.com/tbrnsb/TBRN-Games` (public, MIT)
 - Per-repo git identity set: `tbrnsb` / `tbrnsb@users.noreply.github.com`
 - OpenCode v2.2.3 installed with NVIDIA, OpenRouter, Groq, Mistral providers
-- Project foundation files created (AGENTS.md, HANDOFF.md, .githooks/pre-commit, .github/workflows/ci.yml, package.json, tsconfig.json, eslint.config.js, .gitattributes, .nvmrc, .gitignore)
-- `shared/types.ts` — message types, constants
-- `shared/constants.js` — runtime constants (MESSAGE_TYPES, getLanUrls)
-- `shared/theme.ts` — design tokens (palette, font, spacing, motion)
-- `server/index.ts` — HTTP + WebSocket server with:
-  - Room management (create, join, leave, cleanup)
-  - Join flow with rejoin tokens (persist player seat on reconnect)
-  - QR join via `/api/lan-urls` + QR code generation
-  - Lobby state: player list, host can start game via `POST /api/rooms/:id/start`
-  - Game loop (60fps tick) broadcasting GAME_STATE to all players
-  - Plugin loader with dummy "tap-counter" plugin
-  - Privacy: controllerState per player, screenState shared
-- `server/plugins.ts` — plugin loader interface
-- `client/screen/index.html` + `main.ts` — lobby QR, game canvas rendering
-- `client/controller/index.html` + `main.ts` — join form, 7 controller types (one-button, left-right, dpad, text, choice, private-grid, card-hand)
-- `tests/bot-client.ts` — simulated phone clients with auto-reconnect
-- `tests/server.test.ts` — 3 integration tests passing:
-  1. 4 bots join same room, receive roomState with 4 players
-  2. Bot reconnects with rejoin token, restores same playerId
-  3. Host starts tap-counter game, bots send inputs, receive gameState
-- `docs/opencode-prompts/f0-f1-foundation.md` — OpenCode prompt for F0/F1
-- Lint passes (7 warnings only, 0 errors)
-- All 3 tests pass
+- **F0 Setup**: Project scaffolding, lint/test scripts, theme, CI, git hooks
+- **F1 Engine Core**: WebSocket server, rooms, join/reconnect, lobby, game loop, plugin loader, bot tests
+- **F2 Controller Kit**: 7 reusable controller layouts with shared rendering:
+  1. **one-button** — large tap button with counter
+  2. **left-right** — two buttons for horizontal movement
+  3. **dpad** — 4-directional pad
+  4. **text** — textarea with char counter + submit
+  5. **choice** — vertical list of vote options with selection state
+  6. **private-grid** — configurable grid for Guess Who/Sea Battle
+  7. **card-hand** — horizontal card fan with suit/rank
+- Shared controller system: `shared/controllers.ts` with registry, `client/controller/main.ts` uses dynamic layout switching
+- Screen client: lobby QR, canvas rendering, game selection
+- Controller client: join form, dynamic controller container, rejoin token persistence
+- Tests: 3 integration tests passing (join, reconnect, game input/state)
+- Lint: 0 errors, 7 warnings
 - Pushed to GitHub
 
 ---
 
 ## In Progress
-- F1 Engine Core complete — ready for F2 Controller Kit
+- F2 Controller Kit complete — ready for G1 Darts
 
 ---
 
 ## Next 3 Actions
-1. F2 Controller Kit: implement all 7 controller layouts with proper rendering
-2. F2 Screen basics: scoreboard, turn banner, game selection UI
-3. G1 Darts: first real game (1-4 players, one-button, turn flow, timing, scoring)
+1. **G1 Darts** (1-4 players, one-button): turn flow, timing, scoring, dartboard rendering
+2. **G2 Quiz** (1-4, choose answer): content packs, speed scoring
+3. **G3 Archery** (1-4, one-button): timing-based mechanics
 
 ---
 
@@ -79,6 +71,7 @@ npm test             # Run integration tests (connect to running server)
 - Controller types: one-button, left-right, dpad, text, choice, private-grid, card-hand
 - Builder = Nemotron 3 Ultra, Reviewer = Nemotron 3.5 Lightning (same family, user override)
 - Game loop runs at ~60fps (16ms interval) broadcasting to all connected players
+- Shared controller layouts in `shared/controllers.ts` with registry pattern
 
 ---
 
@@ -86,4 +79,4 @@ npm test             # Run integration tests (connect to running server)
 1. QR code: use external API (qrserver.com) or local generation (qrcode npm package)?
 2. HTTPS for keep-screen-awake: self-signed cert + trust on phone, or no-sleep JS trick (Wake Lock API)?
 3. Theme file format: current TS module with helpers — OK, or prefer JSON/CSS custom properties?
-4. F2 scope: implement all 7 controller layouts with shared components, or minimal for G1?
+4. G1 Darts scope: simple dartboard with sectors + turn timer, or full 501/301 rules?
