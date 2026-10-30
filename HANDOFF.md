@@ -1,9 +1,9 @@
 # HANDOFF.md — TBRN-Games
 
 **Updated:** 2026-10-31
-**Last commit:** F2: Controller Kit complete - 7 controller layouts with shared rendering
-**Phase:** F2 Controller Kit ✓ (done gate passed)
-**Step:** All tests passing, lint clean, ready for G1 Darts
+**Last commit:** G1: Darts game complete - first real game implementation
+**Phase:** G1 Darts ✓ (done gate passed)
+**Step:** All tests passing, lint clean, ready for G2 Quiz
 
 ---
 
@@ -15,32 +15,29 @@
 - OpenCode v2.2.3 installed with NVIDIA, OpenRouter, Groq, Mistral providers
 - **F0 Setup**: Project scaffolding, lint/test scripts, theme, CI, git hooks
 - **F1 Engine Core**: WebSocket server, rooms, join/reconnect, lobby, game loop, plugin loader, bot tests
-- **F2 Controller Kit**: 7 reusable controller layouts with shared rendering:
-  1. **one-button** — large tap button with counter
-  2. **left-right** — two buttons for horizontal movement
-  3. **dpad** — 4-directional pad
-  4. **text** — textarea with char counter + submit
-  5. **choice** — vertical list of vote options with selection state
-  6. **private-grid** — configurable grid for Guess Who/Sea Battle
-  7. **card-hand** — horizontal card fan with suit/rank
-- Shared controller system: `shared/controllers.ts` with registry, `client/controller/main.ts` uses dynamic layout switching
-- Screen client: lobby QR, canvas rendering, game selection
-- Controller client: join form, dynamic controller container, rejoin token persistence
-- Tests: 3 integration tests passing (join, reconnect, game input/state)
+- **F2 Controller Kit**: 7 reusable controller layouts with shared rendering
+- **G1 Darts** (1-4 players, one-button): 
+  - Turn flow (3 darts per turn, 501 scoring)
+  - Dartboard rendering with sectors, rings, bullseye
+  - Score panel with current player highlight
+  - Random throw simulation on tap
+  - Win detection (exact 0)
+- Dynamic plugin loader: auto-discovers games from `games/<name>/server.ts`
+- Tests: 3 integration tests passing (join, reconnect, darts game input/state)
 - Lint: 0 errors, 7 warnings
 - Pushed to GitHub
 
 ---
 
 ## In Progress
-- F2 Controller Kit complete — ready for G1 Darts
+- G1 Darts complete — ready for G2 Quiz
 
 ---
 
 ## Next 3 Actions
-1. **G1 Darts** (1-4 players, one-button): turn flow, timing, scoring, dartboard rendering
-2. **G2 Quiz** (1-4, choose answer): content packs, speed scoring
-3. **G3 Archery** (1-4, one-button): timing-based mechanics
+1. **G2 Quiz** (1-4 players, choose answer): content packs, speed scoring, answer reveal
+2. **G3 Archery** (1-4, one-button): timing-based mechanics, moving target
+3. **G4 Golf** (1-4, one-button): multi-round scoring, power meter
 
 ---
 
@@ -72,6 +69,7 @@ npm test             # Run integration tests (connect to running server)
 - Builder = Nemotron 3 Ultra, Reviewer = Nemotron 3.5 Lightning (same family, user override)
 - Game loop runs at ~60fps (16ms interval) broadcasting to all connected players
 - Shared controller layouts in `shared/controllers.ts` with registry pattern
+- Plugin types inlined in `server/plugins.ts` and game servers to avoid Node type-stripping issues
 
 ---
 
@@ -79,4 +77,4 @@ npm test             # Run integration tests (connect to running server)
 1. QR code: use external API (qrserver.com) or local generation (qrcode npm package)?
 2. HTTPS for keep-screen-awake: self-signed cert + trust on phone, or no-sleep JS trick (Wake Lock API)?
 3. Theme file format: current TS module with helpers — OK, or prefer JSON/CSS custom properties?
-4. G1 Darts scope: simple dartboard with sectors + turn timer, or full 501/301 rules?
+4. G2 Quiz scope: question packs from JSON, timed answers, score by speed + correctness?

@@ -1,17 +1,94 @@
-import { GamePlugin, GameManifest, GameInstance } from "../shared/types.ts";
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
-export { GamePlugin, GameManifest, GameInstance };
+// Plugin types defined locally to avoid import issues with Node type stripping
+export interface GameManifest {
+  id: string;
+  name: string;
+  minPlayers: number;
+  maxPlayers: number;
+  controllerType: ControllerType;
+  description: string;
+}
+
+export type ControllerType =
+  | "one-button"
+  | "left-right"
+  | "dpad"
+  | "text"
+  | "choice"
+  | "private-grid"
+  | "card-hand";
+
+export interface Player {
+  id: string;
+  name: string;
+  joinedAt: number;
+  rejoinToken: string;
+  connected: boolean;
+  controllerType?: string;
+}
+
+export interface RoomState {
+  id: string;
+  code: string;
+  hostPlayerId: string | null;
+  players: Player[];
+  gameId: string | null;
+  gameState: unknown | null;
+  createdAt: number;
+  status: "lobby" | "playing" | "finished";
+}
+
+export interface GameInstance {
+  roomId: string;
+  players: Player[];
+  state: unknown;
+}
+
+export interface GamePlugin {
+  manifest: GameManifest;
+  onStart(room: RoomState, players: Player[]): GameInstance;
+  onInput(instance: GameInstance, playerId: string, input: unknown): void;
+  onTick(instance: GameInstance, deltaMs: number): void;
+  screenState(instance: GameInstance): unknown;
+  controllerState(instance: GameInstance, playerId: string): unknown;
+}
 
 export interface PluginLoader {
   loadAll(): Map<string, GamePlugin>;
   get(id: string): GamePlugin | undefined;
 }
 
-export function createPluginLoader(_gamesDir: string): PluginLoader {
+export async function createPluginLoader(gamesDir: string): Promise<PluginLoader> {
   const plugins = new Map<string, GamePlugin>();
 
-  // TODO: Dynamic import from gamesDir at runtime
-  // For now, manual registration
+  // Auto-discover and load plugins from games/<name>/server.ts
+  async function loadPlugins() {
+    if (!existsSync(gamesDir)) return;
+
+    const gameDirs = readdirSync(gamesDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    for (const gameName of gameDirs) {
+      const serverPath = join(gamesDir, gameName, "server.ts");
+      if (!existsSync(serverPath)) continue;
+
+      try {
+        const module = await import(`file://${serverPath}`);
+        const plugin = module.default;
+        if (plugin && plugin.manifest) {
+          plugins.set(plugin.manifest.id, plugin);
+          console.log(`[Plugin] Loaded: ${plugin.manifest.name} (${plugin.manifest.id})`);
+        }
+      } catch (e) {
+        console.error(`[Plugin] Failed to load ${gameName}:`, e);
+      }
+    }
+  }
+
+  await loadPlugins();
 
   return {
     loadAll() {

@@ -17,9 +17,8 @@ import type {
   ServerMessage,
   RoomState,
   Player,
-  GamePlugin,
-  GameManifest,
 } from "../shared/types.ts";
+import type { PluginLoader } from "./plugins.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -71,41 +70,53 @@ function send(ws: WebSocket, message: ServerMessage): void {
 }
 
 // --- Plugin loader ---
-function loadPlugins(): void {
-  // TODO: Load from games/ directory at runtime
-  // For now, register a dummy plugin for testing
-  const dummyManifest: GameManifest = {
-    id: "tap-counter",
-    name: "Tap Counter",
-    minPlayers: 1,
-    maxPlayers: 4,
-    controllerType: "one-button",
-    description: "Tap as fast as you can",
-  };
+let pluginLoader: PluginLoader;
 
-  const dummyPlugin: GamePlugin = {
-    manifest: dummyManifest,
-    onStart(room, players) {
-      return { roomId: room.id, players, state: { taps: new Map<string, number>() } };
-    },
-    onInput(instance, playerId, input) {
-      if (input && typeof input === "object" && "tap" in input) {
+async function loadPlugins(): Promise<void> {
+  const { createPluginLoader } = await import("./plugins.ts");
+  pluginLoader = await createPluginLoader(join(process.cwd(), "games"));
+  const loaded = pluginLoader.loadAll();
+
+  // Copy to plugins map for compatibility
+  for (const [id, plugin] of loaded) {
+    plugins.set(id, plugin);
+  }
+
+  // Fallback: keep tap-counter if no plugins loaded
+  if (plugins.size === 0) {
+    const dummyManifest: GameManifest = {
+      id: "tap-counter",
+      name: "Tap Counter",
+      minPlayers: 1,
+      maxPlayers: 4,
+      controllerType: "one-button",
+      description: "Tap as fast as you can",
+    };
+
+    const dummyPlugin: GamePlugin = {
+      manifest: dummyManifest,
+      onStart(room, players) {
+        return { roomId: room.id, players, state: { taps: new Map<string, number>() } };
+      },
+      onInput(instance, playerId, input) {
+        if (input && typeof input === "object" && "tap" in input) {
+          const taps = instance.state.taps as Map<string, number>;
+          taps.set(playerId, (taps.get(playerId) ?? 0) + 1);
+        }
+      },
+      onTick(_instance, _deltaMs) {},
+      screenState(instance) {
         const taps = instance.state.taps as Map<string, number>;
-        taps.set(playerId, (taps.get(playerId) ?? 0) + 1);
-      }
-    },
-    onTick(_instance, _deltaMs) {},
-    screenState(instance) {
-      const taps = instance.state.taps as Map<string, number>;
-      return { players: instance.players.map((p) => ({ name: p.name, taps: taps.get(p.id) ?? 0 })) };
-    },
-    controllerState(instance, playerId) {
-      const taps = instance.state.taps as Map<string, number>;
-      return { yourTaps: taps.get(playerId) ?? 0 };
-    },
-  };
+        return { players: instance.players.map((p) => ({ name: p.name, taps: taps.get(p.id) ?? 0 })) };
+      },
+      controllerState(instance, playerId) {
+        const taps = instance.state.taps as Map<string, number>;
+        return { yourTaps: taps.get(playerId) ?? 0 };
+      },
+    };
 
-  plugins.set(dummyManifest.id, dummyPlugin);
+    plugins.set(dummyManifest.id, dummyPlugin);
+  }
 }
 
 // --- HTTP server for static files + health ---
@@ -481,9 +492,8 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
 }
 
 // --- Start ---
-loadPlugins();
-
 async function start() {
+  await loadPlugins();
   const urls = await getLanUrls(PORT);
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`TBRN-Games server listening on port ${PORT}`);

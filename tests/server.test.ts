@@ -51,7 +51,7 @@ describe("TBRN-Games Server", () => {
     newBot.disconnect();
   });
 
-  test("tap-counter game: bots can send inputs and receive game state", async () => {
+  test("darts game: bots can send inputs and receive game state", async () => {
     const bots = await createBots(2, BASE_URL, "GameBot");
     const [bot1, bot2] = bots;
 
@@ -59,14 +59,14 @@ describe("TBRN-Games Server", () => {
     const startRes = await fetch(`http://localhost:3000/api/rooms/${bot1.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameId: "tap-counter" }),
+      body: JSON.stringify({ gameId: "darts" }),
     });
     assert.strictEqual(startRes.status, 200);
 
     // Wait a bit for game loop to start
     await new Promise(r => setTimeout(r, 100));
 
-    // Send inputs
+    // Send inputs (darts uses tap to throw)
     bot1.sendInput({ tap: true });
     bot2.sendInput({ tap: true });
 

@@ -1,0 +1,8 @@
+{
+  "id": "darts",
+  "name": "Darts",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "controllerType": "one-button",
+  "description": "Classic darts - tap to throw, closest to center wins. 3 darts per turn, 501/301 scoring."
+}
