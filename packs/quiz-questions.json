@@ -1,0 +1,113 @@
+{
+  "id": "quiz-questions",
+  "name": "General Knowledge Quiz",
+  "description": "Mixed trivia questions for 1-4 players.",
+  "version": 1,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "What is the capital of Australia?",
+      "options": ["Sydney", "Melbourne", "Canberra", "Perth"],
+      "answer": 2,
+      "explanation": "Canberra was chosen as the capital in 1908 as a compromise between Sydney and Melbourne."
+    },
+    {
+      "id": "q2",
+      "text": "Which planet is known as the Red Planet?",
+      "options": ["Venus", "Mars", "Jupiter", "Saturn"],
+      "answer": 1,
+      "explanation": "Mars appears red due to iron oxide (rust) on its surface."
+    },
+    {
+      "id": "q3",
+      "text": "What is the largest mammal in the world?",
+      "options": ["African Elephant", "Blue Whale", "Giraffe", "Hippopotamus"],
+      "answer": 1,
+      "explanation": "Blue whales can reach 30 meters in length and weigh up to 180 tonnes."
+    },
+    {
+      "id": "q4",
+      "text": "In which year did the first iPhone release?",
+      "options": ["2005", "2007", "2009", "2011"],
+      "answer": 1,
+      "explanation": "The original iPhone was announced in January 2007 and released in June 2007."
+    },
+    {
+      "id": "q5",
+      "text": "What is the chemical symbol for gold?",
+      "options": ["Go", "Gd", "Au", "Ag"],
+      "answer": 2,
+      "explanation": "Au comes from the Latin 'aurum', meaning gold."
+    },
+    {
+      "id": "q6",
+      "text": "Which ocean is the largest?",
+      "options": ["Atlantic", "Indian", "Arctic", "Pacific"],
+      "answer": 3,
+      "explanation": "The Pacific Ocean covers about 63 million square miles."
+    },
+    {
+      "id": "q7",
+      "text": "Who wrote 'Romeo and Juliet'?",
+      "options": ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
+      "answer": 1,
+      "explanation": "Shakespeare wrote the tragedy around 1595-1596."
+    },
+    {
+      "id": "q8",
+      "text": "What is the hardest natural substance on Earth?",
+      "options": ["Gold", "Iron", "Diamond", "Platinum"],
+      "answer": 2,
+      "explanation": "Diamond scores 10 on the Mohs hardness scale."
+    },
+    {
+      "id": "q9",
+      "text": "How many continents are there?",
+      "options": ["5", "6", "7", "8"],
+      "answer": 2,
+      "explanation": "The seven continents: Africa, Antarctica, Asia, Europe, North America, Oceania, South America."
+    },
+    {
+      "id": "q10",
+      "text": "What is the speed of light in vacuum?",
+      "options": ["300,000 km/s", "150,000 km/s", "1,000,000 km/s", "500,000 km/s"],
+      "answer": 0,
+      "explanation": "Light travels at approximately 299,792,458 meters per second."
+    },
+    {
+      "id": "q11",
+      "text": "Which element has atomic number 1?",
+      "options": ["Helium", "Hydrogen", "Lithium", "Carbon"],
+      "answer": 1,
+      "explanation": "Hydrogen is the lightest and most abundant element in the universe."
+    },
+    {
+      "id": "q12",
+      "text": "What is the largest organ in the human body?",
+      "options": ["Liver", "Brain", "Skin", "Heart"],
+      "answer": 2,
+      "explanation": "The skin is the body's largest organ by surface area and weight."
+    },
+    {
+      "id": "q13",
+      "text": "Which country has the most islands?",
+      "options": ["Philippines", "Indonesia", "Sweden", "Canada"],
+      "answer": 3,
+      "explanation": "Canada has over 52,000 islands, more than any other country."
+    },
+    {
+      "id": "q14",
+      "text": "What year did World War II end?",
+      "options": ["1943", "1945", "1947", "1950"],
+      "answer": 1,
+      "explanation": "WWII ended in 1945 with Germany surrendering in May and Japan in September."
+    },
+    {
+      "id": "q15",
+      "text": "What is the main component of the Sun?",
+      "options": ["Oxygen", "Carbon", "Hydrogen", "Nitrogen"],
+      "answer": 2,
+      "explanation": "The Sun is about 73% hydrogen and 25% helium by mass."
+    }
+  ]
+}

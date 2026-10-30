@@ -1,0 +1,16 @@
+#!/usr/bin/env node
+import { execFileSync } from "node:child_process";
+
+const stagedFiles = execFileSync(
+  "git",
+  ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+  { encoding: "utf8" },
+)
+  .split(/\r?\n/)
+  .filter(Boolean)
+  .map((file) => file.replace(/\\/g, "/"));
+
+if (!stagedFiles.includes("HANDOFF.md")) {
+  console.error("Commit blocked: stage HANDOFF.md with every commit.");
+  process.exit(1);
+}

@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0f1f" />
+    <title>TBRN Games — Shared screen</title>
+    <link rel="stylesheet" href="/theme.css" />
+  </head>
+  <body data-page="laptop">
+    <div
+      class="connection-banner"
+      id="connection-banner"
+      data-state="connecting"
+      role="status"
+      aria-live="polite"
+    >
+      <span class="status-dot" aria-hidden="true"></span>
+      <span id="connection-text">Connecting to the game server…</span>
+      <button class="btn btn--ghost btn--small" id="retry-connection" type="button" hidden>
+        Retry
+      </button>
+    </div>
+
+    <main class="stage-shell">
+      <header class="stage-header">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+          <span>TBRN Games</span>
+        </div>
+        <div class="stage-meta">
+          <span class="pill" id="stage-count">0 / 4 players</span>
+          <span class="pill" id="stage-host">No host yet</span>
+        </div>
+      </header>
+
+      <section id="lobby-view" class="stage-view">
+        <div class="stage-hero">
+          <p class="eyebrow">The shared screen</p>
+          <h1 class="display">Phones in. Game on.</h1>
+          <p class="lede">
+            Open <strong id="join-url">/play</strong> on a phone connected to the same Wi-Fi.
+            The terminal prints the full LAN URL. Up to four phones can join. This laptop is
+            the stage — all controls live on the phones.
+          </p>
+        </div>
+
+        <div class="banner banner--warn" id="notice" hidden></div>
+
+        <div class="lobby-grid" style="margin-top: 1rem">
+          <div class="card players-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Players</p>
+                <h2>In the room</h2>
+              </div>
+              <span class="pill" id="lobby-count">0 / 4</span>
+            </div>
+            <ul id="players" class="player-list player-list--stage" aria-live="polite"></ul>
+            <p class="hint" id="host-line">Waiting for the first phone to join.</p>
+          </div>
+
+          <div class="card library-card" id="library-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Game library</p>
+                <h2>Ready to play</h2>
+              </div>
+              <span class="pill" id="library-count"></span>
+            </div>
+            <div class="game-grid" id="games"></div>
+            <p class="hint" id="library-hint"></p>
+          </div>
+        </div>
+
+        <div class="card vote-panel" id="vote-panel" hidden>
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Group vote</p>
+              <h2>The room is choosing</h2>
+            </div>
+            <span class="pill" id="vote-count">0 / 0 votes</span>
+          </div>
+          <div class="timer-bar" aria-hidden="true"><span id="vote-bar"></span></div>
+          <p class="hint" id="vote-timer"></p>
+          <div class="game-grid" id="ballot-games"></div>
+          <p class="hint" id="vote-status">
+            Ballots are private. The winner appears when voting closes.
+          </p>
+        </div>
+      </section>
+
+      <section id="game-view" class="stage-view" hidden>
+        <div id="same-wave-screen" hidden>
+          <div class="stage-game">
+            <div class="stage-game__head">
+              <div>
+                <p class="eyebrow" id="sw-round"></p>
+                <h1 class="stage-prompt" id="sw-prompt"></h1>
+              </div>
+              <span class="pill" id="sw-phase"></span>
+            </div>
+
+            <div class="stage-options">
+              <div class="stage-option stage-option--a">
+                <span class="choice-key">A</span>
+                <span class="stage-option__text" id="sw-a-text"></span>
+                <span class="stage-option__count" id="sw-a-count"></span>
+              </div>
+              <div class="stage-option stage-option--b">
+                <span class="choice-key choice-key--b">B</span>
+                <span class="stage-option__text" id="sw-b-text"></span>
+                <span class="stage-option__count" id="sw-b-count"></span>
+              </div>
+            </div>
+
+            <div class="row">
+              <p class="timer timer--big" id="sw-timer"></p>
+              <span class="spacer"></span>
+              <span class="pill" id="sw-voted"></span>
+            </div>
+            <div class="timer-bar" aria-hidden="true"><span id="sw-bar"></span></div>
+
+            <div class="stage-winner" id="sw-winner" hidden>
+              <p class="eyebrow">Result</p>
+              <h2 class="display" id="sw-winner-text"></h2>
+            </div>
+
+            <div>
+              <p class="eyebrow">Scores</p>
+              <ol class="stage-scores" id="sw-scores"></ol>
+            </div>
+            <p class="hint" id="sw-status"></p>
+          </div>
+        </div>
+
+        <div id="darts-screen" hidden>
+          <div class="stage-game">
+            <div class="stage-game__head">
+              <div>
+                <p class="eyebrow" id="darts-round"></p>
+                <h1 class="stage-prompt" id="darts-turn"></h1>
+              </div>
+              <span class="pill" id="darts-phase"></span>
+            </div>
+
+            <div class="stage-darts">
+              <div class="stage-darts__board">
+                <div class="darts-target" id="darts-target">
+                  <div class="darts-target__value">
+                    <span id="darts-countdown">3</span>
+                    <small id="darts-countdown-label">seconds</small>
+                  </div>
+                </div>
+              </div>
+              <div class="stage-darts__info">
+                <p class="stage-darts__last" id="darts-last"></p>
+                <p class="hint" id="darts-instruction"></p>
+                <p class="eyebrow">Scores</p>
+                <ol class="stage-scores" id="darts-scores"></ol>
+              </div>
+            </div>
+
+            <div class="stage-winner" id="darts-winner" hidden>
+              <p class="eyebrow">Winner</p>
+              <h2 class="display" id="darts-winner-text"></h2>
+            </div>
+          </div>
+        </div>
+
+        <div id="generic-screen" hidden>
+          <div class="card">
+            <p class="eyebrow">Game in progress</p>
+            <h2 class="display" style="font-size: 2.4rem">Watch the phones.</h2>
+            <p class="lede">This game has no shared-screen view yet.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="connection-overlay" class="overlay" hidden>
+      <div class="overlay__card" role="alertdialog" aria-modal="true" aria-labelledby="overlay-title">
+        <p class="eyebrow">Connection</p>
+        <h2 id="overlay-title">We lost the server.</h2>
+        <p class="muted" id="overlay-text">
+          Check that the game server is still running, then retry.
+        </p>
+        <div class="overlay__actions">
+          <button class="btn btn--primary btn--block" id="overlay-retry" type="button">
+            Retry now
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        "use strict";
+
+        const MAX_RETRIES = 5;
+        const RETRY_DELAYS = [500, 1_000, 2_000, 4_000, 8_000];
+        const socketUrl =
+          (location.protocol === "https:" ? "wss:" : "ws:") +
+          "//" +
+          location.host +
+          "/ws";
+
+        const el = {
+          banner: document.getElementById("connection-banner"),
+          connectionText: document.getElementById("connection-text"),
+          retryConnection: document.getElementById("retry-connection"),
+          stageCount: document.getElementById("stage-count"),
+          stageHost: document.getElementById("stage-host"),
+          lobby: document.getElementById("lobby-view"),
+          notice: document.getElementById("notice"),
+          players: document.getElementById("players"),
+          lobbyCount: document.getElementById("lobby-count"),
+          hostLine: document.getElementById("host-line"),
+          libraryCard: document.getElementById("library-card"),
+          libraryCount: document.getElementById("library-count"),
+          games: document.getElementById("games"),
+          libraryHint: document.getElementById("library-hint"),
+          votePanel: document.getElementById("vote-panel"),
+          voteCount: document.getElementById("vote-count"),
+          voteBar: document.getElementById("vote-bar"),
+          voteTimer: document.getElementById("vote-timer"),
+          ballotGames: document.getElementById("ballot-games"),
+          voteStatus: document.getElementById("vote-status"),
+          game: document.getElementById("game-view"),
+          sameWave: document.getElementById("same-wave-screen"),
+          darts: document.getElementById("darts-screen"),
+          generic: document.getElementById("generic-screen"),
+          overlay: document.getElementById("connection-overlay"),
+          overlayRetry: document.getElementById("overlay-retry"),
+        };
+
+        const sw = {
+          round: document.getElementById("sw-round"),
+          prompt: document.getElementById("sw-prompt"),
+          phase: document.getElementById("sw-phase"),
+          aText: document.getElementById("sw-a-text"),
+          bText: document.getElementById("sw-b-text"),
+          aCount: document.getElementById("sw-a-count"),
+          bCount: document.getElementById("sw-b-count"),
+          timer: document.getElementById("sw-timer"),
+          voted: document.getElementById("sw-voted"),
+          bar: document.getElementById("sw-bar"),
+          winner: document.getElementById("sw-winner"),
+          winnerText: document.getElementById("sw-winner-text"),
+          scores: document.getElementById("sw-scores"),
+          status: document.getElementById("sw-status"),
+        };
+
+        const darts = {
+          round: document.getElementById("darts-round"),
+          turn: document.getElementById("darts-turn"),
+          phase: document.getElementById("darts-phase"),
+          target: document.getElementById("darts-target"),
+          countdown: document.getElementById("darts-countdown"),
+          countdownLabel: document.getElementById("darts-countdown-label"),
+          last: document.getElementById("darts-last"),
+          instruction: document.getElementById("darts-instruction"),
+          scores: document.getElementById("darts-scores"),
+          winner: document.getElementById("darts-winner"),
+          winnerText: document.getElementById("darts-winner-text"),
+        };
+
+        let socket = null;
+        let socketGeneration = 0;
+        let retries = 0;
+        let retryTimer = null;
+        let countdownTimer = null;
+        let dartsTimer = null;
+        let lobbyState = null;
+        let clockOffset = 0;
+
+        function initials(name) {
+          const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
+
+          if (parts.length === 0) {
+            return "?";
+          }
+
+          if (parts.length === 1) {
+            return parts[0].slice(0, 2).toUpperCase();
+          }
+
+          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function setConnection(state, text) {
+          el.banner.dataset.state = state;
+          el.connectionText.textContent = text;
+          el.retryConnection.hidden = state === "online";
+        }
+
+        function serverNow() {
+          return Date.now() + clockOffset;
+        }
+
+        function clearCountdown() {
+          if (countdownTimer !== null) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+          }
+        }
+
+        function clearDartsTimer() {
+          if (dartsTimer !== null) {
+            clearInterval(dartsTimer);
+            dartsTimer = null;
+          }
+        }
+
+        function startCountdown(deadline, update) {
+          clearCountdown();
+
+          function tick() {
+            const remaining = Math.max(0, deadline - serverNow());
+            update(remaining);
+
+            if (remaining <= 0) {
+              clearCountdown();
+            }
+          }
+
+          tick();
+          countdownTimer = setInterval(tick, 200);
+        }
+
+        function showOverlay(show) {
+          el.overlay.hidden = !show;
+        }
+
+        function connect() {
+          if (retryTimer !== null) {
+            clearTimeout(retryTimer);
+            retryTimer = null;
+          }
+
+          if (socket) {
+            try {
+              socket.close();
+            } catch {
+              // Ignore a socket that is already closing.
+            }
+          }
+
+          const generation = ++socketGeneration;
+          setConnection(
+            retries === 0 ? "connecting" : "reconnecting",
+            retries === 0
+              ? "Connecting to the game server…"
+              : "Reconnecting… attempt " + retries + " of " + MAX_RETRIES,
+          );
+
+          const ws = new WebSocket(socketUrl);
+          socket = ws;
+
+          ws.addEventListener("open", () => {
+            if (generation !== socketGeneration) {
+              return;
+            }
+
+            retries = 0;
+            showOverlay(false);
+            setConnection("online", "Connected to the game server");
+          });
+
+          ws.addEventListener("message", (event) => {
+            if (generation !== socketGeneration) {
+              return;
+            }
+
+            let message;
+
+            try {
+              message = JSON.parse(event.data);
+            } catch {
+              return;
+            }
+
+            handleMessage(message);
+          });
+
+          ws.addEventListener("close", () => {
+            if (generation !== socketGeneration) {
+              return;
+            }
+
+            handleClose();
+          });
+
+          ws.addEventListener("error", () => {
+            // The close event handles retry and the overlay.
+          });
+        }
+
+        function handleClose() {
+          clearCountdown();
+          clearDartsTimer();
+
+          if (retries >= MAX_RETRIES) {
+            setConnection("offline", "Connection lost");
+            showOverlay(true);
+            return;
+          }
+
+          const delay = RETRY_DELAYS[retries] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+          retries += 1;
+          setConnection(
+            "reconnecting",
+            "Reconnecting… attempt " + retries + " of " + MAX_RETRIES,
+          );
+          retryTimer = setTimeout(() => {
+            retryTimer = null;
+            connect();
+          }, delay);
+        }
+
+        function handleMessage(message) {
+          if (message.type === "time") {
+            clockOffset = message.now - Date.now();
+            return;
+          }
+
+          if (message.type === "lobby") {
+            lobbyState = message.state;
+            renderLobby();
+            return;
+          }
+
+          if (message.type === "screen") {
+            renderScreen(message.state);
+            return;
+          }
+
+          if (message.type === "error") {
+            el.notice.textContent = message.message;
+            el.notice.hidden = false;
+          }
+        }
+
+        function connectedPlayers() {
+          return lobbyState
+            ? lobbyState.players.filter((player) => player.connected)
+            : [];
+        }
+
+        function playerRange(game) {
+          return game.minPlayers === game.maxPlayers
+            ? String(game.minPlayers)
+            : game.minPlayers + "–" + game.maxPlayers;
+        }
+
+        function renderPlayers() {
+          el.players.replaceChildren();
+          const connected = connectedPlayers();
+          el.stageCount.textContent =
+            connected.length + " / " + (lobbyState ? lobbyState.maxPlayers : 4) + " players";
+          el.lobbyCount.textContent =
+            connected.length + " / " + (lobbyState ? lobbyState.maxPlayers : 4);
+
+          if (!lobbyState) {
+            return;
+          }
+
+          const host = lobbyState.players.find(
+            (player) => player.id === lobbyState.hostId,
+          );
+          el.stageHost.textContent = host ? "Host: " + host.name : "No host yet";
+          el.hostLine.textContent = host
+            ? "Host: " + host.name
+            : "Waiting for the first phone to join.";
+
+          for (const player of lobbyState.players) {
+            const item = document.createElement("li");
+            item.className = "player-chip";
+            item.dataset.connected = String(player.connected);
+
+            const avatar = document.createElement("span");
+            avatar.className = "avatar avatar--sm";
+            avatar.setAttribute("aria-hidden", "true");
+            avatar.textContent = initials(player.name);
+
+            const name = document.createElement("span");
+            name.className = "player-chip__name";
+            name.textContent = player.name;
+
+            item.append(avatar, name);
+
+            if (player.id === lobbyState.hostId) {
+              const badge = document.createElement("span");
+              badge.className = "badge";
+              badge.textContent = "Host";
+              item.append(badge);
+            }
+
+            if (!player.connected) {
+              const status = document.createElement("span");
+              status.className = "player-chip__status";
+              status.textContent = "Away";
+              item.append(status);
+            }
+
+            el.players.append(item);
+          }
+        }
+
+        function renderGameCard(game, count) {
+          const eligible = count >= game.minPlayers && count <= game.maxPlayers;
+          const card = document.createElement("div");
+          card.className = "game-card game-card--stage";
+          card.dataset.eligible = String(eligible);
+
+          const top = document.createElement("span");
+          top.className = "game-card__top";
+          const name = document.createElement("span");
+          name.className = "game-card__name";
+          name.textContent = game.name;
+          const range = document.createElement("span");
+          range.className = "game-card__range";
+          range.textContent = playerRange(game) + " players";
+          top.append(name, range);
+
+          const description = document.createElement("span");
+          description.className = "game-card__desc";
+          description.textContent = game.description;
+
+          const action = document.createElement("span");
+          action.className = "game-card__action";
+          action.textContent = eligible
+            ? "Ready"
+            : "Needs " + playerRange(game) + " players";
+
+          card.append(top, description, action);
+          return card;
+        }
+
+        function renderLibrary() {
+          el.games.replaceChildren();
+
+          if (!lobbyState) {
+            return;
+          }
+
+          const count = connectedPlayers().length;
+          const eligible = lobbyState.games.filter(
+            (game) => count >= game.minPlayers && count <= game.maxPlayers,
+          );
+          el.libraryCount.textContent =
+            eligible.length + " of " + lobbyState.games.length + " ready";
+          el.libraryHint.textContent =
+            lobbyState.games.length === 0
+              ? "No games are registered yet."
+              : "The host chooses on their phone: start a game directly, surprise the room, or run a group vote.";
+
+          for (const game of lobbyState.games) {
+            el.games.append(renderGameCard(game, count));
+          }
+        }
+
+        function renderVote() {
+          if (!lobbyState || !lobbyState.selection) {
+            el.votePanel.hidden = true;
+            clearCountdown();
+            return;
+          }
+
+          const selection = lobbyState.selection;
+          el.votePanel.hidden = false;
+          el.libraryCard.hidden = true;
+          el.voteCount.textContent =
+            selection.ballotsCast + " / " + selection.voterCount + " votes";
+          el.ballotGames.replaceChildren();
+
+          for (const game of selection.games) {
+            const card = renderGameCard(game, selection.voterCount);
+            const action = card.querySelector(".game-card__action");
+
+            if (action) {
+              action.textContent = "In the running";
+            }
+
+            el.ballotGames.append(card);
+          }
+
+          startCountdown(selection.deadline, (remaining) => {
+            const fraction = Math.max(0, Math.min(1, remaining / 30_000));
+            el.voteBar.style.transform = "scaleX(" + fraction + ")";
+            el.voteTimer.textContent =
+              remaining <= 0
+                ? "Closing the vote…"
+                : "Voting closes in " + Math.ceil(remaining / 1_000) + "s";
+          });
+        }
+
+        function renderLobby() {
+          clearDartsTimer();
+          el.lobby.hidden = false;
+          el.game.hidden = true;
+          el.notice.hidden = !lobbyState || !lobbyState.notice;
+
+          if (lobbyState && lobbyState.notice) {
+            el.notice.textContent = lobbyState.notice;
+          }
+
+          renderPlayers();
+          renderLibrary();
+          el.libraryCard.hidden = Boolean(lobbyState && lobbyState.selection);
+          renderVote();
+        }
+
+        function renderScores(target, scores) {
+          target.replaceChildren();
+          const best = Math.max(...scores.map((entry) => entry.score || 0));
+
+          for (const entry of scores) {
+            const item = document.createElement("li");
+            item.className = "stage-score";
+            item.dataset.leader = String((entry.score || 0) === best && best > 0);
+
+            const name = document.createElement("span");
+            name.className = "stage-score__name";
+            name.textContent = entry.name;
+
+            const value = document.createElement("span");
+            value.className = "stage-score__value";
+            value.textContent = String(entry.score || 0);
+
+            item.append(name, value);
+            target.append(item);
+          }
+        }
+
+        function renderSameWave(view) {
+          clearCountdown();
+          clearDartsTimer();
+          sw.round.textContent =
+            "Round " + view.round + " of " + view.totalRounds;
+          sw.prompt.textContent = view.prompt.text;
+          sw.aText.textContent = view.prompt.a;
+          sw.bText.textContent = view.prompt.b;
+          sw.phase.textContent =
+            view.phase === "voting"
+              ? "Voting"
+              : view.phase === "reveal"
+                ? "Reveal"
+                : "Finished";
+
+          if (view.phase === "voting") {
+            sw.aCount.textContent = "";
+            sw.bCount.textContent = "";
+            sw.winner.hidden = true;
+            sw.scores.replaceChildren();
+            sw.voted.textContent =
+              view.votedCount + " / " + view.playerCount + " voted";
+            sw.status.textContent = "Pick A or B on your phone.";
+            startCountdown(view.deadline, (remaining) => {
+              sw.timer.textContent =
+                remaining <= 0
+                  ? "Time is up."
+                  : "Voting closes in " + Math.ceil(remaining / 1_000) + "s";
+              sw.bar.style.transform =
+                "scaleX(" + Math.max(0, Math.min(1, remaining / 30_000)) + ")";
+            });
+            return;
+          }
+
+          sw.timer.textContent = "";
+          sw.bar.style.transform = "scaleX(0)";
+          sw.aCount.textContent = String(view.counts.a);
+          sw.bCount.textContent = String(view.counts.b);
+          sw.voted.textContent = "";
+          sw.winner.hidden = false;
+          sw.winnerText.dataset.result = view.winner === null ? "none" : "win";
+          sw.winnerText.textContent =
+            view.winner === null
+              ? view.counts.a + view.counts.b < 2
+                ? "Fewer than two votes — no points."
+                : "A tie — no points."
+              : "Side " + view.winner.toUpperCase() + " takes the round.";
+          renderScores(sw.scores, view.scores);
+
+          if (view.phase === "finished") {
+            sw.status.textContent =
+              view.winners.length === 1
+                ? view.winners[0].name + " wins Same Wave."
+                : "Shared win: " +
+                  view.winners.map((entry) => entry.name).join(", ") +
+                  ".";
+            return;
+          }
+
+          sw.status.textContent =
+            "Waiting for the host to start the next round.";
+        }
+
+        function setDartsIdle() {
+          darts.countdown.textContent = "—";
+          darts.countdownLabel.textContent = "turn over";
+          darts.target.classList.remove("is-hot");
+        }
+
+        function renderDarts(view) {
+          clearCountdown();
+          clearDartsTimer();
+          darts.round.textContent =
+            "Round " + view.round + " of " + view.totalRounds;
+          darts.phase.textContent = view.phase === "playing" ? "Live" : "Finished";
+          renderScores(darts.scores, view.scores);
+
+          if (view.phase === "finished") {
+            darts.turn.textContent = "Game over";
+            setDartsIdle();
+            darts.last.textContent = "";
+            darts.instruction.textContent = "";
+            darts.winner.hidden = false;
+            darts.winnerText.textContent =
+              view.winners.length === 1
+                ? view.winners[0].name + " wins with " + view.winners[0].score + "."
+                : "Shared win: " +
+                  view.winners
+                    .map((entry) => entry.name + " (" + entry.score + ")")
+                    .join(", ") +
+                  ".";
+            return;
+          }
+
+          darts.winner.hidden = true;
+          darts.turn.textContent = view.currentPlayer.name + " is up";
+          darts.instruction.textContent =
+            "Tap Throw on " + view.currentPlayer.name + "'s phone when the countdown hits zero.";
+          darts.last.textContent = view.lastThrow
+            ? view.lastThrow.playerName +
+              " scored " +
+              view.lastThrow.score +
+              " — " +
+              view.lastThrow.label
+            : "No throws yet.";
+
+          const targetAt = view.targetAt;
+          const deadline = view.deadline;
+
+          function tick() {
+            const now = serverNow();
+
+            if (now >= deadline) {
+              setDartsIdle();
+              return;
+            }
+
+            if (now >= targetAt) {
+              darts.countdown.textContent = "NOW";
+              darts.countdownLabel.textContent = "throw";
+              darts.target.classList.add("is-hot");
+            } else {
+              darts.countdown.textContent = String(
+                Math.max(1, Math.ceil((targetAt - now) / 1_000)),
+              );
+              darts.countdownLabel.textContent = "seconds";
+              darts.target.classList.remove("is-hot");
+            }
+          }
+
+          tick();
+          dartsTimer = setInterval(tick, 100);
+        }
+
+        function renderScreen(state) {
+          el.lobby.hidden = true;
+          el.game.hidden = false;
+          el.sameWave.hidden = state.gameId !== "same-wave";
+          el.darts.hidden = state.gameId !== "darts";
+          el.generic.hidden =
+            state.gameId === "same-wave" || state.gameId === "darts";
+
+          if (state.gameId === "same-wave") {
+            renderSameWave(state.view);
+            return;
+          }
+
+          if (state.gameId === "darts") {
+            renderDarts(state.view);
+            return;
+          }
+
+          clearCountdown();
+          clearDartsTimer();
+        }
+
+        el.retryConnection.addEventListener("click", () => {
+          retries = 0;
+          connect();
+        });
+
+        el.overlayRetry.addEventListener("click", () => {
+          retries = 0;
+          connect();
+        });
+
+        window.addEventListener("online", () => {
+          if (!socket || socket.readyState !== WebSocket.OPEN) {
+            retries = 0;
+            connect();
+          }
+        });
+
+        connect();
+      })();
+    </script>
+  </body>
+</html>

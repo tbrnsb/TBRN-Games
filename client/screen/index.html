@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="TBRN-Games — Shared Screen">
+  <title>TBRN-Games</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-bg: #0F172A;
+      --color-surface: #1E293B;
+      --color-primary: #2E7DFF;
+      --color-text: #F8FAFC;
+      --color-text-muted: #94A3B8;
+      --font-sans: "Inter", system-ui, sans-serif;
+      --spacing-4: 1rem;
+      --spacing-6: 1.5rem;
+      --radius-lg: 0.5rem;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: var(--spacing-4) var(--spacing-6);
+      border-bottom: 1px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    .room-code { font-family: "JetBrains Mono", monospace; font-size: 2rem; letter-spacing: 0.2em; color: var(--color-primary); }
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--spacing-6); }
+    .qr-container { text-align: center; margin-bottom: var(--spacing-6); }
+    .qr-container img { max-width: 100%; height: auto; border-radius: var(--radius-lg); background: white; padding: 1rem; }
+    .url-fallback { color: var(--color-text-muted); font-size: 0.875rem; word-break: break-all; max-width: 90vw; }
+    .players { display: flex; gap: var(--spacing-4); flex-wrap: wrap; justify-content: center; margin-top: var(--spacing-6); }
+    .player-badge { background: var(--color-surface); padding: var(--spacing-2) var(--spacing-4); border-radius: var(--radius-lg); font-weight: 500; }
+    canvas { max-width: 100%; height: auto; border-radius: var(--radius-lg); }
+    .hidden { display: none !important; }
+    .lobby, .playing { width: 100%; max-width: 1200px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TBRN-Games</h1>
+    <div class="room-code" id="roomCode">----</div>
+  </header>
+  <main>
+    <!-- Lobby State -->
+    <section class="lobby" id="lobby">
+      <div class="qr-container">
+        <img id="qrCode" src="" alt="QR code to join game" class="hidden">
+        <p class="url-fallback" id="urlFallback">Waiting for room...</p>
+      </div>
+      <div class="players" id="playersList"></div>
+      <button id="startGameBtn" class="hidden" style="
+        margin-top: 2rem; padding: 1rem 2rem; font-size: 1.25rem; font-weight: 600;
+        background: var(--color-primary); color: white; border: none; border-radius: var(--radius-lg);
+        cursor: pointer;
+      ">Start Game</button>
+    </section>
+
+    <!-- Playing State -->
+    <section class="playing hidden" id="playing">
+      <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    </section>
+  </main>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
