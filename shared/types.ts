@@ -14,7 +14,7 @@ export interface BaseMessage {
 // --- Client -> Server messages ---
 export interface JoinMessage extends BaseMessage {
   type: "join";
-  payload: { name: string; rejoinToken?: string };
+  payload: { name: string; rejoinToken?: string; role?: "screen" | "player" };
 }
 
 export interface InputMessage extends BaseMessage {
@@ -41,7 +41,12 @@ export interface RoomStateMessage extends BaseMessage {
 
 export interface GameStateMessage extends BaseMessage {
   type: "gameState";
-  payload: { screen: unknown; controller: unknown };
+  payload: {
+    screen: unknown;
+    controller: unknown;
+    gameId?: string | null;
+    gameName?: string;
+  };
 }
 
 export interface ErrorMessage extends BaseMessage {

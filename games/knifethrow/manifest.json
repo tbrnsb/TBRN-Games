@@ -1,0 +1,1 @@
+{ "id": "knifethrow", "name": "Knife Throw", "minPlayers": 1, "maxPlayers": 4, "controllerType": "one-button", "description": "Tap to throw knives at rotating target. Don't hit existing knives!" }

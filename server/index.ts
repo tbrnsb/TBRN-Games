@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
+import type { ServerResponse } from "node:http";
+import { stripTypeScriptTypes } from "node:module";
 import { WebSocketServer, WebSocket } from "ws";
 import { randomBytes } from "node:crypto";
-import { join } from "node:path";
+import { join, normalize } from "node:path";
 import { readFileSync } from "node:fs";
 import {
   getLanUrls,
@@ -18,7 +20,7 @@ import type {
   RoomState,
   Player,
 } from "../shared/types.ts";
-import type { PluginLoader } from "./plugins.ts";
+import type { PluginLoader, GamePlugin, GameManifest } from "./plugins.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -27,7 +29,10 @@ const rooms = new Map<string, RoomState>();
 const plugins = new Map<string, GamePlugin>();
 const playerSockets = new Map<string, WebSocket>(); // playerId -> ws
 const socketPlayers = new Map<WebSocket, string>(); // ws -> playerId
+const playerRooms = new Map<string, string>(); // playerId -> roomId (for O(1) lookup)
 const gameLoops = new Map<string, NodeJS.Timeout>(); // roomId -> interval
+const roomScreens = new Map<string, Set<WebSocket>>(); // roomId -> screen sockets
+const screenRooms = new Map<WebSocket, string>(); // screen ws -> roomId
 
 // --- Helpers ---
 function generateRoomCode(): string {
@@ -47,9 +52,9 @@ function generatePlayerId(): string {
 }
 
 function findRoomByPlayerId(playerId: string): RoomState | undefined {
-  for (const room of rooms.values()) {
-    if (room.players.some((p) => p.id === playerId)) return room;
-  }
+  const roomId = playerRooms.get(playerId);
+  if (roomId) return rooms.get(roomId);
+  return undefined;
 }
 
 function broadcast(room: RoomState, message: ServerMessage, excludePlayerId?: string): void {
@@ -61,12 +66,81 @@ function broadcast(room: RoomState, message: ServerMessage, excludePlayerId?: st
       ws.send(data);
     }
   }
+  // The laptop screen is a spectator: it receives room messages too.
+  const screens = roomScreens.get(room.id);
+  if (screens) {
+    for (const ws of screens) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+      }
+    }
+  }
+}
+
+/**
+ * Send the public screen state to the laptop screen sockets of a room.
+ * Screens never receive controller (private) state.
+ */
+function sendScreenGameState(room: RoomState, plugin: GamePlugin, screen: unknown): void {
+  const screens = roomScreens.get(room.id);
+  if (!screens) return;
+  for (const ws of screens) {
+    if (ws.readyState === WebSocket.OPEN) {
+      send(ws, {
+        type: MESSAGE_TYPES.GAME_STATE,
+        roomId: room.id,
+        timestamp: Date.now(),
+        payload: { screen, controller: null, gameId: room.gameId, gameName: plugin.manifest.name },
+      });
+    }
+  }
 }
 
 function send(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));
   }
+}
+
+/**
+ * Per-player game state message, including the public game identity.
+ * A game may set its own `controllerType` in the controller state to switch
+ * layouts mid-game (e.g. text input while writing, choice while voting);
+ * otherwise the manifest type is used.
+ */
+function gameStateMessage(
+  room: RoomState,
+  plugin: GamePlugin,
+  playerId: string,
+  screen: unknown,
+  controller: unknown,
+): ServerMessage {
+  let payloadController: unknown;
+  if (controller && typeof controller === "object") {
+    const c = controller as Record<string, unknown>;
+    payloadController =
+      typeof c.controllerType === "string" && c.controllerType.length > 0
+        ? controller
+        : { ...controller, controllerType: plugin.manifest.controllerType };
+  } else {
+    payloadController = { controllerType: plugin.manifest.controllerType };
+  }
+  return {
+    type: MESSAGE_TYPES.GAME_STATE,
+    roomId: room.id,
+    playerId,
+    timestamp: Date.now(),
+    payload: { screen, controller: payloadController, gameId: room.gameId, gameName: plugin.manifest.name },
+  };
+}
+
+/**
+ * Room copy with the live game instance stripped out.
+ * room.gameState contains private per-player data (hole cards, boards,
+ * secret characters) and must never be sent to clients.
+ */
+function publicRoom(room: RoomState): RoomState {
+  return { ...room, gameState: null };
 }
 
 // --- Plugin loader ---
@@ -100,17 +174,17 @@ async function loadPlugins(): Promise<void> {
       },
       onInput(instance, playerId, input) {
         if (input && typeof input === "object" && "tap" in input) {
-          const taps = instance.state.taps as Map<string, number>;
+          const taps = (instance.state as { taps: Map<string, number> }).taps;
           taps.set(playerId, (taps.get(playerId) ?? 0) + 1);
         }
       },
       onTick(_instance, _deltaMs) {},
       screenState(instance) {
-        const taps = instance.state.taps as Map<string, number>;
+        const taps = (instance.state as { taps: Map<string, number> }).taps;
         return { players: instance.players.map((p) => ({ name: p.name, taps: taps.get(p.id) ?? 0 })) };
       },
       controllerState(instance, playerId) {
-        const taps = instance.state.taps as Map<string, number>;
+        const taps = (instance.state as { taps: Map<string, number> }).taps;
         return { yourTaps: taps.get(playerId) ?? 0 };
       },
     };
@@ -136,37 +210,91 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
+  // Public list of installed games (manifests only)
+  if (url.pathname === "/api/games") {
+    const games = [...plugins.values()].map((p) => p.manifest);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ games }));
+    return;
+  }
+
   // Handle start game
   if (handleStartGame(req, res, url)) {
     return;
   }
 
-  // Serve static client files (screen + controller)
-  let filePath = "";
-  if (url.pathname === "/" || url.pathname === "/screen") {
-    filePath = join(process.cwd(), "client/screen/index.html");
-  } else if (url.pathname.startsWith("/controller")) {
-    filePath = join(process.cwd(), "client/controller/index.html");
-  } else if (url.pathname.startsWith("/assets/")) {
-    filePath = join(process.cwd(), "client", url.pathname);
-  }
-
-  if (filePath) {
-    try {
-      const content = readFileSync(filePath);
-      const ext = filePath.split(".").pop();
-      const mime = ext === "html" ? "text/html" : ext === "js" ? "application/javascript" : ext === "css" ? "text/css" : "application/octet-stream";
-      res.writeHead(200, { "Content-Type": mime });
-      res.end(content);
-      return;
-    } catch {
-      // fall through to 404
-    }
+  // Serve static client files (screen + controller), shared browser modules
+  // and per-game screen modules. TypeScript sources are stripped on the fly
+  // so the browser can run them without a build step.
+  if (serveStatic(url.pathname, res)) {
+    return;
   }
 
   res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
   res.end("Not found");
 });
+
+/**
+ * Serve a client/shared/game module to the browser.
+ * Returns true when the request was handled.
+ */
+function serveStatic(pathname: string, res: ServerResponse): boolean {
+  let rel = "";
+  if (pathname === "/" || pathname === "/screen" || pathname === "/screen/") {
+    rel = "client/screen/index.html";
+  } else if (pathname.startsWith("/screen/")) {
+    rel = "client/screen/" + pathname.slice("/screen/".length);
+  } else if (pathname === "/controller" || pathname === "/controller/") {
+    rel = "client/controller/index.html";
+  } else if (pathname.startsWith("/controller/")) {
+    rel = "client/controller/" + pathname.slice("/controller/".length);
+  } else if (pathname.startsWith("/shared/")) {
+    rel = "shared/" + pathname.slice("/shared/".length);
+  } else if (pathname.startsWith("/games/")) {
+    rel = "games/" + pathname.slice("/games/".length);
+  } else if (pathname.startsWith("/assets/")) {
+    rel = "client/" + pathname.slice("/assets/".length);
+  } else {
+    return false;
+  }
+
+  // Reject traversal before join() has a chance to normalize it away.
+  if (rel.includes("..") || rel.includes("\0")) {
+    return false;
+  }
+
+  const cwd = process.cwd();
+  const full = join(cwd, rel);
+  if (!normalize(full).startsWith(cwd)) {
+    return false;
+  }
+
+  try {
+    const content = readFileSync(full);
+    const ext = full.split(".").pop()?.toLowerCase();
+    let body: string | Buffer = content;
+    let mime = "application/octet-stream";
+
+    if (ext === "ts") {
+      body = stripTypeScriptTypes(content.toString("utf8"), { mode: "strip" });
+      mime = "application/javascript; charset=utf-8";
+    } else if (ext === "js" || ext === "mjs") {
+      mime = "application/javascript; charset=utf-8";
+    } else if (ext === "html") {
+      mime = "text/html; charset=utf-8";
+    } else if (ext === "css") {
+      mime = "text/css; charset=utf-8";
+    } else if (ext === "json") {
+      mime = "application/json; charset=utf-8";
+    }
+
+    res.writeHead(200, { "Content-Type": mime, "Cache-Control": "no-store" });
+    res.end(body);
+    return true;
+  } catch {
+    return false; // fall through to 404
+  }
+}
 
 // --- WebSocket server ---
 const wss = new WebSocketServer({ server: httpServer });
@@ -198,8 +326,12 @@ wss.on("connection", (ws) => {
         case MESSAGE_TYPES.PING:
           send(ws, { type: MESSAGE_TYPES.PONG, roomId: msg.roomId, timestamp: Date.now() });
           break;
-        default:
-          send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "UNKNOWN_MESSAGE", message: `Unknown message type: ${msg.type}` } });
+        default: {
+          // Every known ClientMessage variant is handled above, so msg is
+          // narrowed to never here; recover the envelope for the reply.
+          const badMsg = msg as ClientMessage;
+          send(ws, { type: MESSAGE_TYPES.ERROR, roomId: badMsg.roomId, timestamp: Date.now(), payload: { code: "UNKNOWN_MESSAGE", message: `Unknown message type: ${String(badMsg.type)}` } });
+        }
       }
     } catch {
       send(ws, { type: MESSAGE_TYPES.ERROR, roomId: "", timestamp: Date.now(), payload: { code: "PARSE_ERROR", message: "Invalid JSON" } });
@@ -216,6 +348,43 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   const { roomId, payload } = msg;
   const { name, rejoinToken } = payload;
 
+  // The laptop screen joins as a spectator: it owns the room but does not
+  // occupy one of the four player seats and never receives controller state.
+  if (payload.role === "screen") {
+    let screenRoom: RoomState | undefined;
+    if (roomId) screenRoom = rooms.get(roomId);
+    if (!screenRoom) {
+      screenRoom = {
+        id: randomBytes(6).toString("hex"),
+        code: generateRoomCode(),
+        hostPlayerId: null,
+        players: [],
+        gameId: null,
+        gameState: null,
+        createdAt: Date.now(),
+        status: "lobby",
+      };
+      rooms.set(screenRoom.id, screenRoom);
+    }
+    let set = roomScreens.get(screenRoom.id);
+    if (!set) {
+      set = new Set();
+      roomScreens.set(screenRoom.id, set);
+    }
+    set.add(ws);
+    screenRooms.set(ws, screenRoom.id);
+
+    send(ws, {
+      type: MESSAGE_TYPES.JOINED,
+      roomId: screenRoom.id,
+      playerId: "",
+      timestamp: Date.now(),
+      payload: { playerId: "", rejoinToken: "", roomState: publicRoom(screenRoom) },
+    });
+    send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: screenRoom.id, timestamp: Date.now(), payload: publicRoom(screenRoom) });
+    return;
+  }
+
   let room: RoomState | undefined;
 
   if (rejoinToken) {
@@ -227,17 +396,18 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
         player.connected = true;
         playerSockets.set(player.id, ws);
         socketPlayers.set(ws, player.id);
+        playerRooms.set(player.id, room.id);
 
         send(ws, {
           type: MESSAGE_TYPES.JOINED,
           roomId: room.id,
           playerId: player.id,
           timestamp: Date.now(),
-          payload: { playerId: player.id, rejoinToken: player.rejoinToken, roomState: room },
+          payload: { playerId: player.id, rejoinToken: player.rejoinToken, roomState: publicRoom(room) },
         });
         // Also send ROOM_STATE to the reconnecting player
-        send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room });
-        broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room }, player.id);
+        send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
+        broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) }, player.id);
         return;
       }
     }
@@ -287,17 +457,18 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
 
   playerSockets.set(playerId, ws);
   socketPlayers.set(ws, playerId);
+  playerRooms.set(playerId, room.id);
 
   send(ws, {
     type: MESSAGE_TYPES.JOINED,
     roomId: room.id,
     playerId,
     timestamp: Date.now(),
-    payload: { playerId, rejoinToken: token, roomState: room },
+    payload: { playerId, rejoinToken: token, roomState: publicRoom(room) },
   });
   // Also send ROOM_STATE to the joining player so they have full room state
-  send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room });
-  broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: room }, playerId);
+  send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
+  broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) }, playerId);
 }
 
 function handleInput(ws: WebSocket, msg: ClientMessage & { type: "input" }): void {
@@ -316,32 +487,77 @@ function handleInput(ws: WebSocket, msg: ClientMessage & { type: "input" }): voi
   const plugin = plugins.get(room.gameId);
   if (!plugin) return;
 
-  // Find game instance (stored in room.gameState)
-  const instance = room.gameState as { roomId: string; players: Player[]; state: unknown };
-  if (!instance) return;
+  // Validate input structure
+  if (msg.payload === undefined || msg.payload === null) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "INVALID_INPUT", message: "Input payload required" } });
+    return;
+  }
 
-  plugin.onInput(instance, playerId, msg.payload);
+  // Safe instance access with type guard
+  const gameState = room.gameState;
+  if (!gameState || typeof gameState !== "object" || !("roomId" in gameState) || !("players" in gameState) || !("state" in gameState)) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "INVALID_GAME_STATE", message: "Game state corrupted" } });
+    return;
+  }
+  const instance = gameState as { roomId: string; players: Player[]; state: unknown };
+
+  try {
+    plugin.onInput(instance, playerId, msg.payload);
+  } catch (e) {
+    console.error("[Server] Plugin onInput error:", e);
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "PLUGIN_ERROR", message: "Input processing failed" } });
+    return;
+  }
 
   // Send updated game state
-  const screen = plugin.screenState(instance);
+  let screen: unknown;
+  try {
+    screen = plugin.screenState(instance);
+  } catch (e) {
+    console.error("[Server] Plugin screenState error:", e);
+    return;
+  }
+
   for (const player of room.players) {
-    const controller = plugin.controllerState(instance, player.id);
-    const controllerWithType = controller && typeof controller === "object"
-      ? { ...controller, controllerType: plugin.manifest.controllerType }
-      : { controllerType: plugin.manifest.controllerType };
+    let controller: unknown;
+    try {
+      controller = plugin.controllerState(instance, player.id);
+    } catch (e) {
+      console.error("[Server] Plugin controllerState error:", e);
+      continue;
+    }
     const pws = playerSockets.get(player.id);
     if (pws?.readyState === WebSocket.OPEN) {
-      send(pws, { type: MESSAGE_TYPES.GAME_STATE, roomId: room.id, playerId: player.id, timestamp: Date.now(), payload: { screen, controller: controllerWithType } });
+      send(pws, gameStateMessage(room, plugin, player.id, screen, controller));
     }
   }
+  sendScreenGameState(room, plugin, screen);
 }
 
 function handleDisconnect(ws: WebSocket): void {
+  // Detach a spectator screen connection.
+  const screenRoomId = screenRooms.get(ws);
+  if (screenRoomId) {
+    screenRooms.delete(ws);
+    const set = roomScreens.get(screenRoomId);
+    if (set) {
+      set.delete(ws);
+      if (set.size === 0) roomScreens.delete(screenRoomId);
+    }
+    // Delete rooms that have neither players nor a screen.
+    const r = rooms.get(screenRoomId);
+    if (r && r.players.length === 0 && !roomScreens.has(screenRoomId)) {
+      rooms.delete(screenRoomId);
+    }
+    return;
+  }
+
   const playerId = socketPlayers.get(ws);
   if (!playerId) return;
 
   socketPlayers.delete(ws);
   playerSockets.delete(playerId);
+  playerRooms.delete(playerId);
 
   const room = findRoomByPlayerId(playerId);
   if (room) {
@@ -355,12 +571,14 @@ function handleDisconnect(ws: WebSocket): void {
           const currentPlayer = currentRoom.players.find((p) => p.id === playerId);
           if (currentPlayer && !currentPlayer.connected) {
             currentRoom.players = currentRoom.players.filter((p) => p.id !== playerId);
+            playerRooms.delete(playerId);
             if (currentRoom.players.length === 0) {
               rooms.delete(currentRoom.id);
             } else if (currentRoom.hostPlayerId === playerId) {
-              currentRoom.hostPlayerId = currentRoom.players[0].id;
+              const connectedPlayers = currentRoom.players.filter((p) => p.connected);
+              currentRoom.hostPlayerId = (connectedPlayers[0] ?? currentRoom.players[0]).id;
             }
-            broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: currentRoom });
+            broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
           }
         }
       }, PLAYER_TIMEOUT_MS);
@@ -378,14 +596,17 @@ function startGameLoop(roomId: string): void {
   const plugin = plugins.get(room.gameId);
   if (!plugin) return;
 
-  const instance = room.gameState as { roomId: string; players: Player[]; state: unknown };
-  if (!instance) return;
+  const gameState = room.gameState;
+  if (!gameState || typeof gameState !== "object" || !("roomId" in gameState) || !("players" in gameState) || !("state" in gameState)) {
+    return;
+  }
+  const _instance = gameState as { roomId: string; players: Player[]; state: unknown };
 
   let lastTick = Date.now();
 
   const interval = setInterval(() => {
     const now = Date.now();
-    const deltaMs = now - lastTick;
+    const deltaMs = Math.min(now - lastTick, 2000); // Cap delta
     lastTick = now;
 
     const currentRoom = rooms.get(roomId);
@@ -398,23 +619,58 @@ function startGameLoop(roomId: string): void {
     const currentPlugin = plugins.get(currentRoom.gameId);
     if (!currentPlugin) return;
 
-    const currentInstance = currentRoom.gameState as { roomId: string; players: Player[]; state: unknown };
-    if (!currentInstance) return;
+    const currentGameState = currentRoom.gameState;
+    if (!currentGameState || typeof currentGameState !== "object" || !("roomId" in currentGameState) || !("players" in currentGameState) || !("state" in currentGameState)) {
+      return;
+    }
+    const currentInstance = currentGameState as { roomId: string; players: Player[]; state: unknown };
 
-    currentPlugin.onTick(currentInstance, deltaMs);
+    try {
+      currentPlugin.onTick(currentInstance, deltaMs);
+    } catch (e) {
+      console.error("[Server] Plugin onTick error:", e);
+      return;
+    }
 
-    const screen = currentPlugin.screenState(currentInstance);
+    let screen: unknown;
+    try {
+      screen = currentPlugin.screenState(currentInstance);
+    } catch (e) {
+      console.error("[Server] Plugin screenState error:", e);
+      return;
+    }
+
+    // When a game reports finished, return the room to the lobby so the
+    // host can start the next game. This tick still delivers the final state.
+    if (
+      screen &&
+      typeof screen === "object" &&
+      "finished" in screen &&
+      (screen as { finished?: unknown }).finished === true &&
+      currentRoom.status === "playing"
+    ) {
+      currentRoom.status = "lobby";
+      broadcast(currentRoom, {
+        type: MESSAGE_TYPES.ROOM_STATE,
+        roomId: currentRoom.id,
+        timestamp: Date.now(),
+        payload: publicRoom(currentRoom),
+      });
+    }
     for (const player of currentRoom.players) {
-      const controller = currentPlugin.controllerState(currentInstance, player.id);
-      // Add controllerType to controller state for client to know which layout to render
-      const controllerWithType = controller && typeof controller === "object"
-        ? { ...controller, controllerType: currentPlugin.manifest.controllerType }
-        : { controllerType: currentPlugin.manifest.controllerType };
+      let controller: unknown;
+      try {
+        controller = currentPlugin.controllerState(currentInstance, player.id);
+      } catch (e) {
+        console.error("[Server] Plugin controllerState error:", e);
+        continue;
+      }
       const pws = playerSockets.get(player.id);
       if (pws?.readyState === WebSocket.OPEN) {
-        send(pws, { type: MESSAGE_TYPES.GAME_STATE, roomId: currentRoom.id, playerId: player.id, timestamp: Date.now(), payload: { screen, controller: controllerWithType } });
+        send(pws, gameStateMessage(currentRoom, currentPlugin, player.id, screen, controller));
       }
     }
+    sendScreenGameState(currentRoom, currentPlugin, screen);
   }, 16); // ~60fps
 
   gameLoops.set(roomId, interval);
@@ -464,18 +720,21 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
       room.status = "playing";
       room.gameState = plugin.onStart(room, room.players);
 
+      // Set controllerType on each player from manifest
+      for (const player of room.players) {
+        player.controllerType = plugin.manifest.controllerType;
+      }
+
       // Broadcast initial game state
       const screen = plugin.screenState(room.gameState as { roomId: string; players: Player[]; state: unknown });
       for (const player of room.players) {
         const controller = plugin.controllerState(room.gameState as { roomId: string; players: Player[]; state: unknown }, player.id);
-        const controllerWithType = controller && typeof controller === "object"
-          ? { ...controller, controllerType: plugin.manifest.controllerType }
-          : { controllerType: plugin.manifest.controllerType };
         const pws = playerSockets.get(player.id);
         if (pws?.readyState === WebSocket.OPEN) {
-          send(pws, { type: MESSAGE_TYPES.GAME_STATE, roomId: room.id, playerId: player.id, timestamp: Date.now(), payload: { screen, controller: controllerWithType } });
+          send(pws, gameStateMessage(room, plugin, player.id, screen, controller));
         }
       }
+      sendScreenGameState(room, plugin, screen);
 
       // Start game loop
       startGameLoop(roomId);
@@ -504,5 +763,16 @@ async function start() {
     console.log("Share one of these URLs or the QR code with phones on the same network");
   });
 }
+
+// stripTypeScriptTypes is experimental and warns on every request; keep the
+// warning once instead of flooding the log, but pass other warnings through.
+process.removeAllListeners("warning");
+process.on("warning", (warning) => {
+  if (warning.name === "ExperimentalWarning" && warning.message.includes("stripTypeScriptTypes")) {
+    console.warn("[warn] node:module stripTypeScriptTypes is experimental (client TS served without a build step)");
+    return;
+  }
+  console.warn(warning);
+});
 
 start();

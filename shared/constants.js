@@ -18,7 +18,7 @@ export const MESSAGE_TYPES = {
 export const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const ROOM_CODE_LENGTH = 5;
 export const REJOIN_TOKEN_BYTES = 16;
-export const PING_INTERVAL_MS = 15000;
+export const PING_INTERVAL_MS = 10000;
 export const PLAYER_TIMEOUT_MS = 30000;
 
 // --- LAN Utilities ---

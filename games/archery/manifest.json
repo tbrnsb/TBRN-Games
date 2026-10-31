@@ -1,0 +1,8 @@
+{
+  "id": "archery",
+  "name": "Archery",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "controllerType": "one-button",
+  "description": "Hold to draw bow, release to shoot. Moving target. Closest to center wins."
+}

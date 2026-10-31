@@ -1,0 +1,1 @@
+{ "id": "gravityrun", "name": "Gravity Run", "minPlayers": 1, "maxPlayers": 4, "controllerType": "one-button", "description": "Tap to flip gravity. Avoid obstacles, collect coins. Endless runner with gravity flip!" }

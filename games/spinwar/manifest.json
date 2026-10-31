@@ -1,0 +1,1 @@
+{ "id": "spinwar", "name": "Spin War", "minPlayers": 2, "maxPlayers": 4, "controllerType": "one-button", "description": "Tap to spin your blade. Hit opponents to knock them out. Last one spinning wins!" }

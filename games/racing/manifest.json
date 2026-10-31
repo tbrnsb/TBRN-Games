@@ -1,0 +1,1 @@
+{ "id": "racing", "name": "Racing", "minPlayers": 1, "maxPlayers": 4, "controllerType": "left-right", "description": "Steer left/right, avoid obstacles, overtake opponents. First to finish wins!" }

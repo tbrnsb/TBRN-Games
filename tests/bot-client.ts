@@ -1,5 +1,5 @@
 import { WebSocket } from "ws";
-import type { ClientMessage, ServerMessage, Player } from "../shared/types.ts";
+import type { ClientMessage, ServerMessage, RoomStateMessage, Player } from "../shared/types.ts";
 import { MESSAGE_TYPES } from "../shared/constants.js";
 
 export interface BotConfig {
@@ -18,7 +18,7 @@ export interface BotPlayer extends Player {
 export class BotClient {
   public player: BotPlayer | null = null;
   public roomId: string = "";
-  public roomState: ServerMessage["payload"] | null = null;
+  public roomState: RoomStateMessage["payload"] | null = null;
   private ws: WebSocket | null = null;
   private messageHandlers: Map<string, (msg: ServerMessage) => void> = new Map();
   private pendingRequests: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timeout: NodeJS.Timeout }> = new Map();
@@ -60,15 +60,19 @@ export class BotClient {
 
       // Wait for joined message
       this.once(MESSAGE_TYPES.JOINED, (msg) => {
-        this.player = {
+        if (msg.type !== MESSAGE_TYPES.JOINED) return;
+        const player: BotPlayer = {
           id: msg.payload.playerId,
           name: this.config.name,
           joinedAt: Date.now(),
           rejoinToken: msg.payload.rejoinToken,
           connected: true,
+          ws: this.ws!,
+          lastPing: 0,
         };
+        this.player = player;
         this.roomId = msg.roomId;
-        resolve(this.player);
+        resolve(player);
       });
 
       // Timeout
@@ -143,15 +147,17 @@ export class BotClient {
   waitForGameState(timeoutMs = 5000): Promise<{ screen: unknown; controller: unknown }> {
     return new Promise((resolve, reject) => {
       this.once(MESSAGE_TYPES.GAME_STATE, (msg) => {
+        if (msg.type !== MESSAGE_TYPES.GAME_STATE) return;
         resolve(msg.payload as { screen: unknown; controller: unknown });
       });
       setTimeout(() => reject(new Error("Game state timeout")), timeoutMs);
     });
   }
 
-  waitForRoomState(timeoutMs = 5000): Promise<ServerMessage["payload"]> {
+  waitForRoomState(timeoutMs = 5000): Promise<RoomStateMessage["payload"]> {
     return new Promise((resolve, reject) => {
       this.once(MESSAGE_TYPES.ROOM_STATE, (msg) => {
+        if (msg.type !== MESSAGE_TYPES.ROOM_STATE) return;
         resolve(msg.payload);
       });
       setTimeout(() => reject(new Error("Room state timeout")), timeoutMs);
@@ -175,7 +181,7 @@ export async function createBots(count: number, baseUrl: string, namePrefix = "B
   let roomId = "";
   
   for (let i = 0; i < count; i++) {
-    const config = { name: `${namePrefix}-${i + 1}`, roomUrl: baseUrl };
+    const config: BotConfig = { name: `${namePrefix}-${i + 1}`, roomUrl: baseUrl };
     if (i > 0 && roomId) {
       config.roomId = roomId;
     }

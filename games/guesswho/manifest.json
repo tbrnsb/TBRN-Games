@@ -1,0 +1,1 @@
+{ "id": "guesswho", "name": "Guess Who", "minPlayers": 2, "maxPlayers": 4, "controllerType": "private-grid", "description": "Each player has a secret character. Ask yes/no questions to eliminate. First to guess wins!" }

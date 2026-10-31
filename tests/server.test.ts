@@ -1,22 +1,27 @@
 import { test, before, after, describe } from "node:test";
 import assert from "node:assert";
 import { createBots, BotClient } from "./bot-client.ts";
+import { startServer, type ServerFixture } from "./fixtures/server-fixture.ts";
 
-const BASE_URL = process.env.TBRN_TEST_URL ?? "ws://localhost:3000";
-// let serverProcess: unknown; // For future use
-
+// The fixture spawns a real server on an ephemeral port (or reuses
+// TBRN_TEST_URL when set), so these tests run standalone, including in CI.
 describe("TBRN-Games Server", () => {
+  let fixture: ServerFixture;
+  let wsUrl: string;
+  let httpUrl: string;
+
   before(async () => {
-    // Server should already be running for these tests
-    // In CI, we'd start it here
+    fixture = await startServer();
+    wsUrl = fixture.wsUrl;
+    httpUrl = fixture.httpUrl;
   });
 
-  after(async () => {
-    // Cleanup
+  after(() => {
+    fixture?.stop();
   });
 
   test("4 bots can join and receive room state", async () => {
-    const bots = await createBots(4, BASE_URL, "TestBot");
+    const bots = await createBots(4, wsUrl, "TestBot");
     assert.strictEqual(bots.length, 4);
 
     // Wait a bit for all room state broadcasts to propagate
@@ -34,7 +39,7 @@ describe("TBRN-Games Server", () => {
   });
 
   test("bot can reconnect with rejoin token", async () => {
-    const bots = await createBots(1, BASE_URL, "RejoinBot");
+    const bots = await createBots(1, wsUrl, "RejoinBot");
     const bot = bots[0];
     const token = bot.player?.rejoinToken;
     const originalPlayerId = bot.player?.id;
@@ -44,7 +49,7 @@ describe("TBRN-Games Server", () => {
     bot.disconnect();
 
     // Reconnect
-    const newBot = new BotClient({ name: "RejoinBot-1", roomUrl: BASE_URL, rejoinToken: token });
+    const newBot = new BotClient({ name: "RejoinBot-1", roomUrl: wsUrl, rejoinToken: token });
     await newBot.connect();
     assert.strictEqual(newBot.player?.id, originalPlayerId);
 
@@ -52,11 +57,11 @@ describe("TBRN-Games Server", () => {
   });
 
   test("darts game: bots can send inputs and receive game state", async () => {
-    const bots = await createBots(2, BASE_URL, "GameBot");
+    const bots = await createBots(2, wsUrl, "GameBot");
     const [bot1, bot2] = bots;
 
     // Start the game via HTTP endpoint
-    const startRes = await fetch(`http://localhost:3000/api/rooms/${bot1.roomId}/start`, {
+    const startRes = await fetch(`${httpUrl}/api/rooms/${bot1.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ gameId: "darts" }),

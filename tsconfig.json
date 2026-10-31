@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -11,6 +11,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["shared/*"],
@@ -19,6 +21,13 @@
       "@client/*": ["client/*"]
     }
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "server/**/*.ts",
+    "client/**/*.ts",
+    "shared/**/*.ts",
+    "shared/**/*.js",
+    "games/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "public", "src", "test"]
 }

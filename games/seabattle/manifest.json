@@ -1,0 +1,1 @@
+{ "id": "seabattle", "name": "Sea Battle", "minPlayers": 2, "maxPlayers": 4, "controllerType": "private-grid", "description": "Place your fleet, take turns firing. Sink all enemy ships to win. Classic battleship!" }

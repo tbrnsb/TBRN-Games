@@ -1,0 +1,8 @@
+{
+  "id": "mostlikely",
+  "name": "Most Likely To",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "choice",
+  "description": "Vote on who's most likely to do something. Anonymous voting, reveal results."
+}

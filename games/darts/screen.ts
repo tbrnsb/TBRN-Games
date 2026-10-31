@@ -155,7 +155,7 @@ function drawScorePanel(ctx: CanvasRenderingContext2D, width: number, height: nu
 
   // Player scores
   const colWidth = (width - 80) / Math.max(state.players.length, 1);
-  state.players.forEach((p, _i) => {
+  state.players.forEach((p, i) => {
     const x = 40 + i * colWidth;
     const isCurrent = p.isCurrent;
     const isWinner = p.isWinner;

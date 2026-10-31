@@ -1,0 +1,1 @@
+{ "id": "slotcar", "name": "Slot Car", "minPlayers": 1, "maxPlayers": 4, "controllerType": "one-button", "description": "Hold to accelerate, release to brake. Stay on track through curves!" }

@@ -1,0 +1,1 @@
+{ "id": "bluff", "name": "Bluff", "minPlayers": 3, "maxPlayers": 4, "controllerType": "text", "description": "Fill in the blank with a fake answer. Vote for the real one. Points for fooling others!" }

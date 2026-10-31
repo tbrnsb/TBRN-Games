@@ -1,0 +1,8 @@
+{
+  "id": "hangman",
+  "name": "Hangman",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "controllerType": "choice",
+  "description": "Guess the word letter by letter. Wrong guesses build the hangman. Solo uses word list."
+}

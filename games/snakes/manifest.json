@@ -1,0 +1,1 @@
+{ "id": "snakes", "name": "Snakes", "minPlayers": 1, "maxPlayers": 4, "controllerType": "dpad", "description": "Classic snake - eat food, grow longer, don't hit walls or yourself!" }
