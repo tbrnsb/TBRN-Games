@@ -29,35 +29,40 @@ export interface Player {
   controllerType?: string;
 }
 
-export interface RoomState {
+export interface RoomState<TGameState extends object = object> {
   id: string;
   code: string;
   hostPlayerId: string | null;
   players: Player[];
   gameId: string | null;
-  gameState: unknown | null;
+  gameState: TGameState | null;
   createdAt: number;
   status: "lobby" | "playing" | "finished";
 }
 
-export interface GameInstance {
+export interface GameInstance<TState extends object = object> {
   roomId: string;
   players: Player[];
-  state: unknown;
+  state: TState;
 }
 
-export interface GamePlugin {
+export interface GamePlugin<
+  TState extends object = object,
+  TInput = unknown,
+  TScreenState = unknown,
+  TControllerState = unknown
+> {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
-  onInput(instance: GameInstance, playerId: string, input: unknown): void;
-  onTick(instance: GameInstance, deltaMs: number): void;
-  screenState(instance: GameInstance): unknown;
-  controllerState(instance: GameInstance, playerId: string): unknown;
+  onStart(room: RoomState, players: Player[]): GameInstance<TState>;
+  onInput(instance: GameInstance<TState>, playerId: string, input: TInput): void;
+  onTick(instance: GameInstance<TState>, deltaMs: number): void;
+  screenState(instance: GameInstance<TState>): TScreenState;
+  controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
 }
 
 export interface PluginLoader {
-  loadAll(): Map<string, GamePlugin>;
-  get(id: string): GamePlugin | undefined;
+  loadAll(): Map<string, GamePlugin<any, any, any, any>>;
+  get(id: string): GamePlugin<any, any, any, any> | undefined;
 }
 
 export async function createPluginLoader(gamesDir: string): Promise<PluginLoader> {

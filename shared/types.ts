@@ -31,12 +31,12 @@ export type ClientMessage = JoinMessage | InputMessage | PingMessage;
 // --- Server -> Client messages ---
 export interface JoinedMessage extends BaseMessage {
   type: "joined";
-  payload: { playerId: string; rejoinToken: string; roomState: RoomState };
+  payload: { playerId: string; rejoinToken: string; roomState: RoomStateAny; hostToken?: string };
 }
 
 export interface RoomStateMessage extends BaseMessage {
   type: "roomState";
-  payload: RoomState;
+  payload: RoomStateAny;
 }
 
 export interface GameStateMessage extends BaseMessage {
@@ -70,16 +70,20 @@ export interface Player {
   controllerType?: string;
 }
 
-export interface RoomState {
+// Type-safe room state with generic game state
+export interface RoomState<TGameState extends object = object> {
   id: string;
   code: string;
   hostPlayerId: string | null;
   players: Player[];
   gameId: string | null;
-  gameState: unknown | null;
+  gameState: TGameState | null;
   createdAt: number;
   status: "lobby" | "playing" | "finished";
 }
+
+// Non-generic alias for backward compatibility
+export type RoomStateAny = RoomState<any>;
 
 // --- Game Plugin Interface ---
 export interface GameManifest {
@@ -100,17 +104,23 @@ export type ControllerType =
   | "private-grid"
   | "card-hand";
 
-export interface GamePlugin {
+// Generic plugin interface for type-safe game implementations
+export interface GamePlugin<
+  TState extends object = object,
+  TInput = unknown,
+  TScreenState = unknown,
+  TControllerState = unknown
+> {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
-  onInput(instance: GameInstance, playerId: string, input: unknown): void;
-  onTick(instance: GameInstance, deltaMs: number): void;
-  screenState(instance: GameInstance): unknown;
-  controllerState(instance: GameInstance, playerId: string): unknown;
+  onStart(room: RoomState, players: Player[]): GameInstance<TState>;
+  onInput(instance: GameInstance<TState>, playerId: string, input: TInput): void;
+  onTick(instance: GameInstance<TState>, deltaMs: number): void;
+  screenState(instance: GameInstance<TState>): TScreenState;
+  controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
 }
 
-export interface GameInstance {
+export interface GameInstance<TState extends object = object> {
   roomId: string;
   players: Player[];
-  state: unknown;
+  state: TState;
 }

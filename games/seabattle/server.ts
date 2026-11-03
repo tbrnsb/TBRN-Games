@@ -177,6 +177,7 @@ const plugin: GamePlugin = {
     const grid = (input as { grid?: { row?: number; col?: number } } | null)?.grid;
     if (!grid || typeof grid.row !== "number" || typeof grid.col !== "number") return;
     const { row, col } = grid;
+    if (!Number.isInteger(row) || !Number.isInteger(col)) return;
     if (col < 0 || col >= GRID) return;
 
     if (state.phase === "placing") {

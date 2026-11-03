@@ -5,71 +5,486 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="TBRN-Games — Shared Screen">
   <title>TBRN-Games</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --color-bg: #0F172A;
-      --color-surface: #1E293B;
-      --color-primary: #2E7DFF;
-      --color-text: #F8FAFC;
-      --color-text-muted: #94A3B8;
-      --font-sans: "Inter", system-ui, sans-serif;
-      --spacing-4: 1rem;
-      --spacing-6: 1.5rem;
-      --radius-lg: 0.5rem;
+    @font-face {
+      font-family: "Space Grotesk";
+      src: url("/assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2");
+      font-weight: 500; font-style: normal; font-display: swap;
     }
+    @font-face {
+      font-family: "Space Grotesk";
+      src: url("/assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
+      font-weight: 700; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: "Inter";
+      src: url("/assets/fonts/inter-latin-400-normal.woff2") format("woff2");
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: "Inter";
+      src: url("/assets/fonts/inter-latin-600-normal.woff2") format("woff2");
+      font-weight: 600; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: "Orbitron";
+      src: url("/assets/fonts/orbitron-latin-700-normal.woff2") format("woff2");
+      font-weight: 700; font-style: normal; font-display: swap;
+    }
+    :root {
+      --ink: #07050F;
+      --color-bg0: #0B0820;
+      --color-bg1: #140F33;
+      --color-surface: #1B1545;
+      --color-surface-hi: #2A1F6B;
+      --color-border: rgba(255,255,255,0.08);
+      --color-text: #F5F3FF;
+      --color-text-muted: #A29BCF;
+      --color-magenta: #FF2E97;
+      --color-cyan: #00E5FF;
+      --color-violet: #8B5CF6;
+      --color-amber: #FFB347;
+      --color-success: #3DFFA2;
+      --color-danger: #FF4D6D;
+      --font-display: "Space Grotesk", sans-serif;
+      --font-body: "Inter", sans-serif;
+      --font-title: "Orbitron", sans-serif;
+      --radius-card: 16px;
+      --radius-chip: 10px;
+      --radius-pill: 9999px;
+    }
+    html, body { height: 100%; }
     body {
-      font-family: var(--font-sans);
-      background: var(--color-bg);
+      font-family: var(--font-body);
+      background: var(--ink);
       color: var(--color-text);
-      min-height: 100vh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
-    header {
-      padding: var(--spacing-4) var(--spacing-6);
-      border-bottom: 1px solid #334155;
+    /* One glow, one grid. Everything else stays quiet. */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -20% 40% 40% -20%;
+      background: radial-gradient(circle at 30% 35%, rgba(255,46,151,0.20), transparent 62%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: linear-gradient(to bottom, black, transparent 88%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .topbar {
+      flex: 0 0 auto;
+      height: clamp(54px, 3.9vw, 66px);
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
+      padding: 0 clamp(20px, 1.9vw, 30px);
+      border-bottom: 1px solid var(--color-border);
+      position: relative;
+      z-index: 1;
     }
-    h1 { font-size: 1.5rem; font-weight: 700; }
-    .room-code { font-family: "JetBrains Mono", monospace; font-size: 2rem; letter-spacing: 0.2em; color: var(--color-primary); }
-    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--spacing-6); }
-    .qr-container { text-align: center; margin-bottom: var(--spacing-6); }
-    .qr-container img { max-width: 100%; height: auto; border-radius: var(--radius-lg); background: white; padding: 1rem; }
-    .url-fallback { color: var(--color-text-muted); font-size: 0.875rem; word-break: break-all; max-width: 90vw; }
-    .players { display: flex; gap: var(--spacing-4); flex-wrap: wrap; justify-content: center; margin-top: var(--spacing-6); }
-    .player-badge { background: var(--color-surface); padding: var(--spacing-2) var(--spacing-4); border-radius: var(--radius-lg); font-weight: 500; }
-    canvas { max-width: 100%; height: auto; border-radius: var(--radius-lg); }
+    .wordmark {
+      font-family: var(--font-title);
+      font-size: clamp(13px, 0.95vw, 18px);
+      letter-spacing: 0.18em;
+      color: var(--color-text);
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .wordmark b { color: var(--color-magenta); font-weight: 700; }
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: clamp(11px, 0.8vw, 15px);
+      letter-spacing: 0.02em;
+      color: var(--color-text-muted);
+    }
+    .live .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--color-success);
+      box-shadow: 0 0 10px var(--color-success);
+      animation: pulse 2.6s ease-in-out infinite;
+    }
+    main {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      z-index: 1;
+      display: flex;
+    }
+    .lobby {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    /* Fixed 16:9 design stage, scaled to fit — the same trick as the game
+       canvas, so the composition survives 720p and a TV. */
+    .lobby-stage {
+      flex: 0 0 auto;
+      width: 1280px;
+      height: 666px;
+      padding: 22px 28px 24px;
+      display: grid;
+      grid-template-columns: 356px minmax(0, 1fr);
+      gap: 34px;
+      transform-origin: center center;
+    }
+    .join {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding-left: 18px;
+      border-left: 3px solid var(--color-magenta);
+      animation: rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .join-kicker {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      letter-spacing: 0.01em;
+    }
+    .room-code {
+      font-family: var(--font-title);
+      font-size: clamp(44px, 5.4vw, 76px);
+      line-height: 1;
+      letter-spacing: 0.05em;
+      color: var(--color-text);
+      text-shadow: 0 0 26px rgba(255, 46, 151, 0.5);
+      margin: 8px 0 16px;
+    }
+    .ticket {
+      width: min(100%, 238px);
+      background: #F5F3FF;
+      color: #0B0820;
+      border-radius: 12px;
+      padding: 12px;
+      position: relative;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    }
+    .ticket::before {
+      content: "";
+      position: absolute;
+      inset: 6px 6px 42px 6px;
+      border: 1px dashed rgba(11, 8, 32, 0.28);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    .ticket img {
+      width: 100%;
+      aspect-ratio: 1;
+      display: block;
+      border-radius: 4px;
+    }
+    .ticket .url {
+      font-family: var(--font-body);
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: #3A2E63;
+      word-break: break-all;
+      margin-top: 9px;
+      text-align: center;
+    }
+    .scan-note {
+      margin-top: 9px;
+      font-size: 11px;
+      color: var(--color-text-muted);
+    }
+    .scan-note b { color: var(--color-text); font-weight: 600; }
+    .roster {
+      margin-top: auto;
+      padding-top: 18px;
+    }
+    .roster h2 {
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      margin-bottom: 9px;
+    }
+    .seats { display: flex; flex-direction: column; gap: 6px; }
+    .seat {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 38px;
+      padding: 6px 9px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+    }
+    .seat.filled {
+      background: rgba(27, 21, 69, 0.62);
+      border-color: rgba(255, 255, 255, 0.07);
+    }
+    .seat .swatch {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--ink);
+      flex: 0 0 auto;
+    }
+    .seat .nm {
+      font-family: var(--font-display);
+      font-weight: 500;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .seat .st {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+    .seat.empty {
+      border: 1px dashed rgba(255, 255, 255, 0.11);
+      color: rgba(162, 155, 207, 0.55);
+    }
+    .seat.empty .swatch {
+      background: transparent;
+      border: 1px dashed rgba(255, 255, 255, 0.16);
+      color: rgba(162, 155, 207, 0.6);
+      font-weight: 500;
+    }
+    .shelf {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .shelf-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .shelf-head h2 {
+      font-family: var(--font-display);
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .shelf-head .count { font-size: 11px; color: var(--color-text-muted); }
+    .picker {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-rows: min-content;
+      align-content: safe center;
+      column-gap: 26px;
+      row-gap: 2px;
+      padding-right: 6px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 46, 151, 0.35) transparent;
+    }
+    .picker::-webkit-scrollbar { width: 6px; }
+    .picker::-webkit-scrollbar-thumb { background: rgba(255, 46, 151, 0.35); border-radius: 3px; }
+    .game-tile {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 3px 10px;
+      align-items: center;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      border-left: 3px solid transparent;
+      padding: 8px 8px 8px 11px;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .game-tile:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.035);
+      border-left-color: rgba(255, 46, 151, 0.38);
+    }
+    .game-tile:focus-visible {
+      outline: 2px solid var(--color-cyan);
+      outline-offset: -2px;
+    }
+    .game-tile.selected {
+      background: rgba(27, 21, 69, 0.9);
+      border-left-color: var(--color-magenta);
+    }
+    .game-tile:disabled { opacity: 0.34; cursor: not-allowed; }
+    .game-tile .name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 16px;
+      line-height: 1.18;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .game-tile .meta {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .game-tile.selected .meta { color: var(--color-magenta); }
+    .game-tile .desc {
+      grid-column: 1 / -1;
+      font-size: 12px;
+      line-height: 1.35;
+      color: var(--color-text-muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .dots { display: inline-flex; gap: 3px; }
+    .dots i {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .dots i.on { background: var(--color-magenta); }
+    .launch {
+      flex: 0 0 auto;
+      margin-top: 12px;
+      padding-top: 13px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .launch .sel { min-width: 0; }
+    .launch .k {
+      display: block;
+      font-size: 10px;
+      color: var(--color-text-muted);
+      margin-bottom: 2px;
+    }
+    .launch .v {
+      display: block;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 18px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #startGameBtn {
+      margin-left: auto;
+      flex: 0 0 auto;
+      min-width: 196px;
+      height: 46px;
+      padding: 0 22px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--color-magenta);
+      color: var(--ink);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 120ms ease, transform 120ms ease;
+    }
+    #startGameBtn:hover:not(:disabled) { background: #FF54A8; }
+    #startGameBtn:active:not(:disabled) { transform: translateY(1px); }
+    #startGameBtn:disabled {
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(245, 243, 255, 0.32);
+      cursor: not-allowed;
+    }
+    canvas { display: block; border-radius: 16px; }
     .hidden { display: none !important; }
-    .lobby, .playing { width: 100%; max-width: 1200px; }
+    .playing {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    @media (max-width: 1080px) {
+      .picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 780px) {
+      body { overflow: auto; }
+      .ticket { width: 190px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .join { animation: none; }
+      .live .dot { animation: none; }
+      .game-tile, #startGameBtn { transition: none; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>TBRN-Games</h1>
-    <div class="room-code" id="roomCode">----</div>
+  <header class="topbar">
+    <div class="wordmark"><span>TBRN</span><b>GAMES</b></div>
+    <div class="live"><span class="dot"></span><span><span id="playerCount">0</span> phones at the table</span></div>
   </header>
   <main>
-    <!-- Lobby State -->
     <section class="lobby" id="lobby">
-      <div class="qr-container">
-        <img id="qrCode" src="" alt="QR code to join game" class="hidden">
-        <p class="url-fallback" id="urlFallback">Waiting for room...</p>
+      <div class="lobby-stage" id="lobbyStage">
+        <aside class="join">
+        <p class="join-kicker">Join the room</p>
+        <div class="room-code" id="roomCode">----</div>
+        <div class="ticket">
+          <img id="qrCode" src="" alt="QR code to join the room" class="hidden">
+          <p class="url" id="urlFallback">Waiting for the room…</p>
+        </div>
+        <p class="scan-note">Scan with your phone, or open the address above.</p>
+
+        <div class="roster">
+          <h2>At the table</h2>
+          <div class="seats" id="playersList"></div>
+        </div>
+      </aside>
+
+      <section class="shelf">
+        <div class="shelf-head">
+          <h2>Pick a game</h2>
+          <span class="count" id="gameCount">Loading games…</span>
+        </div>
+        <div class="picker" id="gamePicker"></div>
+        <div class="launch">
+          <div class="sel">
+            <span class="k">Selected</span>
+            <span class="v" id="selectedGame">No game picked</span>
+          </div>
+          <button id="startGameBtn" type="button" disabled>Pick a game</button>
+        </div>
+      </section>
       </div>
-      <div class="players" id="playersList"></div>
-      <button id="startGameBtn" class="hidden" style="
-        margin-top: 2rem; padding: 1rem 2rem; font-size: 1.25rem; font-weight: 600;
-        background: var(--color-primary); color: white; border: none; border-radius: var(--radius-lg);
-        cursor: pointer;
-      ">Start Game</button>
     </section>
 
-    <!-- Playing State -->
     <section class="playing hidden" id="playing">
       <canvas id="gameCanvas" width="1280" height="720"></canvas>
     </section>

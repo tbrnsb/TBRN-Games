@@ -3,6 +3,8 @@
  * Tap to flip gravity, avoid obstacles, collect coins
  */
 
+import { secureRandom } from "../../shared/secure-random.ts";
+
 interface GameManifest { id: string; name: string; minPlayers: number; maxPlayers: number; controllerType: ControllerType; description: string; }
 type ControllerType = "one-button" | "left-right" | "dpad" | "text" | "choice" | "private-grid" | "card-hand";
 interface Player { id: string; name: string; joinedAt: number; rejoinToken: string; connected: boolean; controllerType?: string; }
@@ -57,12 +59,12 @@ const plugin: GamePlugin = {
     });
 
     // Spawn obstacles/coins
-    if (Math.random() < SPAWN_RATE * dt) {
-      const isTop = Math.random() < 0.5;
+    if (secureRandom() < SPAWN_RATE * dt) {
+      const isTop = secureRandom() < 0.5;
       const y = isTop ? 0.0 : 0.5;
-      state.obstacles.push({ x: 1.1, y, w: 0.06, h: 0.45, type: Math.random() < 0.3 ? "spike" : "block" });
+      state.obstacles.push({ x: 1.1, y, w: 0.06, h: 0.45, type: secureRandom() < 0.3 ? "spike" : "block" });
     }
-    if (Math.random() < 0.8 * dt) { state.coins.push({ x: 1.1, y: 0.3 + Math.random() * 0.5, collected: false }); }
+    if (secureRandom() < 0.8 * dt) { state.coins.push({ x: 1.1, y: 0.3 + secureRandom() * 0.5, collected: false }); }
 
     // Move obstacles/coins
     state.obstacles.forEach(o => o.x -= state.scrollSpeed * dt);

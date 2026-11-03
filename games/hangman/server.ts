@@ -3,6 +3,8 @@
  * Guess letters, wrong guesses build hangman
  */
 
+import { secureRandomInt } from "../../shared/secure-random.ts";
+
 interface GameManifest { id: string; name: string; minPlayers: number; maxPlayers: number; controllerType: ControllerType; description: string; }
 type ControllerType = "one-button" | "left-right" | "dpad" | "text" | "choice" | "private-grid" | "card-hand";
 interface Player { id: string; name: string; joinedAt: number; rejoinToken: string; connected: boolean; controllerType?: string; }
@@ -25,14 +27,15 @@ const manifest: GameManifest = { id: "hangman", name: "Hangman", minPlayers: 1, 
 const plugin: GamePlugin = {
   manifest,
   onStart(room: RoomState, players: Player[]): HangmanInstance {
-    const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+    const word = WORDS[secureRandomInt(0, WORDS.length)];
     return { roomId: room.id, players, state: { word, masked: "_".repeat(word.length), guessed: new Set(), wrongGuesses: 0, maxWrong: MAX_WRONG, currentPlayer: 0, scores: players.map(() => 0), round: 0, maxRounds: ROUNDS, phase: "playing", roundWinner: null, roundTimerMs: 0 } };
   },
   onInput(instance: HangmanInstance, playerId: string, input: unknown): void {
     const state = instance.state; if (state.phase !== "playing") return;
     const playerIndex = instance.players.findIndex(p => p.id === playerId); if (playerIndex !== state.currentPlayer) return;
-    const choice = input as { choice?: string }; if (!choice?.choice) return;
-    const letter = choice.choice.toUpperCase(); if (state.guessed.has(letter)) return;
+    const raw = (input as { choice?: unknown } | null)?.choice;
+    if (typeof raw !== "string" || raw.length !== 1) return;
+    const letter = raw.toUpperCase(); if (state.guessed.has(letter)) return;
     state.guessed.add(letter);
     if (state.word.includes(letter)) {
       state.masked = state.word.split("").map(c => state.guessed.has(c) ? c : "_").join("");
@@ -53,7 +56,7 @@ const plugin: GamePlugin = {
 
 function nextRound(state: HangmanState, playerCount: number): void {
   state.round++; if (state.round >= state.maxRounds) { state.phase = "finished"; return; }
-  const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+  const word = WORDS[secureRandomInt(0, WORDS.length)];
   state.word = word; state.masked = "_".repeat(word.length); state.guessed = new Set(); state.wrongGuesses = 0; state.phase = "playing"; state.roundWinner = null;
   state.currentPlayer = (state.currentPlayer + 1) % playerCount;
 }

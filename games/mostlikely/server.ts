@@ -3,6 +3,8 @@
  * Vote on who's most likely to do something
  */
 
+import { secureShuffle } from "../../shared/secure-random.ts";
+
 interface GameManifest { id: string; name: string; minPlayers: number; maxPlayers: number; controllerType: ControllerType; description: string; }
 type ControllerType = "one-button" | "left-right" | "dpad" | "text" | "choice" | "private-grid" | "card-hand";
 interface Player { id: string; name: string; joinedAt: number; rejoinToken: string; connected: boolean; controllerType?: string; }
@@ -36,7 +38,7 @@ const manifest: GameManifest = { id: "mostlikely", name: "Most Likely To", minPl
 const plugin: GamePlugin = {
   manifest,
   onStart(room: RoomState, players: Player[]): MostLikelyInstance {
-    const shuffled = [...PROMPTS].sort(() => Math.random() - 0.5).slice(0, ROUNDS);
+    const shuffled = secureShuffle(PROMPTS).slice(0, ROUNDS);
     return { roomId: room.id, players, state: { prompts: shuffled, currentPrompt: 0, phase: "voting", votes: new Map(), scores: players.map(() => 0), timeLeft: VOTE_TIME, roundWinner: null } };
   },
   onInput(instance: MostLikelyInstance, playerId: string, input: unknown): void {

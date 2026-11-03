@@ -93,9 +93,8 @@ const plugin: GamePlugin = {
     const playerIndex = instance.players.findIndex(p => p.id === playerId);
     if (playerIndex !== state.currentPlayer) return;
 
-    const tap = input as { tap?: boolean };
-
-    if (state.phase === "aiming" && tap.tap) {
+    const gone = (input as { tap?: unknown } | null)?.tap === true;
+    if (state.phase === "aiming" && gone) {
       if (!state.isDrawing) {
         // First tap: start drawing; power builds in onTick.
         state.isDrawing = true;

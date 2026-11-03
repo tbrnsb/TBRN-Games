@@ -263,6 +263,7 @@ const plugin: GamePlugin = {
     const grid = (input as { grid?: { row?: number; col?: number } } | null)?.grid;
     if (!grid || typeof grid.row !== "number" || typeof grid.col !== "number") return;
     const { row, col } = grid;
+    if (!Number.isInteger(row) || !Number.isInteger(col)) return;
     if (row < 0 || row >= GRID || col < 0 || col >= GRID) return;
 
     const occ = occupancy(state.cars);

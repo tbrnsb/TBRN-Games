@@ -1,5 +1,6 @@
 import { test, before, after, describe } from "node:test";
 import assert from "node:assert";
+import { WebSocket } from "ws";
 import { createBots, BotClient } from "./bot-client.ts";
 import { startServer, type ServerFixture } from "./fixtures/server-fixture.ts";
 
@@ -15,6 +16,42 @@ describe("TBRN-Games Server", () => {
     wsUrl = fixture.wsUrl;
     httpUrl = fixture.httpUrl;
   });
+
+  async function connectScreen(roomId: string): Promise<{ ws: WebSocket; hostToken: string }> {
+    const screen = new WebSocket(wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      screen.on("open", () => {
+        screen.send(JSON.stringify({
+          type: "join",
+          roomId,
+          timestamp: Date.now(),
+          payload: { name: "Screen", role: "screen" },
+        }));
+        resolve();
+      });
+      screen.on("error", reject);
+      setTimeout(() => reject(new Error("Screen connect timeout")), 5000);
+    });
+    // Wait for JOINED and ROOM_STATE, capturing the host token.
+    let hostToken = "";
+    await new Promise<void>((resolve, reject) => {
+      let joined = false;
+      screen.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === "joined") {
+          joined = true;
+          if (typeof msg.payload?.hostToken === "string") hostToken = msg.payload.hostToken;
+        }
+        if (msg.type === "roomState" && joined) {
+          screen.removeAllListeners("message");
+          resolve();
+        }
+      });
+      setTimeout(() => reject(new Error("Screen ready timeout")), 5000);
+    });
+    assert.ok(hostToken, "screen join must return a host token");
+    return { ws: screen, hostToken };
+  }
 
   after(() => {
     fixture?.stop();
@@ -60,13 +97,19 @@ describe("TBRN-Games Server", () => {
     const bots = await createBots(2, wsUrl, "GameBot");
     const [bot1, bot2] = bots;
 
+    // Connect screen (required for game start auth)
+    const screen = await connectScreen(bot1.roomId);
+
     // Start the game via HTTP endpoint
     const startRes = await fetch(`${httpUrl}/api/rooms/${bot1.roomId}/start`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
       body: JSON.stringify({ gameId: "darts" }),
     });
     assert.strictEqual(startRes.status, 200);
+
+    // Clean up screen after test
+    screen.ws.close();
 
     // Wait a bit for game loop to start
     await new Promise(r => setTimeout(r, 100));
@@ -82,6 +125,65 @@ describe("TBRN-Games Server", () => {
     assert.ok(state1.controller);
     assert.ok(state2.controller);
 
+    for (const bot of bots) bot.disconnect();
+  });
+
+  test("starting a game requires the host screen token", async () => {
+    const bots = await createBots(1, wsUrl, "AuthBot");
+    const bot = bots[0];
+    const screen = await connectScreen(bot.roomId);
+
+    const noToken = await fetch(`${httpUrl}/api/rooms/${bot.roomId}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gameId: "darts" }),
+    });
+    assert.strictEqual(noToken.status, 403);
+
+    const wrongToken = await fetch(`${httpUrl}/api/rooms/${bot.roomId}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-host-token": "not-the-token" },
+      body: JSON.stringify({ gameId: "darts" }),
+    });
+    assert.strictEqual(wrongToken.status, 403);
+
+    screen.ws.close();
+    bot.disconnect();
+  });
+
+  test("new players cannot join a room mid-game", async () => {
+    const bots = await createBots(2, wsUrl, "MidGameBot");
+    const [bot1] = bots;
+    const screen = await connectScreen(bot1.roomId);
+
+    const startRes = await fetch(`${httpUrl}/api/rooms/${bot1.roomId}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
+      body: JSON.stringify({ gameId: "darts" }),
+    });
+    assert.strictEqual(startRes.status, 200);
+
+    const late = new WebSocket(wsUrl);
+    const code = await new Promise<string>((resolve, reject) => {
+      late.on("open", () => {
+        late.send(JSON.stringify({
+          type: "join",
+          roomId: bot1.roomId,
+          timestamp: Date.now(),
+          payload: { name: "LateJoiner" },
+        }));
+      });
+      late.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === "error") resolve(msg.payload.code);
+      });
+      late.on("error", reject);
+      setTimeout(() => reject(new Error("no error reply")), 3000);
+    });
+    assert.strictEqual(code, "GAME_IN_PROGRESS");
+
+    late.close();
+    screen.ws.close();
     for (const bot of bots) bot.disconnect();
   });
 });

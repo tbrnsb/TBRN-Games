@@ -13,14 +13,21 @@
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"tests/**/*.test.ts\"",
-    "test:watch": "node --watch --test \"tests/**/*.test.ts\""
+    "test:watch": "node --watch --test \"tests/**/*.test.ts\"",
+    "probe": "node scripts/deep-probe.ts"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/orbitron": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "pixi.js": "^8.22.0",
+    "qrcode": "^1.5.4",
     "ws": "^8.16.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/ws": "^8.5.10",
     "eslint": "^9.0.0",
     "typescript": "^5.6.0",

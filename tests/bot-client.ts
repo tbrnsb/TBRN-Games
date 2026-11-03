@@ -76,7 +76,7 @@ export class BotClient {
       });
 
       // Timeout
-      setTimeout(() => reject(new Error("Connection timeout")), 10000);
+      setTimeout(() => reject(new Error("Connection timeout")), 20000);
     });
   }
 

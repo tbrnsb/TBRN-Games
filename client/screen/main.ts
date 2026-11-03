@@ -13,14 +13,16 @@ import { MESSAGE_TYPES } from "../../shared/constants.js";
 
 console.log("[Screen] Module loaded");
 
-const wsUrl = `ws://${location.host}`;
-let ws: WebSocket;
+const wsUrl = `ws://${location.host}`;let ws: WebSocket;
 let roomId = "";
+let hostToken = "";
 let currentScreen: unknown = null;
 let currentGameId: string | null = null;
 let currentGameName = "";
 let selectedGameId: string | null = null;
 let playerCount = 0;
+let resultsHoldUntil = 0;
+let resultsTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface GameManifestLite {
   id: string;
@@ -33,12 +35,18 @@ interface GameManifestLite {
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 const lobby = document.getElementById("lobby")!;
+const lobbyStage = document.getElementById("lobbyStage")!;
 const playing = document.getElementById("playing")!;
 const qrImg = document.getElementById("qrCode") as HTMLImageElement;
 const urlFallback = document.getElementById("urlFallback")!;
+let qrGenerated = false;
 const _roomCodeEl = document.getElementById("roomCode")!;
 const _playersList = document.getElementById("playersList")!;
 const startBtn = document.getElementById("startGameBtn") as HTMLButtonElement;
+const picker = document.getElementById("gamePicker")!;
+const playerCountEl = document.getElementById("playerCount")!;
+const selectedGameEl = document.getElementById("selectedGame")!;
+const gameCountEl = document.getElementById("gameCount")!;
 
 function getPlayersList(): HTMLElement {
   return _playersList;
@@ -48,13 +56,6 @@ function getRoomCodeEl(): HTMLElement {
   return _roomCodeEl;
 }
 
-// --- Game picker (built dynamically; lobby HTML has no picker element) ---
-const picker = document.createElement("div");
-picker.id = "gamePicker";
-picker.style.cssText =
-  "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;width:100%;max-width:900px;margin:16px 0;";
-startBtn.parentElement?.insertBefore(picker, startBtn);
-startBtn.textContent = "Start Game";
 startBtn.disabled = true;
 
 let manifests: GameManifestLite[] = [];
@@ -64,40 +65,73 @@ async function loadGames(): Promise<void> {
     const res = await fetch("/api/games");
     const data = (await res.json()) as { games: GameManifestLite[] };
     manifests = data.games ?? [];
-    console.log("[Screen] loadGames:", manifests.length, "games");
+    gameCountEl.textContent = `${manifests.length} installed`;
     renderPicker();
+    updateLaunchBar();
   } catch (e) {
     console.error("[Screen] Failed to load games", e);
+    gameCountEl.textContent = "Games unavailable";
   }
 }
 
 function renderPicker(): void {
-  console.log("[Screen] renderPicker called, playerCount:", playerCount);
   picker.innerHTML = "";
+
   for (const g of manifests) {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.style.cssText = `
-      text-align:left;padding:12px;border-radius:8px;cursor:pointer;font-family:inherit;
-      border:2px solid ${selectedGameId === g.id ? "#2E7DFF" : "#334155"};
-      background:#1E293B;color:#F8FAFC;
-    `;
     const enough = playerCount >= g.minPlayers;
-    card.disabled = !enough;
-    card.style.opacity = enough ? "1" : "0.45";
-    card.innerHTML = `
-      <div style="font-weight:600;font-size:1rem;">${escapeHtml(g.name)}</div>
-      <div style="color:#94A3B8;font-size:0.8rem;margin-top:4px;">${g.minPlayers === g.maxPlayers ? `${g.minPlayers}` : `${g.minPlayers}-${g.maxPlayers}`} players</div>
-      <div style="color:#94A3B8;font-size:0.8rem;margin-top:6px;">${escapeHtml(g.description)}</div>
+    const selected = selectedGameId === g.id;
+
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = `game-tile${selected ? " selected" : ""}`;
+    tile.disabled = !enough;
+    tile.dataset.game = g.id;
+    if (!enough) tile.title = `Needs ${g.minPlayers} players — ${playerCount} at the table`;
+
+    const dots = Array.from(
+      { length: g.maxPlayers },
+      (_, i) => `<i class="${i < g.minPlayers ? "on" : ""}"></i>`,
+    ).join("");
+
+    const meta = enough
+      ? `<span class="dots" aria-hidden="true">${dots}</span><span>${g.minPlayers}–${g.maxPlayers}</span>`
+      : `<span>Needs ${g.minPlayers}</span>`;
+
+    tile.innerHTML = `
+      <span class="name">${escapeHtml(g.name)}</span>
+      <span class="meta">${meta}</span>
+      <span class="desc">${escapeHtml(g.description)}</span>
     `;
-    card.addEventListener("click", () => {
+
+    tile.addEventListener("click", () => {
       selectedGameId = g.id;
-      startBtn.disabled = false;
       renderPicker();
+      updateLaunchBar();
     });
-    picker.appendChild(card);
+    picker.appendChild(tile);
   }
-  console.log("[Screen] renderPicker done, picker children:", picker.children.length);
+}
+
+function updateLaunchBar(): void {
+  const game = manifests.find((m) => m.id === selectedGameId) ?? null;
+  const reachable = selectedGameReachable();
+
+  selectedGameEl.textContent = game ? game.name : "No game picked";
+
+  if (!game) {
+    startBtn.textContent = "Pick a game";
+    startBtn.disabled = true;
+    return;
+  }
+
+  if (!reachable) {
+    startBtn.textContent = `Needs ${game.minPlayers} players`;
+    startBtn.disabled = true;
+    return;
+  }
+
+  startBtn.textContent = `Start ${game.name}`;
+  startBtn.disabled = false;
 }
 
 function escapeHtml(value: unknown): string {
@@ -127,7 +161,6 @@ function connect() {
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data) as ServerMessage;
-      console.log("[Screen] Received:", msg.type);
       handleMessage(msg);
     } catch (e) {
       console.error("[Screen] Parse error:", e);
@@ -144,50 +177,72 @@ function connect() {
   };
 }
 
+/**
+ * The server returns the room to the lobby on the same tick that a game
+ * reports "finished". Keep the final frame on screen for a few seconds so the
+ * victory screen can actually play, then fall back to the lobby.
+ */
+function beginResultsHold(ms: number): void {
+  resultsHoldUntil = performance.now() + ms;
+  if (resultsTimer) clearTimeout(resultsTimer);
+  resultsTimer = setTimeout(() => {
+    resultsTimer = null;
+    resultsHoldUntil = 0;
+    currentGameId = null;
+    currentScreen = null;
+    showLobby();
+  }, ms);
+}
+
+function clearResultsHold(): void {
+  resultsHoldUntil = 0;
+  if (resultsTimer) {
+    clearTimeout(resultsTimer);
+    resultsTimer = null;
+  }
+}
+
 function handleMessage(msg: ServerMessage) {
-  console.log("[Screen] handleMessage:", msg.type);
-  if (msg.type === MESSAGE_TYPES.JOINED) {
-    const m = msg as ServerMessage & { type: "joined"; payload: { playerId: string; rejoinToken: string; roomState: RoomState } };
+  if (msg.type === MESSAGE_TYPES.JOINED) {    const m = msg as ServerMessage & { type: "joined"; payload: { playerId: string; rejoinToken: string; roomState: RoomState; hostToken?: string } };
     roomId = m.roomId;
+    if (typeof m.payload.hostToken === "string" && m.payload.hostToken) {
+      hostToken = m.payload.hostToken;
+    }
     try {
       localStorage.setItem("tbrn_screen_room_id", roomId);
     } catch { /* ignore */ }
     const roomState = m.payload.roomState;
-    console.log("[Screen] JOINED roomState:", roomState);
     const codeEl = getRoomCodeEl();
-    console.log("[Screen] codeEl:", codeEl);
     codeEl.textContent = roomState.code ?? "----";
-    codeEl.style.background = "rgba(255,0,0,0.2)";
-    codeEl.style.border = "2px solid lime";
-    codeEl.style.fontFamily = "monospace";
-    codeEl.style.fontSize = "2rem";
-    codeEl.style.color = "#00FF00";
-    codeEl.style.padding = "0.5rem 1rem";
-    codeEl.style.display = "block";
-    console.log("[Screen] set code to:", codeEl.textContent, "| computed:", getComputedStyle(codeEl).display, getComputedStyle(codeEl).visibility, getComputedStyle(codeEl).opacity, getComputedStyle(codeEl).color, getComputedStyle(codeEl).fontFamily);
     updatePlayers(roomState.players ?? [], roomState.status ?? "lobby", roomState.gameId ?? null);
-    // Now we have the roomId — generate QR + show LAN URLs
-    fetch("/api/lan-urls").then(r => r.json()).then(data => {
-      const urls: string[] = data.urls ?? [];
-      if (urls.length > 0 && roomId) {
-        const joinUrl = `${urls[0]}/controller?room=${encodeURIComponent(roomId)}`;
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(joinUrl)}`;
-        qrImg.classList.remove("hidden");
-        urlFallback.textContent = `Phones: open ${joinUrl}  (LAN: ${urls.join(", ")})`;
-      }
-    }).catch(e => console.error("[Screen] LAN URL fetch failed", e));
+    // Generate the QR once. `img.src` is already the page URL for src="", so
+    // use an explicit flag instead of checking the property.
+    if (!qrGenerated) {
+      fetch("/api/lan-urls").then(r => r.json()).then(data => {
+        const urls: string[] = data.urls ?? [];
+        if (urls.length > 0 && roomId) {
+          const joinUrl = `${urls[0]}/controller?room=${encodeURIComponent(roomId)}`;
+          qrImg.src = `/api/qr?data=${encodeURIComponent(joinUrl)}`;
+          qrImg.classList.remove("hidden");
+          qrGenerated = true;
+          // Show the address without the scheme; the room code above already
+          // carries the part a person needs to read out loud.
+          urlFallback.textContent = joinUrl.replace(/^https?:\/\//, "");
+        }
+      }).catch(e => console.error("[Screen] LAN URL fetch failed", e));
+    }
   } else if (msg.type === MESSAGE_TYPES.ROOM_STATE) {
     const m = msg as ServerMessage & { type: "roomState"; payload: RoomState | { roomState?: RoomState } };
     const rs = m.payload;
     const roomState = (rs as { roomState?: RoomState }).roomState ?? (rs as RoomState);
     const codeEl = getRoomCodeEl();
     codeEl.textContent = roomState.code ?? "----";
-    codeEl.style.fontFamily = "monospace";
-    codeEl.style.fontSize = "2rem";
-    codeEl.style.color = "#00FF00";
-    codeEl.style.padding = "0.5rem 1rem";
-    codeEl.style.display = "block";
     updatePlayers(roomState.players ?? [], roomState.status ?? "lobby", roomState.gameId ?? null);
+    // A finished game immediately reports a lobby room state; keep the result
+    // up until the hold expires instead of flashing back to the lobby.
+    if (roomState.status === "lobby" && performance.now() < resultsHoldUntil) {
+      return;
+    }
     if (roomState.status === "playing") {
       showPlaying();
     } else {
@@ -199,11 +254,31 @@ function handleMessage(msg: ServerMessage) {
     currentScreen = payload.screen;
     if (payload.gameId !== undefined) currentGameId = payload.gameId;
     if (payload.gameName) currentGameName = payload.gameName;
+
+    const finished = !!payload.screen && typeof payload.screen === "object" && (payload.screen as { finished?: unknown }).finished === true;
+    if (finished) beginResultsHold(7000);
+    else clearResultsHold();
+
     showPlaying();
     renderGame();
   } else if (msg.type === MESSAGE_TYPES.ERROR) {
     const m = msg as ServerMessage & { type: "error"; payload: { code: string; message: string } };
     console.error("[Screen] Error:", m.payload);
+    // Show error to user - reuse single toast element to prevent stacking
+    let errorDiv = document.getElementById("screen-error-toast");
+    if (!errorDiv) {
+      errorDiv = document.createElement("div");
+      errorDiv.id = "screen-error-toast";
+      errorDiv.className = "error-toast";
+      errorDiv.style.cssText = "position:fixed;top:1rem;right:1rem;padding:1rem;background:#EF4444;color:white;border-radius:0.5rem;z-index:1000;max-width:80%;";
+      document.body.appendChild(errorDiv);
+    }
+    errorDiv.textContent = `${m.payload.code}: ${m.payload.message}`;
+    errorDiv.style.display = "block";
+    clearTimeout((errorDiv as any)._hideTimeout);
+    (errorDiv as any)._hideTimeout = setTimeout(() => {
+      errorDiv.style.display = "none";
+    }, 5000);
   }
 }
 
@@ -212,26 +287,43 @@ function updatePlayers(
   status: string,
   gameId: string | null,
 ): void {
-  console.log("[Screen] updatePlayers:", players, "status:", status, "playerCount:", players.length);
   playerCount = players.length;
+  playerCountEl.textContent = String(playerCount);
+
   const list = getPlayersList();
   list.innerHTML = "";
-  players.forEach((p, i) => {
+  const seatCount = Math.max(4, players.length);
+  for (let i = 0; i < seatCount; i++) {
+    const p = players[i];
     const el = document.createElement("div");
-    el.className = "player-badge";
-    el.style.borderLeft = `4px solid ${getPlayerColor(i)}`;
-    el.style.padding = "0.25rem 0.5rem";
-    el.style.margin = "0.25rem 0";
-    el.style.background = "rgba(255,255,255,0.05)";
-    el.style.borderRadius = "4px";
-    el.textContent = `${p.name} ${p.connected ? "🟢" : "🔴"}`;
+    if (p) {
+      const color = getPlayerColor(i);
+      el.className = "seat filled";
+      el.innerHTML = `
+        <span class="swatch" style="background:${color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
+        <span class="nm">${escapeHtml(p.name)}</span>
+        <span class="st">${p.connected ? "connected" : "away"}</span>
+      `;
+    } else {
+      el.className = "seat empty";
+      el.innerHTML = `<span class="swatch">+</span><span class="nm">Empty seat</span>`;
+    }
     list.appendChild(el);
-  });
-  // The screen owns the room: it can start a game whenever the lobby is
-  // open and enough phones have joined for at least one game.
-  // Don't clear room code here — caller sets it
+  }
+
+  // The screen owns the room: it can start a game whenever the lobby is open
+  // and enough phones have joined for the selected game.
   startBtn.classList.toggle("hidden", status !== "lobby");
-  startBtn.disabled = !selectedGameReachable();
+  updateLaunchBar();
+  if (manifests.length > 0) {
+    gameCountEl.textContent =
+      playerCount === 0
+        ? `${manifests.length} games. Scan to unlock.`
+        : `${manifests.length} installed`;
+  }
+  if (status === "lobby") {
+    renderPicker();
+  }
   void gameId;
 }
 
@@ -244,13 +336,22 @@ function selectedGameReachable(): boolean {
 function showLobby() {
   lobby.classList.remove("hidden");
   playing.classList.add("hidden");
-  startBtn.classList.toggle("hidden", false);
+  fitLobby();
+}
+
+/** Scale the 1280×666 lobby stage to the space the page gives it. */
+function fitLobby(): void {
+  const rect = lobby.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return;
+  const scale = Math.min(rect.width / 1280, rect.height / 666);
+  lobbyStage.style.transform = `scale(${scale})`;
 }
 
 function showPlaying() {
+  const wasHidden = playing.classList.contains("hidden");
   lobby.classList.add("hidden");
   playing.classList.remove("hidden");
-  resizeCanvas();
+  if (wasHidden) resizeCanvas();
 }
 
 startBtn.addEventListener("click", async () => {
@@ -259,7 +360,7 @@ startBtn.addEventListener("click", async () => {
   try {
     const res = await fetch(`/api/rooms/${roomId}/start`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-host-token": hostToken },
       body: JSON.stringify({ gameId: selectedGameId }),
     });
     if (!res.ok) {
@@ -276,13 +377,14 @@ startBtn.addEventListener("click", async () => {
 // --- Rendering ---
 type ScreenRenderer = (ctx: CanvasRenderingContext2D, width: number, height: number, state: unknown) => void;
 const rendererCache = new Map<string, ScreenRenderer | null>();
+const rendererLoading = new Set<string>();
 
 async function loadCustomRenderer(gameId: string): Promise<ScreenRenderer | null> {
   if (rendererCache.has(gameId)) return rendererCache.get(gameId) ?? null;
   try {
     const mod = (await import(`/games/${gameId}/screen.ts`)) as Record<string, unknown>;
     const cap = gameId.charAt(0).toUpperCase() + gameId.slice(1);
-    const candidates = [`render${cap}`, "render"];
+    const candidates = ["render", `render${cap}`];
     let fn: ScreenRenderer | null = null;
     for (const name of candidates) {
       if (typeof mod[name] === "function") {
@@ -290,10 +392,22 @@ async function loadCustomRenderer(gameId: string): Promise<ScreenRenderer | null
         break;
       }
     }
+    // Multi-word ids (seabattle → renderSeaBattle) cannot be derived from the
+    // directory name; accept the module's single `render*` export instead.
+    if (!fn) {
+      const renderExports = Object.entries(mod).filter(
+        ([name, value]) => name.startsWith("render") && typeof value === "function",
+      );
+      if (renderExports.length === 1) {
+        fn = renderExports[0][1] as ScreenRenderer;
+      }
+    }
     rendererCache.set(gameId, fn);
     return fn;
-  } catch {
-    // No custom screen renderer for this game: use the generic one.
+  } catch (e) {
+    // Most games legitimately have no custom renderer; log at debug level so
+    // real failures stay visible without flooding the console.
+    console.debug(`[Screen] No custom renderer for ${gameId}`, e);
     rendererCache.set(gameId, null);
     return null;
   }
@@ -306,25 +420,46 @@ function renderGame(): void {
   const width = canvas.width / dpr;
   const height = canvas.height / dpr;
 
-  if (currentGameId) {
-    loadCustomRenderer(currentGameId).then((fn) => {
-      if (fn && currentScreen !== null) {
-        try {
-          fn(ctx, width, height, currentScreen);
-          return;
-        } catch (e) {
-          if (!renderErrors.has(currentGameId!)) {
-            renderErrors.add(currentGameId!);
-            console.error(`[Screen] Custom renderer for ${currentGameId} failed, using generic`, e);
-          }
-        }
-      }
-      renderGeneric(width, height);
-    });
-    return;
+  // Start loading a renderer once; never re-enter the dynamic import per frame.
+  if (currentGameId && !rendererCache.has(currentGameId) && !rendererLoading.has(currentGameId)) {
+    const gameId = currentGameId;
+    rendererLoading.add(gameId);
+    void loadCustomRenderer(gameId).finally(() => rendererLoading.delete(gameId));
   }
-  renderGeneric(width, height);
+
+  const fn = currentGameId ? (rendererCache.get(currentGameId) ?? null) : null;
+
+  // Always draw in CSS-pixel space. Renderers may translate for shake and may
+  // throw halfway through, so the DPR transform is restored for every frame and
+  // the whole call is wrapped in save/restore.
+  ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  try {
+    if (fn && currentScreen !== null) {
+      fn(ctx, width, height, currentScreen);
+    } else {
+      renderGeneric(width, height);
+    }
+  } catch (e) {
+    if (currentGameId && !renderErrors.has(currentGameId)) {
+      renderErrors.add(currentGameId);
+      console.error(`[Screen] Custom renderer for ${currentGameId} failed, using generic`, e);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    renderGeneric(width, height);
+  } finally {
+    ctx.restore();
+  }
 }
+
+/** Continuous frame loop so particles, cards and victory screens animate smoothly. */
+function frameLoop(): void {
+  if (!playing.classList.contains("hidden")) {
+    renderGame();
+  }
+  requestAnimationFrame(frameLoop);
+}
+requestAnimationFrame(frameLoop);
 
 /** Generic renderer: works with every game's standard screen-state fields. */
 function renderGeneric(width: number, height: number): void {
@@ -470,20 +605,41 @@ function drawCellGrid(
 }
 
 function resizeCanvas() {
-  const rect = canvas.getBoundingClientRect();
+  // Fit a 16:9 stage inside the space the page actually gives us. Both CSS
+  // size and backing-store size are set explicitly so the canvas can never
+  // overflow the viewport or feed back into its own layout.
+  const host = canvas.parentElement;
+  const availW = Math.max(1, host?.clientWidth ?? window.innerWidth);
+  const availH = Math.max(1, host?.clientHeight ?? window.innerHeight);
+  const ratio = 16 / 9;
+
+  let cssW = availW;
+  let cssH = cssW / ratio;
+  if (cssH > availH) {
+    cssH = availH;
+    cssW = cssH * ratio;
+  }
+
   const dpr = devicePixelRatio || 1;
-  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  canvas.style.width = `${Math.floor(cssW)}px`;
+  canvas.style.height = `${Math.floor(cssH)}px`;
+  canvas.width = Math.max(1, Math.floor(cssW * dpr));
+  canvas.height = Math.max(1, Math.floor(cssH * dpr));
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (currentScreen !== null) renderGame();
 }
 
 function getPlayerColor(index: number): string {
-  const colors = ["#2E7DFF", "#FF6B35", "#10B981", "#F59E0B"];
+  // Same palette the game renderers use, so a player keeps their colour from
+  // the lobby into the game.
+  const colors = ["#FF2E97", "#00E5FF", "#FFE45E", "#3DFFA2"];
   return colors[index % colors.length];
 }
 
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize", () => {
+  if (playing.classList.contains("hidden")) fitLobby();
+  else resizeCanvas();
+});
 
 // Restore the screen's room (keeps the room code stable across refreshes).
 try {
@@ -492,4 +648,5 @@ try {
 } catch { /* ignore */ }
 
 loadGames();
+fitLobby();
 connect();

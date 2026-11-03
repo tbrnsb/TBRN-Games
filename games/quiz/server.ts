@@ -3,6 +3,8 @@
  * Trivia quiz with content packs, timed answers, speed scoring
  */
 
+import { secureShuffle } from "../../shared/secure-random.ts";
+
 // Types defined inline
 interface GameManifest {
   id: string;
@@ -75,7 +77,7 @@ interface QuizState {
   scores: number[];
   answers: Map<number, Map<string, { optionId: string; timeMs: number }>>; // questionIndex -> playerId -> answer
   answerOrder: Array<{ playerId: string; timeMs: number }>; // who answered first
-  questionStartTime: number;
+  questionElapsedMs: number;
   packId: string;
 }
 
@@ -114,7 +116,7 @@ const manifest: GameManifest = {
 const plugin: GamePlugin = {
   manifest,
   onStart(room: RoomState, players: Player[]): QuizInstance {
-    const questions = [...DEFAULT_PACK].sort(() => Math.random() - 0.5).slice(0, 10);
+    const questions = secureShuffle(DEFAULT_PACK).slice(0, 10);
     return {
       roomId: room.id,
       players,
@@ -126,7 +128,7 @@ const plugin: GamePlugin = {
         scores: players.map(() => 0),
         answers: new Map(),
         answerOrder: [],
-        questionStartTime: 0,
+        questionElapsedMs: 0,
         packId: "default"
       }
     };
@@ -146,8 +148,9 @@ const plugin: GamePlugin = {
     const choice = input as { choice?: string };
     if (!choice?.choice) return;
 
-    const now = Date.now();
-    const timeMs = now - state.questionStartTime;
+    // Game-clock time, not wall clock: keeps answers deterministic and
+    // correct even if the server stalls between ticks.
+    const timeMs = Math.max(0, state.questionElapsedMs);
 
     if (!qAnswers) {
       state.answers.set(state.currentQuestion, new Map());
@@ -163,10 +166,11 @@ const plugin: GamePlugin = {
       // Start first question
       state.phase = "question";
       state.timeLeft = QUESTION_TIME_MS;
-      state.questionStartTime = Date.now();
+      state.questionElapsedMs = 0;
       state.answers.set(0, new Map());
     } else if (state.phase === "question") {
       state.timeLeft -= deltaMs;
+      state.questionElapsedMs += Math.max(0, deltaMs);
       if (state.timeLeft <= 0) {
         // Time's up - reveal
         state.phase = "reveal";
@@ -183,7 +187,7 @@ const plugin: GamePlugin = {
         } else {
           state.phase = "question";
           state.timeLeft = QUESTION_TIME_MS;
-          state.questionStartTime = Date.now();
+          state.questionElapsedMs = 0;
           state.answers.set(state.currentQuestion, new Map());
           state.answerOrder = [];
         }
@@ -217,7 +221,7 @@ const plugin: GamePlugin = {
     return {
       question: q ? { text: q.text, options: q.options } : null,
       hasAnswered,
-      yourAnswer: playerAnswer?.optionId,
+      yourAnswer: playerAnswer?.optionId ?? null,
       correctAnswer: state.phase === "reveal" || state.phase === "finished" ? q?.correct : null,
       yourScore: state.scores[playerIndex],
       timeLeft: Math.max(0, state.timeLeft),

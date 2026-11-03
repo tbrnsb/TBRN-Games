@@ -7,6 +7,8 @@
  * the turn. Lose all three lives and you are out.
  */
 
+import { secureShuffle } from "../../shared/secure-random.ts";
+
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
   id: string;
@@ -130,14 +132,7 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+// Use secureShuffle from shared/secure-random.ts
 
 function buildQuestions(): QuestionDef[] {
   const qs: QuestionDef[] = [
@@ -189,7 +184,7 @@ function generateCharacters(): Character[] {
       }
     }
   }
-  const picked = shuffle(combos).slice(0, CHAR_COUNT);
+  const picked = secureShuffle(combos).slice(0, CHAR_COUNT);
   return picked.map((attrs, i) => ({
     id: i,
     name: `Character ${i + 1}`,
@@ -263,7 +258,7 @@ const plugin: GamePlugin = {
 
   onStart(room: RoomState, players: Player[]): GuessWhoInstance {
     const characters = generateCharacters();
-    const order = shuffle(characters.map((c) => c.id));
+    const order = secureShuffle(characters.map((c) => c.id));
     const secrets = players.map((_, i) => order[i % order.length]);
     return {
       roomId: room.id,
@@ -355,7 +350,7 @@ const plugin: GamePlugin = {
     const state = instance.state;
     return {
       phase: state.phase,
-      characters: state.characters.map((c) => ({ id: c.id, name: c.name, desc: c.desc })),
+      characters: state.characters.map((c) => ({ id: c.id, name: c.name })),
       turnName: state.phase === "playing" ? instance.players[state.currentPlayer].name : null,
       timeLeft: Math.max(0, state.turnTimerMs),
       history: state.history,

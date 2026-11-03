@@ -205,17 +205,22 @@ export function createChoiceLayout(): ControllerLayout {
       const options = state && typeof state === "object" && "options" in state
         ? (state as { options: Array<{ id: string; label: string }> }).options
         : [];
+      const isYourTurn = state && typeof state === "object" && (state as any).yourTurn === true;
+      const hasSubmitted = state && typeof state === "object" && (state as any).hasSubmitted === true;
+      const hasVoted = state && typeof state === "object" && (state as any).hasVoted === true;
+      const disabled = !isYourTurn || hasSubmitted || hasVoted;
       container.innerHTML = `
         <div class="choices">
           ${options.map(opt => `
-            <button class="choice-btn" data-id="${escapeHtml(opt.id)}">${escapeHtml(opt.label)}</button>
+            <button class="choice-btn" data-id="${escapeHtml(opt.id)}" ${disabled ? "disabled" : ""} style="${disabled ? "opacity:0.5;cursor:not-allowed;" : ""}">${escapeHtml(opt.label)}</button>
           `).join("")}
         </div>
       `;
-      container.querySelectorAll(".choice-btn").forEach(btn => {
+      container.querySelectorAll<HTMLButtonElement>(".choice-btn").forEach(btn => {
         btn.addEventListener("click", () => {
+          if (btn.disabled) return;
           onInput({ choice: btn.getAttribute("data-id") });
-          container.querySelectorAll(".choice-btn").forEach(b => b.classList.remove("selected"));
+          container.querySelectorAll<HTMLButtonElement>(".choice-btn").forEach(b => b.classList.remove("selected"));
           btn.classList.add("selected");
         });
       });

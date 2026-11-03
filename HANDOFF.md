@@ -1,53 +1,74 @@
 # TBRN-Games Handoff
 
 ## Current Phase
-All 18 games implemented, server + clients + tests complete. Ready for final review.
+Visual overhaul V0–V16 complete: all 18 games have a screen renderer and the
+host lobby is redesigned. Only archery/darts still use their older renderers.
 
 ## Last Commit
-`be0ae39` (G1 Darts) — all subsequent work is uncommitted.
+`3c9a1f2` (18 games + engine overhaul) — all visual-overhaul work is uncommitted.
 
 ## Done
-- **18 game plugins** under `games/*/server.ts` (archery, bluff, darts, golf, gravityrun, guesswho, hangman, knifethrow, mostlikely, poker, quiz, racing, seabattle, slotcar, snakes, spinwar, trafficjam, writevote)
-- **Server** (`server/index.ts`): screen-spectator architecture, game loop with delta-time, O(1) room lookup via `playerRooms` map, input validation, try-catch around plugin calls, host transfer picks connected player, ping 10s
-- **Shared** (`shared/controllers.ts`): 7 layouts with `signature()`, `labels` support, `escapeHtml()`; `shared/constants.d.ts` for literal MESSAGE_TYPES; `shared/constants.js` updated ping interval
-- **Clients**: screen (`client/screen/main.ts`) with dynamic game picker from `/api/games`, QR with room param, per-game custom renderers + generic fallback; controller (`client/controller/main.ts`) signature-based re-render, rejoin token saved on JOINED, `?room=` param support, controllerType from manifest
-- **Tests**: 57 passing — 18 manifest checks, 18 headless playthroughs with per-game drivers, 5 privacy tests (poker/guesswho/bluff/writevote), 13 poker evaluator + 5-run chip conservation, 3 integration tests via spawned server fixture
-- **Config**: `tsconfig.json` scoped to active architecture (excludes legacy `public/`, `src/`, `test/`); `.nvmrc` = 26; `package.json` typecheck script, quoted test globs
-
-## In Progress
-None — all implementation complete.
+- **18 game plugins** under `games/*/server.ts`; every game passes the automated
+  playthrough, manifest, garbage-input and privacy tests.
+- **Server** (`server/index.ts`): spectator screen, delta-time loop, O(1) room
+  lookup, host-token start auth, per-game try/catch, local QR generation.
+- **Shared kit** (`client/screen/kit/`): theme, synthwave background, bento
+  cards, scoreboard, counters, particles, shake, title/countdown, victory,
+  easing, utils.
+- **Renderers**: quiz, racing, poker, snakes, golf, seabattle, slotcar, spinwar,
+  knifethrow, trafficjam, bluff, writevote, mostlikely, guesswho, hangman,
+  gravityrun. Browser-verified at 1280×720 and/or 1920×1080.
+- **Host screen (V16)**: 16:9 lobby stage scaled to fit; room-code marquee, QR
+  ticket, four-seat roster, 18-game shelf, selected-game launch bar.
+- **Runtime fixes**: correct `/client/` and `/assets/` routes (renderers and
+  fonts now load), DPR-safe rendering, advancing title/countdown/victory cards,
+  result hold after a game ends, multi-word renderer export loading, 60 fps by
+  removing per-frame console logging, canvas/stage fit to the viewport.
 
 ## Next Three Actions
-1. Human review of complete diff + lint/typecheck/test results
-2. Commit with HANDOFF.md staged
-3. Push to GitHub (when asked)
+1. Restyle `games/archery/screen.ts` and `games/darts/screen.ts` with the kit so
+   all 18 renderers share one visual language.
+2. Add a small screenshot regression script for the 18 renderers (the
+   `.screenshots/` workflow used in this pass).
+3. Harden the flaky golf headless driver and add explicit Sea Battle /
+   Traffic Jam privacy tests.
 
 ## How to Run & Test
 ```bash
 cd /home/sulav/Projects/TBRN-Games
-npm run lint      # 0 errors (32 style warnings)
-npm run typecheck # 0 errors
-npm test          # 57/57 pass
-npm start         # server on port 3000
+npm run typecheck   # 0 errors
+npm run lint        # 0 errors (53 warnings)
+npm test            # 59/59 pass
+PORT=3100 npm start # server
 ```
-Open `http://localhost:3000/screen/` (host), `http://localhost:3000/controller?room=<CODE>` (phones).
+Open `http://localhost:3000/screen/`; phones open `/controller?room=<CODE>`.
 
 ## Failing Tests / Known Issues
-- **Golf test**: headless driver doesn't complete game (manual play works) — driver needs proper state machine logic
-- **QR code**: uses external `api.qrserver.com` (privacy/network dependency) — flagged for replacement
-- **HTTPS/WSS**: not implemented — secure context needed for mobile PWA features
-- **Legacy scaffold**: `public/`, `src/`, `test/`, `dist/` untouched and excluded from typecheck
+- **Favicon**: `/favicon.ico` 404s; cosmetic only.
+- **Legacy scaffold**: `public/`, `src/`, `test/`, `dist/` remain excluded from
+  typecheck.
+- HTTPS/WSS is not implemented (needed for some mobile PWA features).
 
 ## Decisions Made
-1. **Screen is spectator, not player** — joins with `role: "screen"`, never occupies seat, gets `controller: null` in GAME_STATE. Justification: README says "up to four phones"; screen-as-player would stall games.
-2. **controllerType override** — `gameStateMessage()` merges game-provided `controllerType` (per-phase switching) else falls back to manifest type.
-3. **QR flow** — screen joins with `roomId` from localStorage (`tbrn_screen_room_id`); QR encodes `/controller?room=<roomId>`; controller reads `?room=` param (localStorage fallback); fresh join without roomId rejected.
-4. **Delta-time timers** — no `Date.now()` in game logic; `onTick(instance, deltaMs)` with cap.
-5. **Player controllerType** — set from manifest on game start (`handleStartGame`), sent in controller state.
-6. **O(1) room lookup** — `playerRooms` map (playerId → roomId) replaces O(n²) iteration.
+1. **Screen is a spectator**, never a player; it owns the room and starts games.
+2. **Host-token start**: only the connected screen can start a game.
+3. **Delta-time timers** in game logic; renderers use `performance.now()` only
+   for cosmetics.
+4. **V1 Racing is the quality bar**; every renderer uses the shared kit.
+5. **One visual pass per game** (V0…V15); no game gets two passes in a phase.
+6. **Render-state ownership**: one module-level state per game on `globalThis`;
+   renderers never mutate server state.
+7. **Privacy**: render only fields the server already exposes (poker hole cards
+   at showdown, no Sea Battle ship positions, no Guess Who secrets).
+8. **Result hold**: the client keeps the final frame for 7 s so the victory
+   screen can play; the server returns to the lobby on the finish tick.
+9. **Host stage**: the lobby is a fixed 1280×666 design scaled to fit, so the
+   composition survives 720p and a TV identically.
+10. **One accent**: magenta is the only filled accent on the host screen; the QR
+    is the only light surface; game tiles are a shelf, not a card grid.
+11. **Player palette**: the lobby seats use the same four colours as the game
+    renderers, so a player keeps their colour from lobby to game.
 
 ## Open Questions for Human
-1. Replace external QR API with local generation?
-2. Add HTTPS/WSS support for mobile PWA?
-3. Golf driver fix needed for test suite?
-4. Max room limit for memory safety?
+1. Restyle archery and darts next, or leave their current look?
+2. Add HTTPS/WSS for mobile PWA features?

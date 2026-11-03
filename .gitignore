@@ -6,3 +6,5 @@ coverage/
 .env.*
 .DS_Store
 Thumbs.db
+.playwright-mcp/
+.screenshots/

@@ -3,6 +3,8 @@
  * Steer left/right between lanes, dodge obstacles. First across the finish wins.
  */
 
+import { secureShuffle, secureRandomInt } from "../../shared/secure-random.ts";
+
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
   id: string;
@@ -156,8 +158,8 @@ const plugin: GamePlugin = {
     // Spawn obstacle rows ahead of the leader.
     const leader = Math.max(0, ...state.racers.map((r) => r.distance));
     while (state.nextObstacleDistance < leader + FINISH_DISTANCE) {
-      const rows = 1 + Math.floor(Math.random() * (LANES - 1)); // leave at least one gap
-      const lanes = shuffle([0, 1, 2, 3, 4]).slice(0, rows);
+      const rows = 1 + secureRandomInt(0, LANES - 1); // leave at least one gap
+      const lanes = secureShuffle([0, 1, 2, 3, 4]).slice(0, rows);
       for (const lane of lanes) {
         state.obstacles.push({ lane, distance: state.nextObstacleDistance, hit: false });
       }
@@ -252,13 +254,6 @@ const plugin: GamePlugin = {
   },
 };
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+// Use secureShuffle from shared/secure-random.ts
 
 export default plugin;

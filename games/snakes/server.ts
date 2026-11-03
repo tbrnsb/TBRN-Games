@@ -3,6 +3,13 @@
  * Classic snake game with dpad controls
  */
 
+/**
+ * Snakes - Server Logic
+ * Classic snake game with dpad controls
+ */
+
+import { secureRandomInt } from "../../shared/secure-random.ts";
+
 interface GameManifest { id: string; name: string; minPlayers: number; maxPlayers: number; controllerType: ControllerType; description: string; }
 type ControllerType = "one-button" | "left-right" | "dpad" | "text" | "choice" | "private-grid" | "card-hand";
 interface Player { id: string; name: string; joinedAt: number; rejoinToken: string; connected: boolean; controllerType?: string; }
@@ -75,7 +82,9 @@ function spawnFood(state: SnakeState): void {
   const occupied = new Set<string>();
   state.snakes.forEach(s => s.body.forEach(seg => occupied.add(`${seg.x},${seg.y}`)));
   state.food.forEach(f => occupied.add(`${f.x},${f.y}`));
-  let x, y; do { x = Math.floor(Math.random() * state.gridSize); y = Math.floor(Math.random() * state.gridSize); } while (occupied.has(`${x},${y}`));
+  let x = 0, y = 0, attempts = 0;
+  do { x = secureRandomInt(0, state.gridSize); y = secureRandomInt(0, state.gridSize); attempts++; } while (occupied.has(`${x},${y}`) && attempts < 500);
+  if (occupied.has(`${x},${y}`)) return; // board is full: nothing left to eat
   state.food.push({ x, y });
 }
 function getWinner(instance: SnakeInstance): { name: string; score: number } | null { const state = instance.state; let best = -1, idx = -1; state.snakes.forEach((s,i) => { if (s.score > best) { best = s.score; idx = i; } }); if (idx >= 0) return { name: instance.players[idx].name, score: best }; return null; }

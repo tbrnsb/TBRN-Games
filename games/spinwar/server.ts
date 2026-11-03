@@ -4,6 +4,8 @@
  * across the boundary; last spinner standing wins.
  */
 
+import { secureRandom } from "../../shared/secure-random.ts";
+
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
   id: string;
@@ -147,7 +149,7 @@ const plugin: GamePlugin = {
     let dy: number;
     const d = Math.hypot(s.x, s.y);
     if (d < 0.001) {
-      const a = Math.random() * Math.PI * 2;
+      const a = secureRandom() * Math.PI * 2;
       dx = Math.cos(a);
       dy = Math.sin(a);
     } else {
@@ -293,6 +295,16 @@ const plugin: GamePlugin = {
 
 function getWinner(instance: SpinWarInstance): { name: string; score: number } | null {
   const state = instance.state;
+  // Last spinner standing is the winner — score is ranking only. Picking the
+  // highest score here would hand the match to an eliminated player who
+  // racked up knockouts (3 x 50 > the 100 survival bonus).
+  const alive = state.spinners
+    .map((s, i) => ({ s, i }))
+    .filter((x) => x.s.alive);
+  if (state.phase === "finished" && alive.length === 1) {
+    const winner = alive[0];
+    return { name: instance.players[winner.i].name, score: winner.s.score };
+  }
   let best = -1;
   let idx = -1;
   state.spinners.forEach((s, i) => {

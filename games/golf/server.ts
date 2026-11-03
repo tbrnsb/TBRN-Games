@@ -105,6 +105,7 @@ const FRICTION_PER_SEC = 0.05; // velocity multiplies by this each second
 const WALL_BOUNCE = 0.55;
 const STOP_SPEED = 0.04;
 const HOLE_DONE_MS = 1500;
+const MAX_EXTRA_STROKES = 4; // pick up at par + 4 so a hole always ends
 
 const manifest: GameManifest = {
   id: "golf",
@@ -169,9 +170,19 @@ const plugin: GamePlugin = {
         break;
       case "down": {
         if (state.power < MIN_POWER) return; // charge first
-        state.phase = "moving";
+        const course = COURSES[state.holeIndex];
         state.holeStrokes[state.currentPlayer]++;
         state.totalStrokes[state.currentPlayer]++;
+        // Safety valve: a hole can never run forever. Pick up at par + 4.
+        if (state.holeStrokes[state.currentPlayer] >= course.par + MAX_EXTRA_STROKES) {
+          state.power = 0;
+          state.ball.vx = 0;
+          state.ball.vy = 0;
+          state.phase = "hole-done";
+          state.holeDoneTimerMs = HOLE_DONE_MS;
+          break;
+        }
+        state.phase = "moving";
         state.ball.vx = Math.cos(state.angle) * state.power * MAX_BALL_SPEED;
         state.ball.vy = Math.sin(state.angle) * state.power * MAX_BALL_SPEED;
         state.power = 0;

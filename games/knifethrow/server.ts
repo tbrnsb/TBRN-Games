@@ -32,11 +32,21 @@ const plugin: GamePlugin = {
     state.knives.forEach(k => { const diff = Math.abs(k.angle - knifeAngle); if (diff < 0.15 || diff > Math.PI * 2 - 0.15) hit = true; });
     if (hit) { state.scores[playerIndex] -= 5; } else { state.scores[playerIndex] += 10; }
     state.knives.push({ playerIndex, angle: knifeAngle, round: state.round }); state.knivesPerPlayer--;
-    if (state.knivesPerPlayer <= 0) { state.round++; state.knivesPerPlayer = KNIVES_PER_ROUND; if (state.round >= state.maxRounds) { state.phase = "finished"; } else { state.currentPlayer = (state.currentPlayer + 1) % instance.players.length; } }
+    if (state.knivesPerPlayer <= 0) {
+      // state.round counts completed player-turns, so the match is over only
+      // after every player has thrown maxRounds sets of knives.
+      state.round++;
+      state.knivesPerPlayer = KNIVES_PER_ROUND;
+      if (state.round >= state.maxRounds * instance.players.length) {
+        state.phase = "finished";
+      } else {
+        state.currentPlayer = (state.currentPlayer + 1) % instance.players.length;
+      }
+    }
   },
   onTick(instance: KnifeInstance, deltaMs: number): void { instance.state.angle = (instance.state.angle + ROTATION_SPEED * deltaMs / 1000) % (Math.PI * 2); },
-  screenState(instance: KnifeInstance): unknown { const state = instance.state; return { angle: state.angle, knives: state.knives, currentPlayer: state.currentPlayer, round: state.round + 1, maxRounds: state.maxRounds, knivesLeft: state.knivesPerPlayer, scores: instance.players.map((p,i) => ({ name: p.name, score: state.scores[i] })), finished: state.phase === "finished", winner: state.phase === "finished" ? getWinner(instance) : null }; },
-  controllerState(instance: KnifeInstance, playerId: string): unknown { const state = instance.state; const playerIndex = instance.players.findIndex(p => p.id === playerId); return { angle: state.angle, isYourTurn: playerIndex === state.currentPlayer && state.phase !== "finished", knivesLeft: state.knivesPerPlayer, yourScore: state.scores[playerIndex], round: state.round + 1, maxRounds: state.maxRounds, finished: state.phase === "finished", youWon: state.phase === "finished" ? getWinner(instance)?.name === instance.players[playerIndex].name : false }; }
+  screenState(instance: KnifeInstance): unknown { const state = instance.state; return { angle: state.angle, knives: state.knives, currentPlayer: state.currentPlayer, round: Math.min(state.maxRounds, Math.floor(state.round / instance.players.length) + 1), maxRounds: state.maxRounds, knivesLeft: state.knivesPerPlayer, scores: instance.players.map((p,i) => ({ name: p.name, score: state.scores[i] })), finished: state.phase === "finished", winner: state.phase === "finished" ? getWinner(instance) : null }; },
+  controllerState(instance: KnifeInstance, playerId: string): unknown { const state = instance.state; const playerIndex = instance.players.findIndex(p => p.id === playerId); return { angle: state.angle, isYourTurn: playerIndex === state.currentPlayer && state.phase !== "finished", knivesLeft: state.knivesPerPlayer, yourScore: state.scores[playerIndex], round: Math.min(state.maxRounds, Math.floor(state.round / instance.players.length) + 1), maxRounds: state.maxRounds, finished: state.phase === "finished", youWon: state.phase === "finished" ? getWinner(instance)?.name === instance.players[playerIndex].name : false }; }
 };
 
 function getWinner(instance: KnifeInstance): { name: string; score: number } | null { const state = instance.state; let best = -1, idx = -1; state.scores.forEach((s,i) => { if (s > best) { best = s; idx = i; } }); if (idx >= 0) return { name: instance.players[idx].name, score: best }; return null; }

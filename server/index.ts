@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import type { ServerResponse } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import { WebSocketServer, WebSocket } from "ws";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { join, normalize } from "node:path";
 import { readFileSync } from "node:fs";
 import {
@@ -19,26 +19,41 @@ import type {
   ServerMessage,
   RoomState,
   Player,
+  GamePlugin,
+  GameManifest,
 } from "../shared/types.ts";
-import type { PluginLoader, GamePlugin, GameManifest } from "./plugins.ts";
+import type { PluginLoader } from "./plugins.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
+const MAX_ROOMS = 100; // Prevent unbounded room creation
+const MAX_PLAYERS_PER_ROOM = 4; // Hard ceiling used only when no manifest exists
 
 // --- In-memory stores ---
-const rooms = new Map<string, RoomState>();
-const plugins = new Map<string, GamePlugin>();
+const rooms = new Map<string, RoomState<any>>();
+const plugins = new Map<string, GamePlugin<any, any, any, any>>();
 const playerSockets = new Map<string, WebSocket>(); // playerId -> ws
 const socketPlayers = new Map<WebSocket, string>(); // ws -> playerId
 const playerRooms = new Map<string, string>(); // playerId -> roomId (for O(1) lookup)
 const gameLoops = new Map<string, NodeJS.Timeout>(); // roomId -> interval
 const roomScreens = new Map<string, Set<WebSocket>>(); // roomId -> screen sockets
 const screenRooms = new Map<WebSocket, string>(); // screen ws -> roomId
+const roomHostTokens = new Map<string, string>(); // roomId -> host (screen) token
+
+/** Host token for a room; created on first screen join, reused afterwards. */
+function hostTokenFor(roomId: string): string {
+  let token = roomHostTokens.get(roomId);
+  if (!token) {
+    token = randomBytes(16).toString("hex");
+    roomHostTokens.set(roomId, token);
+  }
+  return token;
+}
 
 // --- Helpers ---
 function generateRoomCode(): string {
   let code = "";
   for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
-    code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    code += ROOM_CODE_CHARS[randomInt(0, ROOM_CODE_CHARS.length)];
   }
   return code;
 }
@@ -218,6 +233,31 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
+  // Generate QR code locally (no external API)
+  if (url.pathname === "/api/qr") {
+    const data = url.searchParams.get("data");
+    if (!data) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ code: "MISSING_DATA", message: "Missing 'data' query parameter" }));
+      return;
+    }
+    try {
+      const QRCode = await import("qrcode");
+      const pngBuffer = await QRCode.toBuffer(data, {
+        width: 256,
+        margin: 1,
+        color: { dark: "#0F172A", light: "#F8FAFC" },
+      });
+      res.writeHead(200, { "Content-Type": "image/png" });
+      res.end(pngBuffer);
+    } catch (e) {
+      console.error("[Server] QR generation failed:", e);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ code: "QR_FAILED", message: "QR code generation failed" }));
+    }
+    return;
+  }
+
   // Handle start game
   if (handleStartGame(req, res, url)) {
     return;
@@ -252,8 +292,11 @@ function serveStatic(pathname: string, res: ServerResponse): boolean {
     rel = "shared/" + pathname.slice("/shared/".length);
   } else if (pathname.startsWith("/games/")) {
     rel = "games/" + pathname.slice("/games/".length);
+  } else if (pathname.startsWith("/client/")) {
+    // Browser-side modules (screen renderers import the shared kit from here).
+    rel = pathname.slice(1);
   } else if (pathname.startsWith("/assets/")) {
-    rel = "client/" + pathname.slice("/assets/".length);
+    rel = "client/assets/" + pathname.slice("/assets/".length);
   } else {
     return false;
   }
@@ -299,7 +342,50 @@ function serveStatic(pathname: string, res: ServerResponse): boolean {
 // --- WebSocket server ---
 const wss = new WebSocketServer({ server: httpServer });
 
+// --- Rate limiting ---
+// Two buckets per client:
+//   * per connection: 50 msg/s (protects gameplay throughput)
+//   * per IP:        200 msg/s, kept across reconnects so a reconnect cannot
+//                    reset the counter (protects against floods)
+const RATE_LIMIT_WINDOW_MS = 1000;
+const RATE_LIMIT_PER_CONNECTION = 50;
+const RATE_LIMIT_PER_IP = 200;
+const RATE_LIMIT_IP_TTL_MS = 60_000;
+const ipMessageCounts = new Map<string, { count: number; windowStart: number }>();
+
+function hitRateBucket(
+  bucket: { count: number; windowStart: number },
+  max: number,
+  now: number,
+): { limited: boolean; bucket: { count: number; windowStart: number } } {
+  if (now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    return { limited: false, bucket: { count: 1, windowStart: now } };
+  }
+  const count = bucket.count + 1;
+  return { limited: count > max, bucket: { count, windowStart: bucket.windowStart } };
+}
+
+function pruneIpRateLimits(now: number): void {
+  if (ipMessageCounts.size < 512) return;
+  for (const [ip, bucket] of ipMessageCounts) {
+    if (now - bucket.windowStart > RATE_LIMIT_IP_TTL_MS) ipMessageCounts.delete(ip);
+  }
+}
+
+function getClientIP(ws: WebSocket): string {
+  // ws._socket and ws.socket are non-standard properties
+  // Use type assertion to access them
+  const socket = (ws as any)._socket || (ws as any).socket;
+  if (!socket) return "unknown";
+  const remoteAddress = socket.remoteAddress || "unknown";
+  // Normalize IPv6 mapped IPv4 addresses
+  return remoteAddress.replace(/^::ffff:/, "");
+}
+
 wss.on("connection", (ws) => {
+  const clientIP = getClientIP(ws);
+  // Per-connection bucket lives only as long as the socket.
+  let connBucket = { count: 0, windowStart: 0 };
   let pingTimer: NodeJS.Timeout;
 
   const startPing = () => {
@@ -313,8 +399,32 @@ wss.on("connection", (ws) => {
   };
 
   ws.on("message", (data) => {
+    const now = Date.now();
+
+    const connResult = hitRateBucket(connBucket, RATE_LIMIT_PER_CONNECTION, now);
+    connBucket = connResult.bucket;
+    if (connResult.limited) {
+      send(ws, { type: MESSAGE_TYPES.ERROR, roomId: "", timestamp: Date.now(), payload: { code: "RATE_LIMITED", message: "Too many messages, slow down" } });
+      ws.close(1009, "Rate limited");
+      return;
+    }
+
+    const ipResult = hitRateBucket(
+      ipMessageCounts.get(clientIP) ?? { count: 0, windowStart: now },
+      RATE_LIMIT_PER_IP,
+      now,
+    );
+    ipMessageCounts.set(clientIP, ipResult.bucket);
+    pruneIpRateLimits(now);
+    if (ipResult.limited) {
+      send(ws, { type: MESSAGE_TYPES.ERROR, roomId: "", timestamp: Date.now(), payload: { code: "RATE_LIMITED", message: "Too many messages from this network" } });
+      ws.close(1009, "Rate limited");
+      return;
+    }
+
     try {
-      const msg = JSON.parse(data.toString()) as ClientMessage;
+      const raw = data.toString();
+      const msg = JSON.parse(raw) as ClientMessage;
 
       switch (msg.type) {
         case MESSAGE_TYPES.JOIN:
@@ -333,27 +443,66 @@ wss.on("connection", (ws) => {
           send(ws, { type: MESSAGE_TYPES.ERROR, roomId: badMsg.roomId, timestamp: Date.now(), payload: { code: "UNKNOWN_MESSAGE", message: `Unknown message type: ${String(badMsg.type)}` } });
         }
       }
-    } catch {
+    } catch (e) {
+      console.error("[Server] Parse error:", e, "raw:", data.toString());
       send(ws, { type: MESSAGE_TYPES.ERROR, roomId: "", timestamp: Date.now(), payload: { code: "PARSE_ERROR", message: "Invalid JSON" } });
     }
   });
 
-  ws.on("close", () => handleDisconnect(ws));
-  ws.on("error", () => handleDisconnect(ws));
+  ws.on("close", () => {
+    handleDisconnect(ws);
+  });
+  ws.on("error", () => {
+    handleDisconnect(ws);
+  });
 
   startPing();
 });
 
 function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void {
-  const { roomId, payload } = msg;
+  const { roomId: initialRoomId, payload } = msg;
+  let roomId = initialRoomId;
   const { name, rejoinToken } = payload;
+
+  // Validate name
+  if (!name || typeof name !== "string" || name.trim().length === 0) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: roomId ?? "", timestamp: Date.now(), payload: { code: "INVALID_NAME", message: "Name is required" } });
+    return;
+  }
+  if (name.length > 32) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: roomId ?? "", timestamp: Date.now(), payload: { code: "NAME_TOO_LONG", message: "Name must be 32 characters or less" } });
+    return;
+  }
+  // Sanitize name - remove control characters
+  const sanitizedName = name
+    .split("")
+    .filter((ch) => ch.charCodeAt(0) >= 0x20 && ch.charCodeAt(0) !== 0x7f)
+    .join("")
+    .trim();
+  if (sanitizedName !== name) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: roomId ?? "", timestamp: Date.now(), payload: { code: "INVALID_NAME", message: "Name contains invalid characters" } });
+    return;
+  }
 
   // The laptop screen joins as a spectator: it owns the room but does not
   // occupy one of the four player seats and never receives controller state.
   if (payload.role === "screen") {
     let screenRoom: RoomState | undefined;
-    if (roomId) screenRoom = rooms.get(roomId);
+    if (roomId && typeof roomId === "string") {
+      // Try to find existing room by internal ID or code
+      if (/^[a-f0-9]{12}$/.test(roomId)) {
+        screenRoom = rooms.get(roomId);
+      } else if (/^[A-Z0-9]{5}$/.test(roomId)) {
+        for (const r of rooms.values()) {
+          if (r.code === roomId) {
+            screenRoom = r;
+            break;
+          }
+        }
+      }
+    }
     if (!screenRoom) {
+      // Create new room for screen
       screenRoom = {
         id: randomBytes(6).toString("hex"),
         code: generateRoomCode(),
@@ -379,10 +528,37 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
       roomId: screenRoom.id,
       playerId: "",
       timestamp: Date.now(),
-      payload: { playerId: "", rejoinToken: "", roomState: publicRoom(screenRoom) },
+      payload: {
+        playerId: "",
+        rejoinToken: "",
+        roomState: publicRoom(screenRoom),
+        hostToken: hostTokenFor(screenRoom.id),
+      },
     });
     send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: screenRoom.id, timestamp: Date.now(), payload: publicRoom(screenRoom) });
     return;
+  }
+
+  // For non-screen players: validate roomId format if provided
+  if (roomId && typeof roomId === "string") {
+    let targetRoom: RoomState | undefined;
+    if (/^[a-f0-9]{12}$/.test(roomId)) {
+      // 12-char hex internal room ID
+      targetRoom = rooms.get(roomId);
+    } else if (/^[A-Z0-9]{5}$/.test(roomId)) {
+      // 5-char room code (e.g., "WJA6W")
+      for (const r of rooms.values()) {
+        if (r.code === roomId) {
+          targetRoom = r;
+          break;
+        }
+      }
+    }
+    if (!targetRoom) {
+      send(ws, { type: MESSAGE_TYPES.ERROR, roomId, timestamp: Date.now(), payload: { code: "ROOM_NOT_FOUND", message: "Room not found" } });
+      return;
+    }
+    roomId = targetRoom.id;
   }
 
   let room: RoomState | undefined;
@@ -421,6 +597,11 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   }
 
   if (!room) {
+    // Enforce max room limit
+    if (rooms.size >= MAX_ROOMS) {
+      send(ws, { type: MESSAGE_TYPES.ERROR, roomId: roomId ?? "", timestamp: Date.now(), payload: { code: "ROOM_LIMIT", message: "Server at room capacity, try again later" } });
+      return;
+    }
     // Create new room
     const id = randomBytes(6).toString("hex");
     const code = generateRoomCode();
@@ -437,8 +618,20 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
     rooms.set(id, room);
   }
 
-  if (room.players.length >= 4) {
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "ROOM_FULL", message: "Room is full (max 4 players)" } });
+  // Reject brand-new joins while a game is running. Per-player arrays in the
+  // running game state are sized at start, so a late seat would corrupt them.
+  if (room.status === "playing") {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "GAME_IN_PROGRESS", message: "Game in progress — wait for the next round" } });
+    return;
+  }
+
+  // Seat cap comes from the game manifest when a game is selected, otherwise
+  // the platform ceiling.
+  const maxPlayers = room.gameId
+    ? (plugins.get(room.gameId)?.manifest.maxPlayers ?? MAX_PLAYERS_PER_ROOM)
+    : MAX_PLAYERS_PER_ROOM;
+  if (room.players.length >= maxPlayers) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "ROOM_FULL", message: `Room is full (max ${maxPlayers} players)` } });
     return;
   }
 
@@ -548,6 +741,8 @@ function handleDisconnect(ws: WebSocket): void {
     const r = rooms.get(screenRoomId);
     if (r && r.players.length === 0 && !roomScreens.has(screenRoomId)) {
       rooms.delete(screenRoomId);
+      gameLoops.delete(screenRoomId);
+      roomHostTokens.delete(screenRoomId);
     }
     return;
   }
@@ -555,32 +750,68 @@ function handleDisconnect(ws: WebSocket): void {
   const playerId = socketPlayers.get(ws);
   if (!playerId) return;
 
+  // Prevent stale socket close from clobbering a fresh reconnect socket
+  if (playerSockets.get(playerId) !== ws) {
+    return;
+  }
+
   socketPlayers.delete(ws);
   playerSockets.delete(playerId);
+  // Capture roomId before deleting from playerRooms (needed for cleanup timeout)
+  const playerRoomId = playerRooms.get(playerId);
   playerRooms.delete(playerId);
+  if (!playerRoomId) return;
 
-  const room = findRoomByPlayerId(playerId);
+  const room = rooms.get(playerRoomId);
   if (room) {
     const player = room.players.find((p) => p.id === playerId);
     if (player) {
       player.connected = false;
-      // Schedule cleanup if no reconnect within timeout
+      // Schedule cleanup if no reconnect within timeout.
+      const disconnectedRoomId = room.id;
       setTimeout(() => {
-        const currentRoom = findRoomByPlayerId(playerId);
-        if (currentRoom) {
-          const currentPlayer = currentRoom.players.find((p) => p.id === playerId);
-          if (currentPlayer && !currentPlayer.connected) {
-            currentRoom.players = currentRoom.players.filter((p) => p.id !== playerId);
-            playerRooms.delete(playerId);
-            if (currentRoom.players.length === 0) {
-              rooms.delete(currentRoom.id);
-            } else if (currentRoom.hostPlayerId === playerId) {
-              const connectedPlayers = currentRoom.players.filter((p) => p.connected);
-              currentRoom.hostPlayerId = (connectedPlayers[0] ?? currentRoom.players[0]).id;
-            }
+        const currentRoom = rooms.get(disconnectedRoomId);
+        if (!currentRoom) return;
+        const currentPlayer = currentRoom.players.find((p) => p.id === playerId);
+        if (!currentPlayer || currentPlayer.connected) return;
+
+        if (currentRoom.status === "playing") {
+          // Keep the seat while others are still playing: per-player arrays in
+          // the running game state are indexed by seat, so removing a player
+          // here would desynchronise them from room.players.
+          if (currentRoom.players.some((p) => p.connected)) {
             broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
+            return;
           }
+          // Nobody is left: tear the session down instead of running forever.
+          const loop = gameLoops.get(currentRoom.id);
+          if (loop) {
+            clearInterval(loop);
+            gameLoops.delete(currentRoom.id);
+          }
+          currentRoom.status = "lobby";
+          currentRoom.gameId = null;
+          currentRoom.gameState = null;
         }
+
+        // Remove the seat in place. Reassigning the array would break every
+        // game instance that still holds a reference to it.
+        const seat = currentRoom.players.indexOf(currentPlayer);
+        if (seat !== -1) currentRoom.players.splice(seat, 1);
+        playerRooms.delete(playerId);
+        playerSockets.delete(playerId);
+
+        if (currentRoom.players.length === 0) {
+          rooms.delete(currentRoom.id);
+          gameLoops.delete(currentRoom.id);
+          roomHostTokens.delete(currentRoom.id);
+          return;
+        }
+        if (currentRoom.hostPlayerId === playerId) {
+          const connectedPlayers = currentRoom.players.filter((p) => p.connected);
+          currentRoom.hostPlayerId = (connectedPlayers[0] ?? currentRoom.players[0]).id;
+        }
+        broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
       }, PLAYER_TIMEOUT_MS);
     }
   }
@@ -690,11 +921,38 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
     return false;
   }
 
-  const roomId = url.pathname.split("/")[3];
-  const room = rooms.get(roomId);
+  const paramId = url.pathname.split("/")[3];
+  let room = rooms.get(paramId);
+  // Also accept 5-char room code
+  if (!room) {
+    for (const r of rooms.values()) {
+      if (r.code === paramId) {
+        room = r;
+        break;
+      }
+    }
+  }
   if (!room) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+
+  // Verify the request comes from the host screen.
+  const screens = roomScreens.get(room.id);
+  if (!screens || screens.size === 0) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_HOST_SCREEN", message: "No host screen connected to this room" }));
+    return true;
+  }
+
+  // The screen receives a host token on join; a start request must present it.
+  // This stops any other client on the LAN from starting a game.
+  const providedToken = String(req.headers["x-host-token"] ?? "");
+  const expectedToken = roomHostTokens.get(room.id) ?? "";
+  if (!expectedToken || providedToken !== expectedToken) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "HOST_AUTH_REQUIRED", message: "Start request must come from the host screen" }));
     return true;
   }
 
@@ -710,9 +968,28 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
         return;
       }
 
+      // Drop seats for players who left while the room sat in the lobby, so
+      // the game starts with exactly the connected phones.
+      for (let i = room.players.length - 1; i >= 0; i--) {
+        if (!room.players[i].connected) {
+          playerRooms.delete(room.players[i].id);
+          playerSockets.delete(room.players[i].id);
+          room.players.splice(i, 1);
+        }
+      }
+      if (room.hostPlayerId && !room.players.some((p) => p.id === room.hostPlayerId)) {
+        room.hostPlayerId = room.players[0]?.id ?? null;
+      }
+
       if (room.players.length < plugin.manifest.minPlayers) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ code: "NOT_ENOUGH_PLAYERS", message: `Need at least ${plugin.manifest.minPlayers} players` }));
+        return;
+      }
+
+      if (room.players.length > plugin.manifest.maxPlayers) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ code: "TOO_MANY_PLAYERS", message: `Maximum ${plugin.manifest.maxPlayers} players allowed` }));
         return;
       }
 
@@ -737,13 +1014,16 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
       sendScreenGameState(room, plugin, screen);
 
       // Start game loop
-      startGameLoop(roomId);
+      startGameLoop(room.id);
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
-    } catch {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ code: "INVALID_REQUEST", message: "Invalid request body" }));
+    } catch (e) {
+      console.error("[Server] Error starting game:", e);
+      if (!res.writableEnded) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ code: "INVALID_REQUEST", message: "Invalid request body" }));
+      }
     }
   });
 
@@ -763,6 +1043,31 @@ async function start() {
     console.log("Share one of these URLs or the QR code with phones on the same network");
   });
 }
+
+// Cleanup on process exit
+function shutdown(): void {
+  console.log("Shutting down...");
+  for (const [, interval] of gameLoops) {
+    clearInterval(interval);
+  }
+  gameLoops.clear();
+  httpServer.close(() => {
+    process.exit(0);
+  });
+  // Force exit after 5 seconds
+  setTimeout(() => process.exit(1), 5000);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+
+process.on("uncaughtException", (err) => {
+  console.error("[Server] Uncaught exception:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[Server] Unhandled rejection:", reason);
+});
 
 // stripTypeScriptTypes is experimental and warns on every request; keep the
 // warning once instead of flooding the log, but pass other warnings through.

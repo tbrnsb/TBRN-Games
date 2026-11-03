@@ -115,10 +115,28 @@ function handleMessage(msg: ServerMessage) {
       statusEl.textContent = statusFrom(controller);
       break;
     }
-    case MESSAGE_TYPES.ERROR:
+    case MESSAGE_TYPES.ERROR: {
       console.error("[Controller] Error:", msg.payload);
-      statusEl.textContent = `Error: ${(msg.payload as { message?: string }).message ?? "unknown"}`;
+      const payload = msg.payload as { message?: string; code?: string };
+      const errorMsg = `${payload.code ?? "Error"}: ${payload.message ?? "unknown"}`;
+      statusEl.textContent = errorMsg;
+      // Also show as toast - reuse single toast element to prevent stacking
+      let errorDiv = document.getElementById("controller-error-toast");
+      if (!errorDiv) {
+        errorDiv = document.createElement("div");
+        errorDiv.id = "controller-error-toast";
+        errorDiv.className = "error-toast";
+        errorDiv.style.cssText = "position:fixed;top:1rem;right:1rem;padding:1rem;background:#EF4444;color:white;border-radius:0.5rem;z-index:1000;max-width:80%;";
+        document.body.appendChild(errorDiv);
+      }
+      errorDiv.textContent = errorMsg;
+      errorDiv.style.display = "block";
+      clearTimeout((errorDiv as any)._hideTimeout);
+      (errorDiv as any)._hideTimeout = setTimeout(() => {
+        errorDiv.style.display = "none";
+      }, 5000);
       break;
+    }
   }
 }
 

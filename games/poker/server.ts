@@ -5,6 +5,8 @@
  * controller state (or in the public showdown reveal).
  */
 
+import { secureShuffle } from "../../shared/secure-random.ts";
+
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
   id: string;
@@ -156,14 +158,7 @@ function makeDeck(): Card[] {
   return deck;
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+// Use secureShuffle from shared/secure-random.ts
 
 function cardLabel(card: Card): { suit: Suit; rank: string } {
   return { suit: card.suit, rank: RANK_LABELS[card.rank] ?? String(card.rank) };
@@ -320,7 +315,7 @@ function dealTo(s: PokerState, count: number): void {
 function startHand(instance: PokerInstance): void {
   const s = instance.state;
   s.handNumber++;
-  s.deck = shuffle(makeDeck());
+  s.deck = secureShuffle(makeDeck());
   s.community = [];
   s.pot = 0;
   s.showdown = null;

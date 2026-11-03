@@ -3,6 +3,8 @@
  * Classic darts: 3 darts per turn, score 501/301, closest to center wins
  */
 
+import { secureRandom } from "../../shared/secure-random.ts";
+
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
   id: string;
@@ -148,8 +150,8 @@ const plugin: GamePlugin = {
     if (playerIndex !== state.currentPlayer) return;
     if (state.turn >= 3) return;
 
-    const angle = Math.random() * Math.PI * 2;
-    const power = 0.3 + Math.random() * 0.7;
+    const angle = secureRandom() * Math.PI * 2;
+    const power = 0.3 + secureRandom() * 0.7;
     const distance = power * DARTBOARD_RADIUS * 0.95;
 
     const x = distance * Math.cos(angle);
