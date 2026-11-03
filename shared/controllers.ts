@@ -74,7 +74,10 @@ export function createOneButtonLayout(): ControllerLayout {
     },
     update(container, state) {
       const countEl = container.querySelector("#tapCount");
-      if (countEl && state && typeof state === "object" && "yourTaps" in state) {
+      if (!countEl || !state || typeof state !== "object") return;
+      if (typeof (state as { throttle?: unknown }).throttle === "boolean") {
+        countEl.textContent = (state as { throttle: boolean }).throttle ? "ON" : "OFF";
+      } else if ("yourTaps" in state) {
         countEl.textContent = String((state as { yourTaps: number }).yourTaps);
       }
     },
@@ -90,8 +93,8 @@ export function createLeftRightLayout(): ControllerLayout {
     type: "left-right",
     render(container, state, onInput) {
       const labels = labelsOf(state);
-      const left = escapeHtml(labels.left ?? "◀ LEFT");
-      const right = escapeHtml(labels.right ?? "RIGHT ▶");
+      const left = escapeHtml(labels.left ?? "Left");
+      const right = escapeHtml(labels.right ?? "Right");
       container.innerHTML = `
         <div class="lr-row">
           <button class="btn-lr left" data-input="left">${left}</button>
@@ -112,7 +115,7 @@ export function createLeftRightLayout(): ControllerLayout {
     },
     signature(state) {
       const labels = labelsOf(state);
-      return JSON.stringify([labels.left ?? "◀ LEFT", labels.right ?? "RIGHT ▶"]);
+      return JSON.stringify([labels.left ?? "Left", labels.right ?? "Right"]);
     },
   };
 }
@@ -123,16 +126,14 @@ export function createDpadLayout(): ControllerLayout {
     type: "dpad",
     render(container, state, onInput) {
       const labels = labelsOf(state);
-      const up = escapeHtml(labels.up ?? "▲");
-      const down = escapeHtml(labels.down ?? "▼");
-      const left = escapeHtml(labels.left ?? "◀");
-      const right = escapeHtml(labels.right ?? "▶");
+      const glyphs: Record<string, string> = { up: "▲", down: "▼", left: "◀", right: "▶" };
+      const dirs = ["up", "left", "right", "down"] as const;
       container.innerHTML = `
         <div class="dpad">
-          <button class="dpad-btn up" data-input="up">${up}</button>
-          <button class="dpad-btn left" data-input="left">${left}</button>
-          <button class="dpad-btn right" data-input="right">${right}</button>
-          <button class="dpad-btn down" data-input="down">${down}</button>
+          ${dirs.map((dir) => {
+            const caption = labels[dir];
+            return `<button class="dpad-btn ${dir}" data-input="${dir}"><span class="glyph">${glyphs[dir]}</span>${caption ? `<span class="cap">${escapeHtml(caption)}</span>` : ""}</button>`;
+          }).join("")}
         </div>
       `;
       container.querySelectorAll<HTMLButtonElement>(".dpad-btn").forEach(btn => {
@@ -143,7 +144,7 @@ export function createDpadLayout(): ControllerLayout {
     update(_container, _state) {},
     signature(state) {
       const labels = labelsOf(state);
-      return JSON.stringify([labels.up ?? "▲", labels.down ?? "▼", labels.left ?? "◀", labels.right ?? "▶"]);
+      return JSON.stringify([labels.up ?? "", labels.down ?? "", labels.left ?? "", labels.right ?? ""]);
     },
   };
 }
@@ -159,7 +160,7 @@ export function createTextLayout(): ControllerLayout {
       container.innerHTML = `
         <div class="text-input">
           <textarea id="textArea" placeholder="${escapeHtml(placeholder)}" maxlength="200"></textarea>
-          <button id="textSubmit">Submit</button>
+          <button id="textSubmit" class="primary">Submit</button>
           <div class="char-count"><span id="charCount">0</span>/200</div>
         </div>
       `;
@@ -212,7 +213,7 @@ export function createChoiceLayout(): ControllerLayout {
       container.innerHTML = `
         <div class="choices">
           ${options.map(opt => `
-            <button class="choice-btn" data-id="${escapeHtml(opt.id)}" ${disabled ? "disabled" : ""} style="${disabled ? "opacity:0.5;cursor:not-allowed;" : ""}">${escapeHtml(opt.label)}</button>
+            <button class="choice-btn" data-id="${escapeHtml(opt.id)}" ${disabled ? "disabled" : ""}>${escapeHtml(opt.label)}</button>
           `).join("")}
         </div>
       `;
@@ -246,6 +247,15 @@ export function createChoiceLayout(): ControllerLayout {
 }
 
 // --- Private Grid ---
+function gridValueClass(raw: string): string {
+  if (!raw) return "";
+  if (raw.startsWith("[")) return "v-selected";
+  if (raw === "X") return "v-X";
+  if (raw === "o") return "v-o";
+  if (raw === "S") return "v-S";
+  return "v-fill";
+}
+
 export function createPrivateGridLayout(): ControllerLayout {
   return {
     type: "private-grid",
@@ -254,15 +264,30 @@ export function createPrivateGridLayout(): ControllerLayout {
         ? state as { rows: number; cols: number; cells: unknown[][] }
         : { rows: 5, cols: 5, cells: [] };
 
+      const isTwoBoards = rows === 20;
+      const items: string[] = [];
+      for (let i = 0; i < rows * cols; i++) {
+        const r = Math.floor(i / cols);
+        const c = i % cols;
+        if (isTwoBoards && r === 10 && c === 0) {
+          items.push(`<div class="grid-divider">Enemy waters</div>`);
+        }
+        const raw = String(cells[r]?.[c] ?? "");
+        const value = raw.replace(/[[\]]/g, "");
+        items.push(
+          `<button class="grid-cell ${gridValueClass(raw)}" data-row="${r}" data-col="${c}">${escapeHtml(value)}</button>`,
+        );
+      }
+
       container.style.setProperty("--grid-cols", String(cols));
       container.innerHTML = `
-        <div class="grid" style="grid-template-columns: repeat(${cols}, 1fr);">
-          ${Array.from({ length: rows * cols }, (_, i) => {
-            const r = Math.floor(i / cols);
-            const c = i % cols;
-            const value = escapeHtml(cells[r]?.[c] ?? "");
-            return `<button class="grid-cell" data-row="${r}" data-col="${c}">${value}</button>`;
-          }).join("")}
+        <div class="grid-frame">
+          <div class="grid-label"><span>Your fleet</span><span>${isTwoBoards ? "tap below to fire" : "tap a cell"}</span></div>
+          <div class="grid-wrap">
+            <div class="grid" style="grid-template-columns: repeat(${cols}, 1fr);">
+              ${items.join("")}
+            </div>
+          </div>
         </div>
       `;
       container.querySelectorAll<HTMLButtonElement>(".grid-cell").forEach(cell => {
@@ -277,7 +302,9 @@ export function createPrivateGridLayout(): ControllerLayout {
       container.querySelectorAll<HTMLButtonElement>(".grid-cell").forEach(cell => {
         const r = Number(cell.dataset.row);
         const c = Number(cell.dataset.col);
-        cell.textContent = String(cells[r]?.[c] ?? "");
+        const raw = String(cells[r]?.[c] ?? "");
+        cell.textContent = raw.replace(/[[\]]/g, "");
+        cell.className = `grid-cell ${gridValueClass(raw)}`;
       });
     },
     signature(state) {

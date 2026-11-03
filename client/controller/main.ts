@@ -25,8 +25,17 @@ let gameName = "";
 const joinForm = document.getElementById("joinForm")!;
 const controllerArea = document.getElementById("controllerArea")!;
 const nameInput = document.getElementById("nameInput") as HTMLInputElement;
-const joinBtn = document.getElementById("joinBtn")!;
+const codeInput = document.getElementById("codeInput") as HTMLInputElement;
+const codeField = document.getElementById("codeField")!;
+const roomLinked = document.getElementById("roomLinked")!;
+const joinError = document.getElementById("joinError")!;
+const joinHint = document.getElementById("joinHint")!;
+const joinBtn = document.getElementById("joinBtn") as HTMLButtonElement;
 const playerNameEl = document.getElementById("playerName")!;
+const connDot = document.getElementById("connDot")!;
+const gameLabel = document.getElementById("gameLabel")!;
+const coach = document.getElementById("coach")!;
+const idle = document.getElementById("idle")!;
 const statusEl = document.getElementById("status")!;
 const controllerContainer = document.getElementById("controllerContainer")!;
 
@@ -34,7 +43,7 @@ function connect() {
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
-    console.log("[Controller] Connected");
+    connDot.className = "dot on";
     if (rejoinToken && roomId) {
       sendJoin(true);
     }
@@ -46,8 +55,9 @@ function connect() {
   };
 
   ws.onclose = () => {
-    console.log("[Controller] Disconnected, reconnecting in 3s...");
-    statusEl.textContent = "Reconnecting...";
+    connDot.className = "dot off";
+    statusEl.textContent = "Reconnecting…";
+    coach.classList.remove("your-turn");
     setTimeout(connect, 3000);
   };
 }
@@ -62,25 +72,32 @@ function handleMessage(msg: ServerMessage) {
       try {
         localStorage.setItem("tbrn_rejoin_token", rejoinToken);
         localStorage.setItem("tbrn_room_id", roomId);
+        localStorage.setItem("tbrn_player_name", nameInput.value.trim());
       } catch (e) {
         console.warn("[Controller] Could not persist rejoin token", e);
       }
-      playerNameEl.textContent = `You: ${nameInput.value || "Player"}`;
+      playerNameEl.textContent = nameInput.value.trim() || "Player";
+      connDot.className = "dot on";
       joinForm.classList.add("hidden");
       controllerArea.classList.remove("hidden");
-      statusEl.textContent = "Waiting for host to start...";
+      idle.classList.remove("hidden");
+      statusEl.textContent = "Waiting for the host to start…";
+      coach.classList.remove("your-turn");
       break;
     case MESSAGE_TYPES.ROOM_STATE:
       if (msg.payload.status === "playing" && msg.payload.gameId) {
-        statusEl.textContent = gameName ? `Playing: ${gameName}` : "Game in progress";
+        statusEl.textContent = gameName ? `Playing ${gameName}` : "Game in progress";
       } else {
         // Back in the lobby (game over or not started yet).
         gameName = "";
+        gameLabel.textContent = "";
         controllerContainer.innerHTML = "";
+        idle.classList.remove("hidden");
         lastSignature = "";
         currentControllerType = "one-button";
         currentLayout = getLayout(currentControllerType);
-        statusEl.textContent = "Waiting for host to start...";
+        statusEl.textContent = "Waiting for the host to start…";
+        coach.classList.remove("your-turn");
       }
       break;
     case MESSAGE_TYPES.GAME_STATE: {
@@ -92,6 +109,8 @@ function handleMessage(msg: ServerMessage) {
       if (payload.gameName) {
         gameName = payload.gameName;
       }
+      gameLabel.textContent = gameName;
+      idle.classList.add("hidden");
       const controller = payload.controller ?? {};
       const newType =
         typeof controller.controllerType === "string"
@@ -107,34 +126,41 @@ function handleMessage(msg: ServerMessage) {
         currentLayout = getLayout(newType);
         lastSignature = signature;
         controllerContainer.innerHTML = "";
+        controllerContainer.dataset.layout = newType;
         currentLayout.render(controllerContainer, controller, sendInput);
       } else {
         currentLayout.update(controllerContainer, controller);
       }
 
+      const isTurn =
+        controller.yourTurn === true ||
+        controller.isYourTurn === true ||
+        controller.yourTime === true;
+      coach.classList.toggle("your-turn", isTurn);
       statusEl.textContent = statusFrom(controller);
       break;
     }
     case MESSAGE_TYPES.ERROR: {
       console.error("[Controller] Error:", msg.payload);
       const payload = msg.payload as { message?: string; code?: string };
-      const errorMsg = `${payload.code ?? "Error"}: ${payload.message ?? "unknown"}`;
-      statusEl.textContent = errorMsg;
-      // Also show as toast - reuse single toast element to prevent stacking
-      let errorDiv = document.getElementById("controller-error-toast");
-      if (!errorDiv) {
-        errorDiv = document.createElement("div");
-        errorDiv.id = "controller-error-toast";
-        errorDiv.className = "error-toast";
-        errorDiv.style.cssText = "position:fixed;top:1rem;right:1rem;padding:1rem;background:#EF4444;color:white;border-radius:0.5rem;z-index:1000;max-width:80%;";
-        document.body.appendChild(errorDiv);
+      const code = payload.code ?? "Error";
+      const message = payload.message ?? "unknown";
+      const friendly =
+        code === "ROOM_NOT_FOUND"
+          ? "That room code didn't match. Check the laptop screen and try again."
+          : code === "NAME_TOO_LONG" || code === "INVALID_NAME"
+            ? "Pick a shorter, simpler name."
+            : `${message}`;
+      statusEl.textContent = friendly;
+      if (!playerId) {
+        joinBtn.disabled = false;
+        joinError.textContent = friendly;
+        joinError.classList.add("error");
+        if (code === "ROOM_NOT_FOUND") {
+          roomId = "";
+          codeInput.focus();
+        }
       }
-      errorDiv.textContent = errorMsg;
-      errorDiv.style.display = "block";
-      clearTimeout((errorDiv as any)._hideTimeout);
-      (errorDiv as any)._hideTimeout = setTimeout(() => {
-        errorDiv.style.display = "none";
-      }, 5000);
       break;
     }
   }
@@ -143,24 +169,51 @@ function handleMessage(msg: ServerMessage) {
 /** Human-readable status line from the controller state. */
 function statusFrom(controller: Record<string, unknown>): string {
   if (typeof controller.info === "string" && controller.info) return controller.info;
-  if (controller.yourTurn === true || controller.isYourTurn === true) return "Your turn!";
-  if (controller.yourTime === true) return "Time to write!";
-  if (controller.hasSubmitted === true) return "Answer locked in — waiting for others...";
-  if (controller.hasVoted === true) return "Vote locked in — waiting for others...";
+  if (controller.spunOut === true) return "Spun out — wait for the car to recover";
+  if (typeof controller.throttle === "boolean") {
+    return controller.throttle ? "Throttle on — tap to release" : "Throttle off — tap to go";
+  }
+  if (controller.yourTurn === true || controller.isYourTurn === true) return "Your turn";
+  if (controller.yourTime === true) return "Time to write";
+  if (controller.hasSubmitted === true) return "Answer locked in — waiting for others…";
+  if (controller.hasVoted === true) return "Vote locked in — waiting for others…";
   if (controller.yourTurn === false || controller.isYourTurn === false) {
     const turnName = controller.turnName;
-    if (typeof turnName === "string" && turnName) return `Waiting for ${turnName}...`;
+    if (typeof turnName === "string" && turnName) return `Waiting for ${turnName}…`;
   }
-  if (gameName) return `Playing: ${gameName}`;
-  return "Waiting for host to start...";
+  if (gameName) return `Playing ${gameName}`;
+  return "Waiting for the host to start…";
+}
+
+function resolveRoom(): string {
+  if (roomId) return roomId;
+  const code = codeInput.value.trim().toUpperCase();
+  if (!/^[A-Z0-9]{5}$/.test(code)) {
+    joinError.textContent = "Enter the 5-character room code from the laptop.";
+    joinError.classList.add("error");
+    codeInput.focus();
+    return "";
+  }
+  roomId = code;
+  return roomId;
 }
 
 function sendJoin(rejoin = false) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  if (!rejoin && !roomId) {
-    statusEl.textContent = "Open the join link or QR code from the host's screen.";
+  joinError.textContent = "";
+  joinError.classList.remove("error");
+
+  const target = resolveRoom();
+  if (!target) return;
+
+  const name = nameInput.value.trim();
+  if (!rejoin && !name) {
+    joinError.textContent = "Enter a name so the table knows who you are.";
+    joinError.classList.add("error");
+    nameInput.focus();
     return;
   }
+
   if (!rejoin) {
     // A fresh join replaces any previous room membership.
     try {
@@ -171,12 +224,14 @@ function sendJoin(rejoin = false) {
     }
     rejoinToken = "";
   }
+
+  joinBtn.disabled = true;
   const msg: ClientMessage = {
     type: MESSAGE_TYPES.JOIN,
     roomId,
     timestamp: Date.now(),
     payload: {
-      name: nameInput.value.trim() || `Player-${Math.random().toString(36).slice(2, 6)}`,
+      name: name || `Player-${Math.random().toString(36).slice(2, 6)}`,
       rejoinToken: rejoin ? rejoinToken : undefined,
     },
   };
@@ -198,23 +253,53 @@ function sendInput(input: unknown) {
 // --- Event Listeners ---
 joinBtn.addEventListener("click", () => sendJoin());
 nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendJoin(); });
+codeInput.addEventListener("input", () => {
+  const clean = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+  if (codeInput.value !== clean) codeInput.value = clean;
+  joinError.textContent = "";
+  joinError.classList.remove("error");
+});
+codeInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    if (codeInput.value.length === 5) nameInput.focus();
+  }
+});
 
 // Room id from the QR link wins; otherwise fall back to the last room so a
 // refresh rejoins the same game.
+let linkedFromQr = false;
 try {
   const paramRoom = new URLSearchParams(location.search).get("room");
+  const storedToken = localStorage.getItem("tbrn_rejoin_token");
+  const storedRoom = localStorage.getItem("tbrn_room_id");
+  const storedName = localStorage.getItem("tbrn_player_name");
+  if (storedName) nameInput.value = storedName;
+
   if (paramRoom) {
     roomId = paramRoom;
-  } else {
-    const storedToken = localStorage.getItem("tbrn_rejoin_token");
-    const storedRoom = localStorage.getItem("tbrn_room_id");
-    if (storedToken && storedRoom) {
-      rejoinToken = storedToken;
-      roomId = storedRoom;
+    // A refresh on the same QR link should rejoin the existing seat, not
+    // create a duplicate player.
+    if (storedToken && storedRoom === paramRoom) rejoinToken = storedToken;
+    if (/^[A-Z0-9]{5}$/.test(paramRoom)) {
+      codeInput.value = paramRoom;
+    } else {
+      linkedFromQr = true;
+      codeField.classList.add("hidden");
+      roomLinked.classList.remove("hidden");
+      joinHint.classList.add("hidden");
     }
+  } else if (storedToken && storedRoom) {
+    rejoinToken = storedToken;
+    roomId = storedRoom;
   }
 } catch {
   /* storage unavailable */
+}
+
+if (!roomId) {
+  codeInput.focus();
+} else if (linkedFromQr) {
+  nameInput.focus();
 }
 
 connect();

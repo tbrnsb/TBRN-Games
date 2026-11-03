@@ -1,206 +1,422 @@
 /**
- * Darts - Screen Rendering
- * Renders dartboard, scores, throws history
+ * Darts — Premium Screen Renderer
+ * Synthwave + Bento Grid + Swiss Typography
+ * Uses the shared kit from client/screen/kit/
+ *
+ * Board coordinates from the server are in board units (±170), so throws map
+ * straight onto the drawn board. Scores count down from 501/301.
  */
 
-import { theme } from "../../shared/theme.ts";
+import {
+  colors, fonts, scaleForViewport, scaledSize,
+  drawSynthwaveBackground,
+  drawBentoCard, drawScoreboard,
+  emitHitBurst, emitScoreBurst, updateParticles, drawParticles,
+  createShake, triggerShake, applyShakeTransform,
+  createTitleCard, showTitleCard, updateTitleCard, drawTitleCard, isTitleCardDone,
+  createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen,
+  type RankedEntry,
+  clamp,
+} from "../../client/screen/kit/index.ts";
+
+interface DartPlayer {
+  name: string;
+  score: number;
+  isCurrent: boolean;
+  turn: number;
+  isWinner: boolean;
+}
+
+interface DartThrow {
+  playerIndex: number;
+  x: number;
+  y: number;
+  score: number;
+  timestamp: number;
+}
 
 interface DartsScreenState {
-  players: Array<{ name: string; score: number; isCurrent: boolean; turn: number; isWinner: boolean }>;
-  throws: Array<{ playerIndex: number; x: number; y: number; score: number; timestamp: number }>;
+  players: DartPlayer[];
+  throws: DartThrow[];
   finished: boolean;
   winner: string | null;
   gameMode: string;
 }
 
-const DARTBOARD_RADIUS = 170;
-const SECTOR_VALUES = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
-
-function getSectorAngle(index: number): number {
-  return (-90 + index * 18) * Math.PI / 180;
+interface DartsRenderState {
+  titleCard: ReturnType<typeof createTitleCard> | null;
+  victoryScreen: ReturnType<typeof createVictoryScreen> | null;
+  shake: ReturnType<typeof createShake>;
+  lastUpdate: number;
+  lastThrows: number;
+  lastScore: number;
+  hitAt: number;
 }
 
-export function renderDarts(ctx: CanvasRenderingContext2D, width: number, height: number, state: DartsScreenState): void {
-  // Clear
-  ctx.fillStyle = theme.colors.background;
-  ctx.fillRect(0, 0, width, height);
+function createDartsRenderState(): DartsRenderState {
+  return {
+    titleCard: null,
+    victoryScreen: null,
+    shake: createShake(6, 250),
+    lastUpdate: 0,
+    lastThrows: 0,
+    lastScore: 0,
+    hitAt: 0,
+  };
+}
 
-  const centerX = width / 2;
-  const centerY = height / 2 - 50;
-  const scale = Math.min(width, height - 200) / (DARTBOARD_RADIUS * 2.5);
+const renderState = (globalThis as any)._dartsRenderState ||= createDartsRenderState();
+
+const BOARD_R = 170;
+const SECTOR_VALUES = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+
+export function renderDarts(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: DartsScreenState,
+): void {
+  const scale = scaleForViewport(width, height);
+  const rs: DartsRenderState = renderState;
+  const now = performance.now();
+  const dt = rs.lastUpdate ? Math.min(now - rs.lastUpdate, 100) : 16;
+  rs.lastUpdate = now;
 
   ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.scale(scale, scale);
+  try {
+    drawSynthwaveBackground(ctx, { width, height, time: now });
+    applyShakeTransform(ctx, rs.shake, now);
+    updateParticles(dt);
 
-  // Draw dartboard
-  drawDartboard(ctx);
+    if (state.throws.length > rs.lastThrows) {
+      const dart = state.throws[state.throws.length - 1];
+      rs.lastScore = dart.score;
+      rs.hitAt = now;
+      const board = boardRect(width, height, scale);
+      const px = board.cx + (dart.x / BOARD_R) * board.r;
+      const py = board.cy + (dart.y / BOARD_R) * board.r;
+      if (dart.score > 0) {
+        emitScoreBurst(px, py, dart.playerIndex, scale);
+        triggerShake(rs.shake, 0.14, now);
+      } else {
+        emitHitBurst(px, py, colors.danger, scale);
+      }
+    }
+    rs.lastThrows = state.throws.length;
 
-  // Draw throws
-  drawThrows(ctx, state.throws);
+    if (!rs.titleCard) {
+      rs.titleCard = createTitleCard({
+        title: "DARTS",
+        subtitle: `${state.gameMode}  ·  three darts a turn`,
+        duration: 2000,
+        fadeInDuration: 400,
+        holdDuration: 1000,
+        fadeOutDuration: 500,
+      });
+      showTitleCard(rs.titleCard, now);
+    }
+
+    if (state.finished && !rs.victoryScreen) {
+      const winnerName = state.winner ?? state.players.find((p) => p.isWinner)?.name ?? null;
+      if (winnerName) {
+        rs.victoryScreen = createVictoryScreen({
+          winner: buildWinner(state, winnerName),
+          rankings: buildRankings(state, winnerName),
+          gameName: "Darts",
+          duration: 0,
+          scoreSuffix: "left",
+        });
+        showVictoryScreen(rs.victoryScreen, now, width, height);
+        triggerShake(rs.shake, 0.5, now);
+      }
+    }
+    if (!state.finished && rs.victoryScreen) rs.victoryScreen = null;
+
+    if (rs.titleCard) updateTitleCard(rs.titleCard, now);
+    if (rs.victoryScreen) updateVictoryScreen(rs.victoryScreen, now, dt);
+
+    if (state.finished && rs.victoryScreen) {
+      drawVictoryScreen(ctx, width, height, rs.victoryScreen);
+      return;
+    }
+    if (rs.titleCard && !isTitleCardDone(rs.titleCard)) {
+      drawTitleCard(ctx, width, height, rs.titleCard);
+      return;
+    }
+
+    drawHeader(ctx, width, height, state, scale);
+    drawBoard(ctx, width, height, state, scale, now);
+    drawRail(ctx, width, height, state, scale);
+    drawParticles(ctx);
+  } finally {
+    ctx.restore();
+  }
+}
+
+function buildRankings(state: DartsScreenState, winnerName: string): RankedEntry[] {
+  return state.players
+    .map((p, i) => ({ ...p, playerIndex: i }))
+    .sort((a, b) => Number(b.name === winnerName) - Number(a.name === winnerName) || a.score - b.score)
+    .map((p, i) => ({
+      rank: i + 1,
+      name: p.name,
+      score: p.score,
+      playerIndex: p.playerIndex,
+      isWinner: p.name === winnerName,
+    }));
+}
+
+function buildWinner(state: DartsScreenState, winnerName: string): RankedEntry {
+  return buildRankings(state, winnerName)[0] ?? {
+    rank: 1,
+    name: winnerName,
+    score: 0,
+    playerIndex: 0,
+    isWinner: true,
+  };
+}
+
+function boardRect(
+  width: number,
+  height: number,
+  scale: number,
+): { cx: number; cy: number; r: number } {
+  const margin = scaledSize(48, scale);
+  const gap = scaledSize(24, scale);
+  const railW = Math.min(width * 0.24, scaledSize(340, scale));
+  const headerH = scaledSize(56, scale);
+  const availableW = width - margin * 2 - railW - gap;
+  const availableH = height - margin * 2 - headerH;
+  return {
+    cx: margin + availableW / 2,
+    cy: margin + headerH + availableH / 2,
+    r: Math.min(availableW, availableH) * 0.44,
+  };
+}
+
+function drawHeader(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: DartsScreenState,
+  scale: number,
+): void {
+  const margin = scaledSize(48, scale);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
+  ctx.fillStyle = colors.text;
+  ctx.fillText("DARTS", margin, margin + scaledSize(26, scale));
+  const w = ctx.measureText("DARTS").width;
+
+  const current = state.players.find((p) => p.isCurrent);
+  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
+  ctx.fillStyle = colors.textMuted;
+  ctx.fillText(
+    `${state.gameMode}${current ? `  ·  ${current.name} to throw` : ""}`,
+    margin + w + scaledSize(18, scale),
+    margin + scaledSize(25, scale),
+  );
+  void height;
+}
+
+function drawBoard(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: DartsScreenState,
+  scale: number,
+  now: number,
+): void {
+  const { cx, cy, r } = boardRect(width, height, scale);
+
+  // Spotlight behind the board instead of a big empty card.
+  const halo = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 1.45);
+  halo.addColorStop(0, "rgba(255,46,151,0.14)");
+  halo.addColorStop(0.65, "rgba(255,46,151,0.05)");
+  halo.addColorStop(1, "rgba(255,46,151,0)");
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(0,229,255,0.16)";
+  ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 1.06, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Sectors.
+  for (let i = 0; i < 20; i++) {
+    const start = ((-90 - 9 + i * 18) * Math.PI) / 180;
+    const end = start + (18 * Math.PI) / 180;
+    const even = i % 2 === 0;
+
+    // Single bed.
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = even ? "#1B1545" : "#120D2E";
+    ctx.fill();
+
+    // Triple band.
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.63, start, end);
+    ctx.arc(0, 0, r * 0.58, end, start, true);
+    ctx.closePath();
+    ctx.fillStyle = even ? colors.magenta : colors.cyan;
+    ctx.fill();
+
+    // Double band.
+    ctx.beginPath();
+    ctx.arc(0, 0, r, start, end);
+    ctx.arc(0, 0, r * 0.95, end, start, true);
+    ctx.closePath();
+    ctx.fillStyle = even ? colors.magenta : colors.cyan;
+    ctx.fill();
+
+    // Sector number on the rim, kept upright for readability.
+    const mid = (start + end) / 2;
+    ctx.font = `700 ${Math.max(scaledSize(12, scale), r * 0.075)}px ${fonts.display.family}`;
+    ctx.fillStyle = "rgba(245,243,255,0.82)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(SECTOR_VALUES[i]), Math.cos(mid) * r * 0.87, Math.sin(mid) * r * 0.87);
+  }
+
+  // Outer bull + bull.
+  ctx.fillStyle = colors.cyan;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.095, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = colors.amber;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rim.
+  ctx.strokeStyle = "rgba(245,243,255,0.28)";
+  ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
 
   ctx.restore();
 
-  // Draw score panel
-  drawScorePanel(ctx, width, height, state);
-}
+  // Throws.
+  state.throws.slice(-12).forEach((dart, idx, list) => {
+    const px = cx + (dart.x / BOARD_R) * r;
+    const py = cy + (dart.y / BOARD_R) * r;
+    const color = colors.player[dart.playerIndex % colors.player.length];
+    const fresh = idx === list.length - 1 && now - renderState.hitAt < 1600;
 
-function drawDartboard(ctx: CanvasRenderingContext2D): void {
-  // Draw sectors
-  for (let i = 0; i < 20; i++) {
-    const angle1 = getSectorAngle(i);
-    const angle2 = getSectorAngle(i + 1);
-    const isEven = i % 2 === 0;
-
-    // Single areas (alternating colors)
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, 170, angle1, angle2);
-    ctx.closePath();
-    ctx.fillStyle = isEven ? "#1a1a2e" : "#0f172a";
-    ctx.fill();
-
-    // Triple ring
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, 107, angle1, angle2);
-    ctx.arc(0, 0, 99, angle2, angle1, true);
-    ctx.closePath();
-    ctx.fillStyle = isEven ? "#ff6b35" : "#e05528";
-    ctx.fill();
-
-    // Double ring
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, 170, angle1, angle2);
-    ctx.arc(0, 0, 162, angle2, angle1, true);
-    ctx.closePath();
-    ctx.fillStyle = isEven ? "#2e7dff" : "#1a66e0";
-    ctx.fill();
-
-    // Sector value text
-    const midAngle = (angle1 + angle2) / 2;
-    const textRadius = 130;
     ctx.save();
-    ctx.translate(Math.cos(midAngle) * textRadius, Math.sin(midAngle) * textRadius);
-    ctx.rotate(midAngle + Math.PI / 2);
-    ctx.font = "bold 14px Inter";
-    ctx.fillStyle = "#f8fafc";
-    ctx.textAlign = "center";
-    ctx.fillText(String(SECTOR_VALUES[i]), 0, 0);
-    ctx.restore();
-  }
-
-  // Bull rings
-  ctx.beginPath();
-  ctx.arc(0, 0, 15.9, 0, Math.PI * 2);
-  ctx.fillStyle = "#ff6b35";
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(0, 0, 6.35, 0, Math.PI * 2);
-  ctx.fillStyle = "#2e7dff";
-  ctx.fill();
-
-  // Center dot
-  ctx.beginPath();
-  ctx.arc(0, 0, 2, 0, Math.PI * 2);
-  ctx.fillStyle = "#fff";
-  ctx.fill();
-
-  // Outer border
-  ctx.beginPath();
-  ctx.arc(0, 0, 170, 0, Math.PI * 2);
-  ctx.strokeStyle = theme.colors.border;
-  ctx.lineWidth = 3;
-  ctx.stroke();
-}
-
-function drawThrows(ctx: CanvasRenderingContext2D, throws: Array<{ x: number; y: number; score: number; playerIndex: number }>): void {
-  const playerColors = theme.colors.player;
-
-  throws.forEach((t, _i) => {
-    const color = playerColors[t.playerIndex % playerColors.length];
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 6, 0, Math.PI * 2);
+    ctx.globalAlpha = fresh ? 1 : 0.82;
+    ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(1.5, scaledSize(2.5, scale));
+    ctx.beginPath();
+    ctx.moveTo(cx + ((dart.x - 36) / BOARD_R) * r, cy + ((dart.y - 36) / BOARD_R) * r);
+    ctx.lineTo(px, py);
     ctx.stroke();
 
-    // Score label
-    ctx.font = "bold 12px Inter";
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.fillText(String(t.score), t.x, t.y - 10);
+    // Fletching.
+    const fx = cx + ((dart.x - 36) / BOARD_R) * r;
+    const fy = cy + ((dart.y - 36) / BOARD_R) * r;
+    const angle = Math.atan2(py - fy, px - fx);
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(fx - Math.cos(angle + 0.5) * scaledSize(9, scale), fy - Math.sin(angle + 0.5) * scaledSize(9, scale));
+    ctx.lineTo(fx - Math.cos(angle - 0.5) * scaledSize(9, scale), fy - Math.sin(angle - 0.5) * scaledSize(9, scale));
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(px, py, Math.max(2, scaledSize(3.5, scale)), 0, Math.PI * 2);
+    ctx.fill();
+
+    if (fresh && dart.score > 0) {
+      ctx.font = `700 ${scaledSize(16, scale)}px ${fonts.display.family}`;
+      ctx.fillStyle = colors.text;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = color;
+      ctx.shadowBlur = scaledSize(10, scale);
+      ctx.fillText(`+${dart.score}`, px + scaledSize(8, scale), py - scaledSize(8, scale));
+    }
+    ctx.restore();
   });
+
+  // Latest-throw popup.
+  if (state.throws.length > 0 && now - renderState.hitAt < 1600) {
+    const age = now - renderState.hitAt;
+    const alpha = age < 700 ? 1 : 1 - (age - 700) / 900;
+    ctx.save();
+    ctx.globalAlpha = clamp(alpha, 0, 1);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.display.family}`;
+    ctx.fillStyle = renderState.lastScore > 0 ? colors.success : colors.danger;
+    ctx.fillText(
+      renderState.lastScore > 0 ? `${renderState.lastScore}` : "MISS",
+      cx,
+      cy - r - scaledSize(18, scale),
+    );
+    ctx.restore();
+  }
 }
 
-function drawScorePanel(ctx: CanvasRenderingContext2D, width: number, height: number, state: DartsScreenState): void {
-  const panelY = height - 180;
-  const panelHeight = 170;
+function drawRail(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: DartsScreenState,
+  scale: number,
+): void {
+  const margin = scaledSize(48, scale);
+  const railW = Math.min(width * 0.24, scaledSize(340, scale));
+  const n = Math.max(1, state.players.length);
+  const listH = Math.min(height - margin * 2, scaledSize(80, scale) + n * scaledSize(72, scale));
+  const rect = { x: width - margin - railW, y: margin, width: railW, height: listH };
+  drawBentoCard(ctx, rect, { glow: colors.magenta });
 
-  // Panel background
-  ctx.fillStyle = theme.colors.surface;
-  ctx.fillRect(20, panelY, width - 40, panelHeight);
-  ctx.strokeStyle = theme.colors.border;
-  ctx.strokeRect(20, panelY, width - 40, panelHeight);
+  const entries = state.players.map((p, i) => ({
+    name: p.name,
+    score: p.score,
+    playerIndex: i,
+    isCurrent: p.isCurrent,
+    isWinner: p.isWinner,
+    animatedScore: p.score,
+  }));
+  drawScoreboard(ctx, rect, entries, { title: "TO FINISH", scale });
 
-  // Title
-  ctx.font = "bold 20px Inter";
-  ctx.fillStyle = theme.colors.textPrimary;
+  // Recent throw scores.
+  const recent = state.throws.slice(-5).reverse();
+  const startY = rect.y + rect.height + scaledSize(20, scale);
   ctx.textAlign = "left";
-  ctx.fillText(`${state.gameMode} Darts`, 40, panelY + 30);
+  ctx.textBaseline = "middle";
+  ctx.font = `600 ${scaledSize(13, scale)}px ${fonts.body.family}`;
+  ctx.fillStyle = colors.textMuted;
+  ctx.fillText("RECENT", rect.x + scaledSize(6, scale), startY);
 
-  // Player scores
-  const colWidth = (width - 80) / Math.max(state.players.length, 1);
-  state.players.forEach((p, i) => {
-    const x = 40 + i * colWidth;
-    const isCurrent = p.isCurrent;
-    const isWinner = p.isWinner;
-
-    // Highlight current player
-    if (isCurrent) {
-      ctx.fillStyle = theme.colors.primary + "33";
-      ctx.fillRect(30 + i * colWidth, panelY + 40, colWidth - 10, 120);
-    }
-    if (isWinner) {
-      ctx.fillStyle = theme.colors.success + "33";
-      ctx.fillRect(30 + i * colWidth, panelY + 40, colWidth - 10, 120);
-    }
-
-    // Name
-    ctx.font = isWinner ? "bold 16px Inter" : "14px Inter";
-    ctx.fillStyle = isWinner ? theme.colors.success : theme.colors.textPrimary;
-    ctx.textAlign = "center";
-    ctx.fillText(p.name, x + colWidth / 2 - 20, panelY + 70);
-
-    // Score
-    ctx.font = "bold 36px Inter";
-    ctx.fillStyle = isCurrent ? theme.colors.primary : theme.colors.textPrimary;
-    ctx.fillText(String(p.score), x + colWidth / 2 - 20, panelY + 115);
-
-    // Turn indicator
-    if (isCurrent && !state.finished) {
-      ctx.font = "12px Inter";
-      ctx.fillStyle = theme.colors.primary;
-      ctx.fillText(`Dart ${p.turn + 1}/3`, x + colWidth / 2 - 20, panelY + 145);
-    }
-
-    // Winner
-    if (isWinner) {
-      ctx.font = "bold 14px Inter";
-      ctx.fillStyle = theme.colors.success;
-      ctx.fillText("WINNER!", x + colWidth / 2 - 20, panelY + 165);
-    }
+  recent.forEach((dart, i) => {
+    const y = startY + scaledSize(24, scale) + i * scaledSize(24, scale);
+    const player = state.players[dart.playerIndex];
+    ctx.fillStyle = colors.player[dart.playerIndex % colors.player.length];
+    ctx.beginPath();
+    ctx.arc(rect.x + scaledSize(10, scale), y, scaledSize(3.5, scale), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = `600 ${scaledSize(15, scale)}px ${fonts.body.family}`;
+    ctx.fillStyle = colors.textMuted;
+    ctx.fillText(player?.name ?? `P${dart.playerIndex + 1}`, rect.x + scaledSize(22, scale), y);
+    ctx.textAlign = "right";
+    ctx.font = `700 ${scaledSize(16, scale)}px ${fonts.display.family}`;
+    ctx.fillStyle = dart.score > 0 ? colors.text : colors.danger;
+    ctx.fillText(dart.score > 0 ? String(dart.score) : "miss", rect.x + rect.width - scaledSize(6, scale), y);
+    ctx.textAlign = "left";
   });
-
-  // Finished message
-  if (state.finished && state.winner) {
-    ctx.font = "bold 24px Inter";
-    ctx.fillStyle = theme.colors.success;
-    ctx.textAlign = "center";
-    ctx.fillText(`${state.winner} wins! 🎉`, width / 2, panelY + 30);
-  }
 }

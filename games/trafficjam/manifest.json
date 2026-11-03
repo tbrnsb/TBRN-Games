@@ -1,1 +1,1 @@
-{ "id": "trafficjam", "name": "Traffic Jam", "minPlayers": 1, "maxPlayers": 4, "controllerType": "left-right", "description": "Slide cars to clear a path for your car to exit. Classic puzzle!" }
+{"id": "trafficjam", "name": "Traffic Jam", "minPlayers": 1, "maxPlayers": 4, "controllerType": "private-grid", "description": "Slide cars to clear a path for your car to exit. Classic puzzle!"}

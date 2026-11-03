@@ -1,11 +1,12 @@
 # TBRN-Games Handoff
 
 ## Current Phase
-Visual overhaul V0–V16 complete: all 18 games have a screen renderer and the
-host lobby is redesigned. Only archery/darts still use their older renderers.
+Visual overhaul V0–V18 complete: all 18 game renderers, the host lobby and the
+phone controller share one visual language. Game-logic hardening is in.
 
 ## Last Commit
-`3c9a1f2` (18 games + engine overhaul) — all visual-overhaul work is uncommitted.
+`c6246f4` (visual overhaul + game renderers) — this controller/archery pass is
+uncommitted until the next commit.
 
 ## Done
 - **18 game plugins** under `games/*/server.ts`; every game passes the automated
@@ -17,28 +18,37 @@ host lobby is redesigned. Only archery/darts still use their older renderers.
   easing, utils.
 - **Renderers**: quiz, racing, poker, snakes, golf, seabattle, slotcar, spinwar,
   knifethrow, trafficjam, bluff, writevote, mostlikely, guesswho, hangman,
-  gravityrun. Browser-verified at 1280×720 and/or 1920×1080.
-- **Host screen (V16)**: 16:9 lobby stage scaled to fit; room-code marquee, QR
+  gravityrun, archery, darts. Browser-verified at 1280×720 and/or 1920×1080.
+- **Host screen**: 16:9 lobby stage scaled to fit; room-code marquee, QR
   ticket, four-seat roster, 18-game shelf, selected-game launch bar.
+- **Controller (V18)**: local fonts, room-code join ticket, QR-linked join,
+  remembered name/seat rejoin, coach strip, standby state, and restyled
+  one-button, left/right, dpad, text, choice, 20×10 grid and card-hand layouts.
+- **Game logic hardening** (from the logic pass): null/type/grid guards,
+  delta-time quiz timing, golf stroke cap, knife-throw turn fairness, Spin War
+  last-survivor win, bounded food spawning, plus `scripts/deep-probe.ts` and
+  `tests/game-logic.test.ts`.
+- **Manifest fixes**: golf → dpad, Guess Who → choice, Traffic Jam →
+  private-grid, matching their server plugins.
 - **Runtime fixes**: correct `/client/` and `/assets/` routes (renderers and
   fonts now load), DPR-safe rendering, advancing title/countdown/victory cards,
   result hold after a game ends, multi-word renderer export loading, 60 fps by
   removing per-frame console logging, canvas/stage fit to the viewport.
 
 ## Next Three Actions
-1. Restyle `games/archery/screen.ts` and `games/darts/screen.ts` with the kit so
-   all 18 renderers share one visual language.
-2. Add a small screenshot regression script for the 18 renderers (the
-   `.screenshots/` workflow used in this pass).
-3. Harden the flaky golf headless driver and add explicit Sea Battle /
-   Traffic Jam privacy tests.
+1. Independent review pass: debugger for logic regressions, ui-reviewer for the
+   host/controller screens, critic for the final score.
+2. Verify the controller in landscape and on a real phone; add a screenshots
+   regression script for the 18 renderers and 7 controller layouts.
+3. Playtest the new game-logic changes (knife-throw fairness, Spin War winner,
+   golf pick-up cap) and tune content packs.
 
 ## How to Run & Test
 ```bash
 cd /home/sulav/Projects/TBRN-Games
 npm run typecheck   # 0 errors
-npm run lint        # 0 errors (53 warnings)
-npm test            # 59/59 pass
+npm run lint        # 0 errors (65 warnings)
+npm test            # 62/62 pass
 PORT=3100 npm start # server
 ```
 Open `http://localhost:3000/screen/`; phones open `/controller?room=<CODE>`.
@@ -68,7 +78,11 @@ Open `http://localhost:3000/screen/`; phones open `/controller?room=<CODE>`.
     is the only light surface; game tiles are a shelf, not a card grid.
 11. **Player palette**: the lobby seats use the same four colours as the game
     renderers, so a player keeps their colour from lobby to game.
+12. **Controller identity**: local fonts only (offline), a room-code ticket,
+    a coach strip that highlights your turn, and thumb-sized controls. The
+    controller is a phone UI, not a shrunken screen UI.
+13. **Manifest source of truth**: `server.ts` owns the plugin manifest; the
+    JSON copy must mirror it (controller types corrected for three games).
 
 ## Open Questions for Human
-1. Restyle archery and darts next, or leave their current look?
-2. Add HTTPS/WSS for mobile PWA features?
+1. Add HTTPS/WSS for mobile PWA features?

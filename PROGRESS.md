@@ -40,8 +40,8 @@
 ### All Games Checklist
 | Game | Status | Notes |
 |------|--------|-------|
-| archery | Has custom renderer | Legacy style; restyle with the kit pending |
-| darts | Has custom renderer | Legacy style; restyle with the kit pending |
+| archery | **DONE (V17)** | Side-on range, sliding target, bow draw, shot feedback |
+| darts | **DONE (V17)** | Neon board, sector/ring scoring, darts, remaining-score rail |
 | quiz | **DONE (V0)** | Premium renderer, audited and browser-verified |
 | racing | **DONE (V1)** | Camera-window track, standings, progress bars, victory |
 | poker | **DONE (V2)** | Felt table, community cards, seats, showdown reveal |
@@ -110,10 +110,25 @@ canvas, so the composition is identical at 720p and on a TV.
 - Verified at 1280×720 and 1920×1080, including the lobby → game transition
   through the host-token start endpoint.
 
+## Controller UI (V18)
+The phone controller now uses the same identity as the host and games:
+- Local fonts only (the old page pulled Google Fonts, breaking offline use).
+- Join screen with a 5-character room-code ticket; QR links show “Room linked”
+  and only ask for a name. Names are remembered; refresh rejoins the seat.
+- A coach strip highlights your turn and shows game hints (throttle, spin-out,
+  submitted/voted state); a standby mark fills the lobby wait.
+- Layouts restyled: one-button pad (with throttle ON/OFF), left/right paddles,
+  labelled d-pad, writing card, choice list, 20×10 Sea Battle grid with fleet /
+  enemy labels and X/o/S states, and cream card hands.
+- Tall grids scroll inside the controller; short layouts centre in the thumb
+  zone; text layouts anchor to the top for the keyboard.
+- Verified at 390×844 for every layout, plus a live Slot Car controller and the
+  lobby/room-code flows.
+
 ## Last Updated
-All 18 games now have a screen renderer. V6–V15 added slotcar, spinwar,
-knifethrow, trafficjam, bluff, writevote, mostlikely, guesswho, hangman and
-gravityrun; archery and darts still use their older renderers. The host screen
-was rebuilt as a scaled 16:9 stage with a marquee code, QR ticket, seat roster
-and game shelf. `npm run typecheck` clean, `npm run lint` 0 errors (53
-warnings), `npm test` 59/59. Next: restyle archery/darts with the kit.
+All 18 renderers and both clients now share one visual language. V17 restyled
+archery and darts; V18 rebuilt the phone controller (local fonts, room-code
+join, coach strip, all seven layouts). Manifest controller types were corrected
+for golf (dpad), Guess Who (choice) and Traffic Jam (private-grid). The game
+logic hardening pass is in. `npm run typecheck` clean, `npm run lint` 0 errors
+(65 warnings), `npm test` 62/62.

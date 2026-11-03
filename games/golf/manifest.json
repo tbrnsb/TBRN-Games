@@ -1,8 +1,1 @@
-{
-  "id": "golf",
-  "name": "Golf",
-  "minPlayers": 1,
-  "maxPlayers": 4,
-  "controllerType": "one-button",
-  "description": "Mini golf - hold for power, release to swing. Multiple holes, obstacles, lowest strokes wins."
-}
+{"id": "golf", "name": "Golf", "minPlayers": 1, "maxPlayers": 4, "controllerType": "dpad", "description": "Mini golf - hold for power, release to swing. Multiple holes, obstacles, lowest strokes wins."}
