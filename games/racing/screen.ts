@@ -298,7 +298,7 @@ function renderTrack(
   }
 
   // Distance ticks every 50 m inside the camera window.
-  ctx.font = `500 ${scaledSize(11, scale)}px ${fonts.body.family}`;
+  ctx.font = `500 ${scaledSize(16, scale)}px ${fonts.body.family}`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   for (let d = Math.ceil(camStart / 50) * 50; d <= camEnd; d += 50) {
@@ -373,24 +373,24 @@ function renderTrack(
     drawCar(ctx, x, y, laneWidth, i, r.crashed, scale);
 
     // Name label above the car.
-    ctx.font = `700 ${scaledSize(12, scale)}px ${fonts.display.family}`;
-    const nameW = ctx.measureText(r.name).width + scaledSize(14, scale);
+    ctx.font = `700 ${scaledSize(20, scale)}px ${fonts.display.family}`;
+    const nameW = ctx.measureText(r.name).width + scaledSize(18, scale);
     drawRoundRect(
       ctx,
       x - nameW / 2,
-      y - scaledSize(34, scale),
+      y - scaledSize(42, scale),
       nameW,
-      scaledSize(17, scale),
+      scaledSize(25, scale),
       scaledSize(8, scale),
       "rgba(11,8,32,0.82)",
     );
     ctx.fillStyle = colors.player[i % colors.player.length];
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(r.name, x, y - scaledSize(25, scale));
+    ctx.fillText(r.name, x, y - scaledSize(29, scale));
 
     if (r.speed > 0 && !r.crashed && !behindCamera) {
-      ctx.font = `500 ${scaledSize(10, scale)}px ${fonts.body.family}`;
+      ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
       ctx.fillStyle = "rgba(245,243,255,0.5)";
       ctx.textBaseline = "top";
       ctx.fillText(`${Math.round(r.speed)} m/s`, x, y + scaledSize(20, scale));

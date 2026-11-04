@@ -290,10 +290,18 @@ function drawBoard(
   ctx.lineTo(board.x + board.size + scaledSize(8, scale), exitY + cell * 0.8);
   ctx.closePath();
   ctx.fill();
-  ctx.font = `700 ${scaledSize(10, scale)}px ${fonts.title.family}`;
+
+  // Label above the arrow so it does not sit on the glyph.
+  const labelW = scaledSize(48, scale);
+  const labelH = scaledSize(20, scale);
+  const labelX = board.x + board.size + scaledSize(4, scale);
+  const labelY = exitY - labelH - scaledSize(6, scale);
+  drawPill(ctx, labelX, labelY, labelW, labelH, "rgba(11,8,32,0.9)", "rgba(61,255,162,0.5)", 1);
+  ctx.fillStyle = colors.success;
+  ctx.font = `700 ${scaledSize(12, scale)}px ${fonts.title.family}`;
   ctx.textAlign = "center";
-  ctx.textBaseline = "bottom";
-  ctx.fillText("EXIT", board.x + board.size + scaledSize(17, scale), exitY - scaledSize(2, scale));
+  ctx.textBaseline = "middle";
+  ctx.fillText("EXIT", labelX + labelW / 2, labelY + labelH / 2 + 1);
   ctx.restore();
 
   // Cars.

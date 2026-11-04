@@ -43,7 +43,8 @@ function connect() {
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
-    connDot.className = "dot on";
+    // Green only once we actually hold a seat; the join screen stays neutral.
+    connDot.className = playerId ? "dot on" : "dot";
     if (rejoinToken && roomId) {
       sendJoin(true);
     }

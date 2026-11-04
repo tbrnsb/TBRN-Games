@@ -219,7 +219,7 @@ function drawBoard(
   const { main } = layout(width, height, scale);
   const cols = 6;
   const rows = 4;
-  const historyH = scaledSize(64, scale);
+  const historyH = scaledSize(78, scale);
   const boardH = main.height - historyH;
   const gap = scaledSize(6, scale);
   const tileW = (main.width - gap * (cols - 1)) / cols;
@@ -241,22 +241,33 @@ function drawBoard(
 
   // Recent questions.
   const historyY = main.y + boardH + gap;
+  drawRoundRect(
+    ctx,
+    main.x,
+    historyY,
+    main.width,
+    historyH - scaledSize(4, scale),
+    scaledSize(10, scale),
+    "rgba(18,13,46,0.86)",
+    colors.border,
+    1,
+  );
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.font = `600 ${scaledSize(16, scale)}px ${fonts.body.family}`;
+  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.textMuted;
   ctx.fillText(
     state.lastEvent ?? "Waiting for the first question…",
-    main.x + scaledSize(4, scale),
-    historyY + scaledSize(20, scale),
+    main.x + scaledSize(12, scale),
+    historyY + scaledSize(22, scale),
   );
 
   const last = state.history[state.history.length - 1];
   if (last) {
     const text = `${last.asker} → ${last.target}: ${last.label} — ${last.answer ? "Yes" : "No"}`;
-    ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
+    ctx.font = `500 ${scaledSize(16, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = colors.text;
-    ctx.fillText(text, main.x + scaledSize(4, scale), historyY + scaledSize(44, scale));
+    ctx.fillText(text, main.x + scaledSize(12, scale), historyY + scaledSize(48, scale));
   }
 }
 

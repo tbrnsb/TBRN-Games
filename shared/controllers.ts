@@ -281,40 +281,99 @@ export function createPrivateGridLayout(): ControllerLayout {
   return {
     type: "private-grid",
     render(container, state, onInput) {
-      const { rows = 5, cols = 5, cells = [] } = state && typeof state === "object"
-        ? state as { rows: number; cols: number; cells: unknown[][] }
-        : { rows: 5, cols: 5, cells: [] };
+      const raw = state && typeof state === "object"
+        ? state as { rows?: number; cols?: number; cells?: unknown[][]; phase?: string }
+        : {};
+      const rows = raw.rows ?? 5;
+      const cols = raw.cols ?? 5;
+      const cells = raw.cells ?? [];
+      const phase = raw.phase ?? "";
+      const isBattle = rows === 20;
 
-      const isTwoBoards = rows === 20;
       const items: string[] = [];
       for (let i = 0; i < rows * cols; i++) {
         const r = Math.floor(i / cols);
         const c = i % cols;
-        if (isTwoBoards && r === 10 && c === 0) {
+        if (isBattle && r === 10 && c === 0) {
           items.push(`<div class="grid-divider">Enemy waters</div>`);
         }
-        const raw = String(cells[r]?.[c] ?? "");
-        const value = raw.replace(/[[\]]/g, "");
+        const value = String(cells[r]?.[c] ?? "");
         items.push(
-          `<button class="grid-cell ${gridValueClass(raw)}" data-row="${r}" data-col="${c}">${escapeHtml(value)}</button>`,
+          `<button class="grid-cell ${gridValueClass(value)}" data-row="${r}" data-col="${c}">${escapeHtml(value.replace(/[[\]]/g, ""))}</button>`,
         );
       }
 
       container.style.setProperty("--grid-cols", String(cols));
       container.innerHTML = `
         <div class="grid-frame">
-          <div class="grid-label"><span>Your fleet</span><span>${isTwoBoards ? "tap below to fire" : "tap a cell"}</span></div>
+          <div class="grid-label"><span>Your fleet</span><span>${isBattle ? "tap below to fire" : "tap a cell"}</span></div>
           <div class="grid-wrap">
             <div class="grid" style="grid-template-columns: repeat(${cols}, 1fr);">
               ${items.join("")}
             </div>
           </div>
+          ${isBattle ? `
+            <div class="grid-actions">
+              <span class="pick" id="gridPick">Tap a target cell</span>
+              <button class="primary" id="gridConfirm" disabled>${phase === "placing" ? "Place" : "Fire"}</button>
+            </div>
+          ` : ""}
         </div>
       `;
+
+      const pick = container.querySelector<HTMLElement>("#gridPick");
+      const confirm = container.querySelector<HTMLButtonElement>("#gridConfirm");
+
+      const clearPick = () => {
+        container.querySelectorAll(".grid-cell.v-picked").forEach((cell) => cell.classList.remove("v-picked"));
+        container.dataset.row = "";
+        container.dataset.col = "";
+        if (pick) {
+          pick.textContent = "Tap a target cell";
+          pick.classList.remove("ready");
+        }
+        if (confirm) confirm.disabled = true;
+      };
+
+      const send = (row: number, col: number) => {
+        onInput({ grid: { row, col } });
+        clearPick();
+      };
+
       container.querySelectorAll<HTMLButtonElement>(".grid-cell").forEach(cell => {
         cell.addEventListener("click", () => {
-          onInput({ grid: { row: Number(cell.dataset.row), col: Number(cell.dataset.col) } });
+          const r = Number(cell.dataset.row);
+          const c = Number(cell.dataset.col);
+          if (!isBattle) {
+            send(r, c);
+            return;
+          }
+          // Only the half the server is asking for can be tapped.
+          if (phase === "playing" && r < 10) return;
+          if (phase === "placing" && r >= 10) return;
+
+          container.querySelectorAll(".grid-cell.v-picked").forEach((el) => el.classList.remove("v-picked"));
+          cell.classList.add("v-picked");
+          container.dataset.row = String(r);
+          container.dataset.col = String(c);
+
+          const boardRow = phase === "placing" ? r + 1 : r - 9;
+          const coord = `${String.fromCharCode(65 + c)}${boardRow}`;
+          if (pick) {
+            pick.textContent = `${phase === "placing" ? "Place at" : "Fire at"} ${coord}`;
+            pick.classList.add("ready");
+          }
+          if (confirm) {
+            confirm.disabled = false;
+            confirm.textContent = phase === "placing" ? "Place" : "Fire";
+          }
         });
+      });
+
+      confirm?.addEventListener("click", () => {
+        const r = Number(container.dataset.row);
+        const c = Number(container.dataset.col);
+        if (Number.isInteger(r) && Number.isInteger(c) && r >= 0 && c >= 0) send(r, c);
       });
     },
     update(container, state) {
@@ -323,16 +382,17 @@ export function createPrivateGridLayout(): ControllerLayout {
       container.querySelectorAll<HTMLButtonElement>(".grid-cell").forEach(cell => {
         const r = Number(cell.dataset.row);
         const c = Number(cell.dataset.col);
-        const raw = String(cells[r]?.[c] ?? "");
-        cell.textContent = raw.replace(/[[\]]/g, "");
-        cell.className = `grid-cell ${gridValueClass(raw)}`;
+        const value = String(cells[r]?.[c] ?? "");
+        cell.textContent = value.replace(/[[\]]/g, "");
+        const picked = cell.classList.contains("v-picked");
+        cell.className = `grid-cell ${gridValueClass(value)}${picked ? " v-picked" : ""}`;
       });
     },
     signature(state) {
-      const { rows = 5, cols = 5 } = state && typeof state === "object"
-        ? state as { rows?: number; cols?: number }
+      const s = state && typeof state === "object"
+        ? state as { rows?: number; cols?: number; phase?: string }
         : {};
-      return `grid:${rows}x${cols}`;
+      return `grid:${s.rows ?? 5}x${s.cols ?? 5}:${s.phase ?? ""}`;
     },
   };
 }

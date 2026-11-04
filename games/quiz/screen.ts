@@ -229,7 +229,7 @@ function renderQuestion(
   const cardY = margin + scaledSize(64, scale);
   const cardH = height * 0.26;
   const cardRect = { x: margin, y: cardY, width: mainWidth, height: cardH };
-  drawBentoCard(ctx, cardRect, { fill: "rgba(23,18,56,0.97)", stroke: colors.border });
+  drawBentoCard(ctx, cardRect, { fill: "#171238", stroke: colors.border });
 
   const qSize = Math.max(scaledSize(26, scale), Math.min(scaledSize(46, scale), cardH * 0.3));
   ctx.font = `700 ${qSize}px ${fonts.display.family}`;
@@ -286,7 +286,7 @@ function renderOptions(
     let fill = "rgba(23,18,56,0.97)";
     let stroke: string = colors.border;
     if (revealed) {
-      fill = isCorrect ? "rgba(61,255,162,0.16)" : "rgba(16,12,40,0.94)";
+      fill = isCorrect ? "#16352B" : "#100C28";
       stroke = isCorrect ? colors.success : "rgba(255,255,255,0.06)";
     }
 
@@ -354,7 +354,7 @@ function renderScoreboard(
       scaledSize(64, scale) * state.scores.length + scaledSize(92, scale),
     ),
   };
-  drawBentoCard(ctx, rect, { fill: "rgba(23,18,56,0.97)", stroke: colors.border });
+  drawBentoCard(ctx, rect, { fill: "#171238", stroke: colors.border });
 
   const entries = state.scores.map((s, i) => ({
     name: s.name,

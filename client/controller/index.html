@@ -73,8 +73,8 @@
     body::before {
       content: "";
       position: fixed;
-      inset: -30% 30% 40% -30%;
-      background: radial-gradient(circle at 35% 30%, rgba(255,46,151,0.22), transparent 65%);
+      inset: 0;
+      background: radial-gradient(120% 90% at 25% 15%, rgba(255,46,151,0.20), transparent 68%);
       pointer-events: none;
       z-index: 0;
     }
@@ -337,7 +337,8 @@
       -webkit-overflow-scrolling: touch;
       padding-bottom: 8px;
     }
-    #controllerContainer[data-layout="text"] {
+    #controllerContainer[data-layout="text"],
+    #controllerContainer[data-layout="choice"] {
       justify-content: flex-start;
       padding-top: 18px;
     }
@@ -629,6 +630,40 @@
     .grid-cell.v-o { color: var(--muted); }
     .grid-cell.v-S { background: rgba(61,255,162,0.13); color: var(--success); }
     .grid-cell.v-selected { border-color: var(--magenta); background: rgba(255,46,151,0.18); }
+    .grid-cell.v-picked {
+      border-color: var(--cyan);
+      background: rgba(0,229,255,0.20);
+      box-shadow: 0 0 0 1px rgba(0,229,255,0.45);
+    }
+    .grid-actions {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 12px;
+      background: rgba(11,8,32,0.95);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(6px);
+    }
+    .grid-actions .pick {
+      flex: 1;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--muted);
+    }
+    .grid-actions .pick.ready { color: var(--text); }
+    .grid-actions .primary {
+      flex: 0 0 auto;
+      width: auto;
+      min-width: 120px;
+      height: 46px;
+      padding: 0 18px;
+      font-size: 15px;
+    }
     .grid-divider {
       grid-column: 1 / -1;
       display: flex;

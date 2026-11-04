@@ -38,6 +38,11 @@ uncommitted until the next commit.
   Slot Car reports total distance for a finished car; title cards reset between
   games; quiz stops shipping the answer before reveal; a finished game releases
   the room so the lobby cap is not inherited.
+- **UI review fixes**: removed the controller gradient seam, neutral connection
+  dot until a seat is held, larger host lobby type, opaque quiz cards, Sea
+  Battle select-then-Fire confirmation for 31px cells, a sticky confirm bar,
+  stronger Gravity Run obstacle contrast, larger racing car labels, a carded
+  Guess Who question history, and an unclipped Traffic Jam exit label.
 - **Runtime fixes**: correct `/client/` and `/assets/` routes (renderers and
   fonts now load), DPR-safe rendering, advancing title/countdown/victory cards,
   result hold after a game ends, multi-word renderer export loading, 60 fps by

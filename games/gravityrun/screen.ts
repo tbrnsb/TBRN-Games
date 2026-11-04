@@ -336,7 +336,7 @@ function drawCorridor(
 
     ctx.save();
     if (obs.type === "spike") {
-      ctx.fillStyle = "rgba(255,77,109,0.20)";
+      ctx.fillStyle = "rgba(255,77,109,0.30)";
       ctx.strokeStyle = colors.danger;
       ctx.lineWidth = Math.max(1, scaledSize(2, scale));
       ctx.beginPath();
@@ -347,7 +347,7 @@ function drawCorridor(
       ctx.fill();
       ctx.stroke();
     } else {
-      drawRoundRect(ctx, x, y, w, h, scaledSize(6, scale), "rgba(255,77,109,0.20)", "rgba(255,77,109,0.8)", Math.max(1, scaledSize(2, scale)));
+      drawRoundRect(ctx, x, y, w, h, scaledSize(6, scale), "rgba(255,77,109,0.38)", "rgba(255,77,109,0.9)", Math.max(1, scaledSize(2, scale)));
       ctx.strokeStyle = "rgba(255,77,109,0.45)";
       ctx.beginPath();
       ctx.moveTo(x + w * 0.2, y + h * 0.5);
