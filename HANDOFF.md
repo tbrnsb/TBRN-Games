@@ -6,8 +6,7 @@ the host lobby and the phone controller share one visual language, and a room
 can play a 5/8/all-game series with phone votes or random picks.
 
 ## Last Commit
-`a917120` (hardening docs) before the uncommitted Royal Rumble work. All commits
-are local; nothing is pushed.
+`1266aeb` (Royal Rumble sessions) — all commits are local; nothing is pushed.
 
 ## Done
 - **Royal Rumble engine** (`server/session.ts`): eligible-game candidates,
@@ -54,6 +53,8 @@ or scan the QR code.
 
 ## Failing Tests / Known Issues
 - No failing tests.
+- Independent critic review: 9/10, no blockers. The `reviewer` subagent could
+  not run (model usage limit), so the critic also served as the read-only review.
 - Rumble state is in memory; a server restart clears the series.
 - The session roster is fixed at start; a player who leaves and does not rejoin
   stays in the standings with their existing points.
