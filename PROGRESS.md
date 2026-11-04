@@ -125,12 +125,24 @@ The phone controller now uses the same identity as the host and games:
 - Verified at 390×844 for every layout, plus a live Slot Car controller and the
   lobby/room-code flows.
 
+## Royal Rumble (post-overhaul)
+
+- `server/session.ts` is a pure series engine: candidates, private votes, random
+  picks, 10/6/3/1 placement points, abort, champion and five honorary trophies.
+- The host shelf gained a Rumble setup, live board and final champion/trophy
+  screen; the top bar gained a double-confirm End game.
+- The controller gained a session card: vote buttons with counts, live points,
+  your vote/result, and the final trophy board.
+- Sessions are per room and in memory; new seats are blocked mid-rumble, while
+  rejoin tokens still restore the same seat.
+- Tests: 11 engine tests + a real socket/HTTP flow covering vote, start, abort,
+  play, score and clear.
+
 ## Last Updated
-All 18 renderers and both clients now share one visual language. V17 restyled
-archery and darts; V18 rebuilt the phone controller (local fonts, room-code
-join, coach strip, all seven layouts). A renderer smoke test now drives all 18
-screen renderers at 1280×720 and 1920×1080. Manifest controller types were corrected
-for golf (dpad), Guess Who (choice) and Traffic Jam (private-grid). The game
-logic hardening pass is in. `npm run typecheck` clean, lint 0 errors, `npm test` 89/89
-(18 renderer smoke tests + 9 controller/lobby logic tests). Optional HTTPS/WSS,
-unique room names and a local favicon are in.
+Royal Rumble sessions are in on top of the finished visual overhaul and logic
+hardening. All 18 renderers and both clients share one language. `npm run
+typecheck` clean, lint 0 errors, `npm test` 101/101 (18 renderer smoke tests, 9
+controller/lobby logic tests, 11 session-engine tests, a server session flow,
+and the existing game/server suites), `npm run probe` 0 issues. Browser flow was
+exercised with two phone contexts: vote → start → finish → points → final board,
+plus End game and random mode.

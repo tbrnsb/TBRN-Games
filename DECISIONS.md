@@ -3,6 +3,28 @@
 Append new decisions at the top. Keep each entry short: the decision, the
 reason, and the date.
 
+## 2026-11-04 — Royal Rumble sessions
+
+- A room can start a series of 5, 8, or all eligible games. Candidates are games
+  not yet played whose player range fits the room at session start.
+- Each round is chosen by one private vote per connected player or by a uniform
+  random pick. The host starts the winning candidate; ties go to candidate order,
+  and a random round names its pick immediately.
+- Placement points are 10 / 6 / 3 / 1. The champion is the highest total, then
+  most wins, then best single-round score, then name. Trophies: Most Wins, Podium
+  Regular, Wooden Spoon, High Roller, and Most Accurate (quiz only).
+- End game aborts the running round without points and reopens voting for the
+  same round. End rumble clears the series.
+- A fresh phone cannot join mid-rumble because it has no row in the fixed score
+  table; reconnects with a rejoin token still work. The roster is otherwise
+  frozen for the series.
+- Session state is in memory. A server restart clears the series.
+- The server owns votes, points and private payloads. Phones receive aggregate
+  vote counts plus their own vote and points; the laptop receives the public view.
+
+Reason: add a social series format without weakening server authority, hidden
+state, or the existing one-game flow.
+
 ## 2026-10-23 — F4 reconnect, leaving, selection, Darts, and UI
 
 - Logout fix: a valid resume token takes over its seat even if the server still

@@ -11,6 +11,8 @@ export declare const MESSAGE_TYPES: {
   readonly JOINED: "joined";
   readonly ROOM_STATE: "roomState";
   readonly GAME_STATE: "gameState";
+  readonly SESSION: "session";
+  readonly SESSION_VOTE: "session-vote";
   readonly ERROR: "error";
   readonly PONG: "pong";
 };

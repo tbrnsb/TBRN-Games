@@ -18,6 +18,18 @@ npm run dev
 Open `http://localhost:3000` on laptop (screen).
 Open `http://<laptop-lan-ip>:3000/controller` on phones (or scan QR code).
 
+## Royal Rumble
+
+Pick **5**, **8**, or **all** games for one series. Each round the phones vote on
+the next game, or the wheel picks it for you. Placement points (**10 / 6 / 3 /
+1**) add up across the series; the final board crowns a champion and hands out
+honorary trophies: Most Wins, Podium Regular, Wooden Spoon, High Roller, and Most
+Accurate when a quiz round is played.
+
+The host can press **End game** during any round. The round is abandoned without
+points and voting reopens for the same round. New phones wait until the rumble
+ends; a phone that drops out can rejoin its seat.
+
 ## HTTPS / WSS (optional)
 
 Plain HTTP is the default for LAN play. For a secure context (PWA install, some

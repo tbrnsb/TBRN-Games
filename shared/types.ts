@@ -26,7 +26,12 @@ export interface PingMessage extends BaseMessage {
   type: "ping";
 }
 
-export type ClientMessage = JoinMessage | InputMessage | PingMessage;
+export interface SessionVoteMessage extends BaseMessage {
+  type: "session-vote";
+  payload: { gameId: string };
+}
+
+export type ClientMessage = JoinMessage | InputMessage | PingMessage | SessionVoteMessage;
 
 // --- Server -> Client messages ---
 export interface JoinedMessage extends BaseMessage {
@@ -58,7 +63,65 @@ export interface PongMessage extends BaseMessage {
   type: "pong";
 }
 
-export type ServerMessage = JoinedMessage | RoomStateMessage | GameStateMessage | ErrorMessage | PongMessage;
+// --- Royal Rumble session ---
+export interface SessionGameView {
+  id: string;
+  name: string;
+  description: string;
+  minPlayers: number;
+  maxPlayers: number;
+}
+
+export interface SessionStanding {
+  playerId: string;
+  name: string;
+  points: number;
+  wins: number;
+  podiums: number;
+  lastPlaces: number;
+  bestSingle: number;
+}
+
+export interface SessionTrophyView {
+  id: string;
+  name: string;
+  playerName: string;
+  detail: string;
+}
+
+export interface SessionView {
+  length: number;
+  selection: "vote" | "random";
+  status: "voting" | "playing" | "finished";
+  round: number;
+  played: string[];
+  currentGameId: string | null;
+  leadingGameId: string | null;
+  candidates: SessionGameView[];
+  votes: Array<{ gameId: string; name: string; count: number }>;
+  voted: number;
+  standings: SessionStanding[];
+  champion: { name: string; points: number } | null;
+  trophies: SessionTrophyView[];
+}
+
+export interface SessionMessage extends BaseMessage {
+  type: "session";
+  payload: {
+    session: SessionView | null;
+    yourVote: string | null;
+    canVote: boolean;
+    yourPoints: number;
+  };
+}
+
+export type ServerMessage =
+  | JoinedMessage
+  | RoomStateMessage
+  | GameStateMessage
+  | ErrorMessage
+  | PongMessage
+  | SessionMessage;
 
 // --- Room & Player ---
 export interface Player {

@@ -11,6 +11,8 @@ export const MESSAGE_TYPES = {
   JOINED: "joined",
   ROOM_STATE: "roomState",
   GAME_STATE: "gameState",
+  SESSION: "session",
+  SESSION_VOTE: "session-vote",
   ERROR: "error",
   PONG: "pong",
 };

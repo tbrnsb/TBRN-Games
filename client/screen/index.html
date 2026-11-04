@@ -287,6 +287,131 @@
       letter-spacing: -0.01em;
     }
     .shelf-head .count { font-size: 12px; color: var(--color-text-muted); }
+    .topbar-right { display: flex; align-items: center; gap: 14px; }
+    .top-action {
+      height: 32px;
+      padding: 0 13px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 77, 109, 0.45);
+      background: rgba(255, 77, 109, 0.08);
+      color: var(--color-danger);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .top-action.confirm { background: var(--color-danger); color: var(--ink); }
+    .shelf-tools { display: flex; align-items: center; gap: 12px; }
+    .rumble-btn {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 46, 151, 0.45);
+      background: rgba(255, 46, 151, 0.08);
+      color: var(--color-magenta);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .rumble-setup {
+      margin: 8px 0 10px;
+      padding: 14px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      background: rgba(27, 21, 69, 0.72);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .setup-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+    .seg { display: inline-flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
+    .seg button {
+      height: 30px;
+      padding: 0 14px;
+      border: 0;
+      background: transparent;
+      color: var(--color-text-muted);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .seg button.on { background: var(--color-magenta); color: var(--ink); }
+    .setup-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .ghost {
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid var(--color-border);
+      background: transparent;
+      color: var(--color-text);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .primary {
+      height: 36px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--color-magenta);
+      color: var(--ink);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .primary:disabled { background: rgba(255, 255, 255, 0.08); color: rgba(245, 243, 255, 0.35); cursor: not-allowed; }
+    .hint { font-size: 11px; color: var(--color-text-muted); }
+    .hint.error { color: var(--color-danger); }
+    .session { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+    .session-head { display: flex; align-items: flex-end; justify-content: space-between; }
+    .session-head .k { display: block; font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px; }
+    .session-head strong { font-family: var(--font-display); font-size: 21px; }
+    .session-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: 18px; }
+    .session-vote { min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+    .session-label { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--color-text-muted); }
+    .candidates { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+    .candidate {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 3px 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: rgba(27, 21, 69, 0.55);
+      border: 1px solid transparent;
+    }
+    .candidate.leading { border-color: rgba(255, 46, 151, 0.55); background: rgba(255, 46, 151, 0.10); }
+    .candidate .nm { font-family: var(--font-display); font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .candidate .ct { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--color-text-muted); }
+    .candidate.leading .ct { color: var(--color-magenta); }
+    .candidate .bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+    .candidate .bar i { display: block; height: 100%; background: var(--color-magenta); }
+    .session-standings { border-left: 1px solid var(--color-border); padding-left: 14px; overflow-y: auto; }
+    .standing { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .standing .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .standing .pts { font-family: var(--font-display); font-weight: 700; color: var(--color-amber); }
+    .session-launch { display: flex; align-items: center; gap: 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+    .session-launch .hint { flex: 1; }
+    .session-final { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+    .champion { display: flex; flex-direction: column; gap: 4px; }
+    .champion .k { font-size: 11px; color: var(--color-text-muted); }
+    .champion strong { font-family: var(--font-display); font-size: 42px; line-height: 1.05; }
+    .champion .pts { font-family: var(--font-display); font-weight: 700; color: var(--color-amber); font-size: 18px; }
+    .trophies { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; width: 100%; max-width: 720px; }
+    .trophy { padding: 10px 12px; border-radius: 10px; background: rgba(27, 21, 69, 0.62); border: 1px solid var(--color-border); text-align: left; }
+    .trophy .t { font-family: var(--font-display); font-weight: 700; font-size: 12px; color: var(--color-magenta); }
+    .trophy .p { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+    .trophy .d { font-size: 11px; color: var(--color-text-muted); }
     .picker {
       flex: 1;
       min-height: 0;
@@ -449,7 +574,10 @@
 <body>
   <header class="topbar">
     <div class="wordmark"><span>TBRN</span><b>GAMES</b></div>
-    <div class="live"><span class="dot"></span><span><span id="playerCount">0</span> phones at the table</span></div>
+    <div class="topbar-right">
+      <button class="top-action hidden" id="endGameBtn" type="button">End game</button>
+      <div class="live"><span class="dot"></span><span><span id="playerCount">0</span> phones at the table</span></div>
+    </div>
   </header>
   <main>
     <section class="lobby" id="lobby">
@@ -470,12 +598,76 @@
       </aside>
 
       <section class="shelf">
-        <div class="shelf-head">
+        <div class="shelf-head" id="shelfHead">
           <h2>Pick a game</h2>
-          <span class="count" id="gameCount">Loading games…</span>
+          <div class="shelf-tools">
+            <button class="rumble-btn" id="rumbleBtn" type="button">Royal Rumble</button>
+            <span class="count" id="gameCount">Loading games…</span>
+          </div>
         </div>
+
+        <div class="rumble-setup hidden" id="rumbleSetup">
+          <div class="setup-row">
+            <span>Rounds</span>
+            <div class="seg" id="rumbleLength">
+              <button type="button" data-len="5" class="on">5</button>
+              <button type="button" data-len="8">8</button>
+              <button type="button" data-len="18">All</button>
+            </div>
+          </div>
+          <div class="setup-row">
+            <span>Next game</span>
+            <div class="seg" id="rumbleMode">
+              <button type="button" data-mode="vote" class="on">Vote</button>
+              <button type="button" data-mode="random">Random</button>
+            </div>
+          </div>
+          <div class="setup-actions">
+            <button class="ghost" id="rumbleCancel" type="button">Cancel</button>
+            <button class="primary" id="rumbleStart" type="button">Start rumble</button>
+          </div>
+          <p class="hint" id="rumbleError" role="alert"></p>
+        </div>
+
+        <div class="session hidden" id="sessionPanel">
+          <div class="session-head">
+            <div>
+              <span class="k">Royal Rumble</span>
+              <strong id="sessionRound">Round 1 of 5</strong>
+            </div>
+            <button class="ghost" id="sessionEnd" type="button">End rumble</button>
+          </div>
+          <div class="session-body">
+            <div class="session-vote">
+              <p class="session-label" id="sessionVoteLabel">Vote for the next game</p>
+              <div class="candidates" id="sessionCandidates"></div>
+            </div>
+            <aside class="session-standings">
+              <p class="session-label">Rumble points</p>
+              <div id="sessionStandings"></div>
+            </aside>
+          </div>
+          <div class="session-launch">
+            <span class="hint" id="sessionHint"></span>
+            <button class="primary" id="sessionStart" type="button" disabled>Waiting for votes</button>
+          </div>
+        </div>
+
+        <div class="session-final hidden" id="sessionFinal">
+          <div class="champion">
+            <span class="k">Champion</span>
+            <strong id="championName">—</strong>
+            <span class="pts" id="championPoints"></span>
+          </div>
+          <div class="trophies" id="sessionTrophies"></div>
+          <div class="setup-actions">
+            <button class="ghost" id="sessionClose" type="button">Back to lobby</button>
+            <button class="primary" id="sessionNew" type="button">New rumble</button>
+          </div>
+        </div>
+
         <div class="picker" id="gamePicker"></div>
-        <div class="launch">
+        <div class="launch" id="launchBar">
           <div class="sel">
             <span class="k">Selected</span>
             <span class="v" id="selectedGame">No game picked</span>

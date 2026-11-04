@@ -8,7 +8,7 @@
  * otherwise a generic renderer draws the standard screen-state fields.
  */
 
-import type { ServerMessage, RoomState } from "../../shared/types.ts";
+import type { ServerMessage, RoomState, SessionView } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { stageScale } from "./layout.ts";
 
@@ -25,6 +25,10 @@ let selectedGameId: string | null = null;
 let playerCount = 0;
 let resultsHoldUntil = 0;
 let resultsTimer: ReturnType<typeof setTimeout> | null = null;
+let sessionView: SessionView | null = null;
+let rumbleLength = 5;
+let rumbleMode: "vote" | "random" = "vote";
+let endConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface GameManifestLite {
   id: string;
@@ -49,6 +53,30 @@ const picker = document.getElementById("gamePicker")!;
 const playerCountEl = document.getElementById("playerCount")!;
 const selectedGameEl = document.getElementById("selectedGame")!;
 const gameCountEl = document.getElementById("gameCount")!;
+const launchBar = document.getElementById("launchBar")!;
+const shelfHead = document.getElementById("shelfHead")!;
+const endGameBtn = document.getElementById("endGameBtn") as HTMLButtonElement;
+const rumbleBtn = document.getElementById("rumbleBtn") as HTMLButtonElement;
+const rumbleSetup = document.getElementById("rumbleSetup")!;
+const rumbleLengthEl = document.getElementById("rumbleLength")!;
+const rumbleModeEl = document.getElementById("rumbleMode")!;
+const rumbleCancel = document.getElementById("rumbleCancel") as HTMLButtonElement;
+const rumbleStart = document.getElementById("rumbleStart") as HTMLButtonElement;
+const rumbleError = document.getElementById("rumbleError")!;
+const sessionPanel = document.getElementById("sessionPanel")!;
+const sessionRoundEl = document.getElementById("sessionRound")!;
+const sessionEndBtn = document.getElementById("sessionEnd") as HTMLButtonElement;
+const sessionCandidatesEl = document.getElementById("sessionCandidates")!;
+const sessionVoteLabel = document.getElementById("sessionVoteLabel")!;
+const sessionStandingsEl = document.getElementById("sessionStandings")!;
+const sessionHint = document.getElementById("sessionHint")!;
+const sessionStartBtn = document.getElementById("sessionStart") as HTMLButtonElement;
+const sessionFinal = document.getElementById("sessionFinal")!;
+const championName = document.getElementById("championName")!;
+const championPoints = document.getElementById("championPoints")!;
+const sessionTrophiesEl = document.getElementById("sessionTrophies")!;
+const sessionCloseBtn = document.getElementById("sessionClose") as HTMLButtonElement;
+const sessionNewBtn = document.getElementById("sessionNew") as HTMLButtonElement;
 
 function getPlayersList(): HTMLElement {
   return _playersList;
@@ -134,6 +162,211 @@ function updateLaunchBar(): void {
 
   startBtn.textContent = `Start ${game.name}`;
   startBtn.disabled = false;
+}
+
+// --- Royal Rumble ---
+
+/** Show the session panel, the final trophy board, or the normal game shelf. */
+function applySession(view: SessionView | null): void {
+  sessionView = view;
+  const inSession = view !== null;
+  picker.classList.toggle("hidden", inSession);
+  launchBar.classList.toggle("hidden", inSession);
+  shelfHead.classList.toggle("hidden", inSession);
+  rumbleBtn.classList.toggle("hidden", inSession);
+  gameCountEl.classList.toggle("hidden", inSession);
+  rumbleSetup.classList.add("hidden");
+
+  if (!view) {
+    sessionPanel.classList.add("hidden");
+    sessionFinal.classList.add("hidden");
+    return;
+  }
+
+  if (view.status === "finished") {
+    sessionPanel.classList.add("hidden");
+    sessionFinal.classList.remove("hidden");
+    renderFinal(view);
+    return;
+  }
+
+  sessionFinal.classList.add("hidden");
+  sessionPanel.classList.remove("hidden");
+  renderSession(view);
+}
+
+function renderSession(view: SessionView): void {
+  const total = view.length;
+  sessionRoundEl.textContent =
+    view.status === "playing"
+      ? `Game ${view.round} of ${total} in play`
+      : `Round ${Math.min(view.round, total)} of ${total}`;
+
+  const leader = view.leadingGameId
+    ? view.candidates.find((g) => g.id === view.leadingGameId) ?? null
+    : null;
+
+  sessionVoteLabel.textContent =
+    view.selection === "random"
+      ? "Random pick for this round"
+      : "Phones vote for the next game";
+
+  const maxVotes = Math.max(1, ...view.votes.map((v) => v.count));
+  sessionCandidatesEl.innerHTML = "";
+  for (const candidate of view.votes) {
+    const row = document.createElement("div");
+    const leading = candidate.gameId === view.leadingGameId && view.selection === "vote" && candidate.count > 0;
+    row.className = `candidate${leading ? " leading" : ""}`;
+    row.innerHTML = `
+      <span class="nm">${escapeHtml(candidate.name)}</span>
+      <span class="ct">${view.selection === "vote" ? candidate.count : ""}</span>
+      <span class="bar"><i style="width:${Math.round((candidate.count / maxVotes) * 100)}%"></i></span>
+    `;
+    sessionCandidatesEl.appendChild(row);
+  }
+
+  sessionStandingsEl.innerHTML = "";
+  for (const standing of view.standings) {
+    const row = document.createElement("div");
+    row.className = "standing";
+    row.innerHTML = `
+      <span class="nm">${escapeHtml(standing.name)}</span>
+      <span class="pts">${standing.points}</span>
+    `;
+    sessionStandingsEl.appendChild(row);
+  }
+
+  if (view.selection === "random") {
+    sessionHint.textContent = leader
+      ? `The wheel picked ${leader.name}.`
+      : "Waiting for a random pick…";
+  } else if (view.voted === 0) {
+    sessionHint.textContent = `${playerCount} ${playerCount === 1 ? "phone" : "phones"} can vote.`;
+  } else {
+    sessionHint.textContent =
+      `${view.voted} of ${playerCount} voted` + (leader ? ` · ${leader.name} leads` : "");
+  }
+
+  sessionStartBtn.disabled = !leader;
+  sessionStartBtn.textContent = leader ? `Start ${leader.name}` : "Waiting for votes";
+}
+
+function renderFinal(view: SessionView): void {
+  championName.textContent = view.champion?.name ?? "No champion";
+  championPoints.textContent = view.champion ? `${view.champion.points} points` : "";
+
+  sessionTrophiesEl.innerHTML = "";
+  for (const trophy of view.trophies) {
+    const card = document.createElement("div");
+    card.className = "trophy";
+    card.innerHTML = `
+      <span class="t">${escapeHtml(trophy.name)}</span>
+      <span class="p">${escapeHtml(trophy.playerName)}</span>
+      <span class="d">${escapeHtml(trophy.detail)}</span>
+    `;
+    sessionTrophiesEl.appendChild(card);
+  }
+}
+
+async function startRumble(): Promise<void> {
+  if (!roomId) return;
+  rumbleStart.disabled = true;
+  rumbleError.textContent = "";
+  rumbleError.classList.remove("error");
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/session/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-host-token": hostToken },
+      body: JSON.stringify({ length: rumbleLength, selection: rumbleMode }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { session?: SessionView; message?: string };
+    if (!res.ok || !body.session) {
+      rumbleError.textContent = body.message ?? "Could not start the rumble.";
+      rumbleError.classList.add("error");
+      return;
+    }
+    applySession(body.session);
+  } catch (e) {
+    console.error("[Screen] Rumble start failed", e);
+    rumbleError.textContent = "Could not reach the server.";
+    rumbleError.classList.add("error");
+  } finally {
+    rumbleStart.disabled = false;
+  }
+}
+
+async function endRumble(): Promise<void> {
+  if (!roomId) return;
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/session/end`, {
+      method: "POST",
+      headers: { "x-host-token": hostToken },
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      console.error("[Screen] End rumble failed:", body.message ?? res.status);
+      return;
+    }
+    applySession(null);
+  } catch (e) {
+    console.error("[Screen] End rumble request failed", e);
+  }
+}
+
+async function startSessionGame(gameId: string): Promise<void> {
+  if (!roomId || !gameId) return;
+  sessionStartBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-host-token": hostToken },
+      body: JSON.stringify({ gameId }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      sessionHint.textContent = body.message ?? "Could not start that game.";
+      sessionStartBtn.disabled = false;
+    }
+  } catch (e) {
+    console.error("[Screen] Start rumble game failed", e);
+    sessionStartBtn.disabled = false;
+  }
+}
+
+function resetEndGameButton(): void {
+  if (endConfirmTimer) {
+    clearTimeout(endConfirmTimer);
+    endConfirmTimer = null;
+  }
+  endGameBtn.classList.remove("confirm");
+  endGameBtn.textContent = "End game";
+}
+
+async function endGame(): Promise<void> {
+  if (!roomId) return;
+  resetEndGameButton();
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/end-game`, {
+      method: "POST",
+      headers: { "x-host-token": hostToken },
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      console.error("[Screen] End game failed:", body.message ?? res.status);
+    }
+  } catch (e) {
+    console.error("[Screen] End game request failed", e);
+  }
+}
+
+function openRumbleSetup(): void {
+  rumbleError.textContent = "";
+  rumbleError.classList.remove("error");
+  rumbleSetup.classList.remove("hidden");
+}
+
+function closeRumbleSetup(): void {
+  rumbleSetup.classList.add("hidden");
 }
 
 function escapeHtml(value: unknown): string {
@@ -263,6 +496,9 @@ function handleMessage(msg: ServerMessage) {
 
     showPlaying();
     renderGame();
+  } else if (msg.type === MESSAGE_TYPES.SESSION) {
+    const m = msg as ServerMessage & { type: "session"; payload: { session: SessionView | null } };
+    applySession(m.payload.session ?? null);
   } else if (msg.type === MESSAGE_TYPES.ERROR) {
     const m = msg as ServerMessage & { type: "error"; payload: { code: string; message: string } };
     console.error("[Screen] Error:", m.payload);
@@ -315,8 +551,11 @@ function updatePlayers(
 
   // The screen owns the room: it can start a game whenever the lobby is open
   // and enough phones have joined for the selected game.
-  startBtn.classList.toggle("hidden", status !== "lobby");
+  startBtn.classList.toggle("hidden", status !== "lobby" || sessionView !== null);
+  endGameBtn.classList.toggle("hidden", status !== "playing");
+  if (status !== "playing") resetEndGameButton();
   updateLaunchBar();
+  if (sessionView && sessionView.status !== "finished") renderSession(sessionView);
   if (manifests.length > 0) {
     gameCountEl.textContent =
       playerCount === 0
@@ -338,6 +577,8 @@ function selectedGameReachable(): boolean {
 function showLobby() {
   lobby.classList.remove("hidden");
   playing.classList.add("hidden");
+  endGameBtn.classList.add("hidden");
+  resetEndGameButton();
   fitLobby();
 }
 
@@ -352,6 +593,7 @@ function showPlaying() {
   const wasHidden = playing.classList.contains("hidden");
   lobby.classList.add("hidden");
   playing.classList.remove("hidden");
+  endGameBtn.classList.remove("hidden");
   if (wasHidden) resizeCanvas();
 }
 
@@ -373,6 +615,54 @@ startBtn.addEventListener("click", async () => {
     console.error("[Screen] Start request failed", e);
     startBtn.disabled = false;
   }
+});
+
+// --- Rumble controls ---
+rumbleBtn.addEventListener("click", () => {
+  if (rumbleSetup.classList.contains("hidden")) openRumbleSetup();
+  else closeRumbleSetup();
+});
+
+rumbleLengthEl.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest("button[data-len]") as HTMLButtonElement | null;
+  if (!button) return;
+  rumbleLength = Number(button.dataset.len ?? 5);
+  for (const btn of rumbleLengthEl.querySelectorAll("button")) {
+    btn.classList.toggle("on", btn === button);
+  }
+});
+
+rumbleModeEl.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest("button[data-mode]") as HTMLButtonElement | null;
+  if (!button) return;
+  rumbleMode = button.dataset.mode === "random" ? "random" : "vote";
+  for (const btn of rumbleModeEl.querySelectorAll("button")) {
+    btn.classList.toggle("on", btn === button);
+  }
+});
+
+rumbleCancel.addEventListener("click", closeRumbleSetup);
+rumbleStart.addEventListener("click", () => void startRumble());
+sessionEndBtn.addEventListener("click", () => void endRumble());
+sessionStartBtn.addEventListener("click", () => {
+  const view = sessionView;
+  if (!view?.leadingGameId) return;
+  void startSessionGame(view.leadingGameId);
+});
+sessionCloseBtn.addEventListener("click", () => void endRumble());
+sessionNewBtn.addEventListener("click", async () => {
+  await endRumble();
+  openRumbleSetup();
+});
+
+endGameBtn.addEventListener("click", () => {
+  if (!endGameBtn.classList.contains("confirm")) {
+    endGameBtn.classList.add("confirm");
+    endGameBtn.textContent = "Tap again to end";
+    endConfirmTimer = setTimeout(resetEndGameButton, 4000);
+    return;
+  }
+  void endGame();
 });
 
 // --- Rendering ---

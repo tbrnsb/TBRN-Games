@@ -325,6 +325,121 @@
       max-width: 260px;
       line-height: 1.45;
     }
+    .session-card {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      padding: 14px;
+      border-radius: 14px;
+      background: linear-gradient(160deg, rgba(37,28,90,0.88), rgba(27,21,69,0.72));
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+    .session-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .session-kicker {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--magenta);
+    }
+    .session-round {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .session-points {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .session-points strong {
+      font-family: var(--display);
+      font-size: 28px;
+      line-height: 1;
+      color: var(--amber);
+    }
+    .session-points span { font-size: 11px; color: var(--muted); }
+    .session-copy {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    .vote-list { display: flex; flex-direction: column; gap: 6px; }
+    .vote-btn {
+      min-height: 48px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .vote-btn:disabled { cursor: default; opacity: 0.72; }
+    .vote-btn.leading { border-color: rgba(255,46,151,0.58); background: rgba(255,46,151,0.13); }
+    .vote-btn.yours { border-color: rgba(0,229,255,0.65); background: rgba(0,229,255,0.10); }
+    .vote-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .vote-name { font-family: var(--display); font-weight: 700; font-size: 14px; }
+    .vote-count { font-family: var(--display); font-weight: 700; font-size: 12px; color: var(--muted); }
+    .vote-btn.leading .vote-count { color: var(--magenta); }
+    .vote-bar {
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.09);
+      overflow: hidden;
+    }
+    .vote-bar i { display: block; height: 100%; background: var(--magenta); }
+    .vote-btn.yours .vote-bar i { background: var(--cyan); }
+    .session-champion {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 0 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+    .session-champion strong {
+      font-family: var(--title);
+      font-size: 30px;
+      line-height: 1.1;
+    }
+    .session-champion .pts { font-family: var(--display); font-weight: 700; color: var(--amber); font-size: 13px; }
+    .session-trophies { display: flex; flex-direction: column; gap: 6px; }
+    .trophy-row {
+      padding: 8px 10px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.04);
+      border-left: 3px solid var(--magenta);
+    }
+    .trophy-row .t {
+      display: block;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--magenta);
+    }
+    .trophy-row .p { font-family: var(--display); font-weight: 700; font-size: 15px; }
+    .trophy-row .d { display: block; font-size: 11px; color: var(--muted); }
     #controllerContainer {
       flex: 1;
       min-height: 0;
@@ -338,6 +453,7 @@
       -webkit-overflow-scrolling: touch;
       padding-bottom: 8px;
     }
+    #controllerContainer:empty { display: none; }
     #controllerContainer[data-layout="text"],
     #controllerContainer[data-layout="choice"] {
       justify-content: flex-start;
@@ -766,6 +882,7 @@
     <section class="play hidden" id="controllerArea">
       <div class="game-label" id="gameLabel"></div>
       <div class="coach" id="coach"><span class="dot"></span><span id="status">Waiting for the host…</span></div>
+      <section class="session-card hidden" id="sessionCard" aria-live="polite"></section>
       <div class="idle" id="idle">
         <div class="idle-mark"><span></span></div>
         <p class="idle-title">You're at the table</p>

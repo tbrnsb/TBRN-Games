@@ -2,6 +2,22 @@
 
 Append new lessons at the top.
 
+## 2026-11-04 — A finished game sends a lobby state before its last frame
+
+The finish tick broadcasts `roomState` with `status: "lobby"`, then sends the
+final `gameState` whose screen is `finished: true`. A controller that renders
+every game frame re-entered the finished game after the lobby reset and got stuck
+on "Waiting for the host" with no session card. Track the room status and ignore
+a finished game frame once the room is already back in the lobby. Also move that
+check before any game-view mutation, or the early return still hides the session.
+
+## 2026-11-04 — Tie UI affordances to view transitions, not room broadcasts
+
+The host "End game" button only appeared after a reload because the server starts
+a game without broadcasting a new `roomState`; only `gameState` arrives. Toggle
+game-only controls in `showPlaying()` / `showLobby()` so every path into those
+views updates them, and keep the room-state handler as a second layer.
+
 ## 2026-10-23 — A live socket is not proof of a live seat
 
 The F3 reconnect path rejected a resume whenever the server still saw the old

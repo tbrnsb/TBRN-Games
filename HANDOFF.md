@@ -1,117 +1,78 @@
 # TBRN-Games Handoff
 
 ## Current Phase
-Visual overhaul V0–V18 complete: all 18 game renderers, the host lobby and the
-phone controller share one visual language. Game-logic hardening is in.
-Critic score: 9.5/10, no blockers.
+Visual overhaul and Royal Rumble sessions are complete. All 18 game renderers,
+the host lobby and the phone controller share one visual language, and a room
+can play a 5/8/all-game series with phone votes or random picks.
 
 ## Last Commit
-`ba943ba` (hardening, favicon, optional TLS) — all commits are local,
-nothing pushed.
+`a917120` (hardening docs) before the uncommitted Royal Rumble work. All commits
+are local; nothing is pushed.
 
 ## Done
-- **18 game plugins** under `games/*/server.ts`; every game passes the automated
-  playthrough, manifest, garbage-input and privacy tests.
-- **Server** (`server/index.ts`): spectator screen, delta-time loop, O(1) room
-  lookup, host-token start auth, per-game try/catch, local QR generation.
-- **Shared kit** (`client/screen/kit/`): theme, synthwave background, bento
-  cards, scoreboard, counters, particles, shake, title/countdown, victory,
-  easing, utils.
-- **Renderers**: quiz, racing, poker, snakes, golf, seabattle, slotcar, spinwar,
-  knifethrow, trafficjam, bluff, writevote, mostlikely, guesswho, hangman,
-  gravityrun, archery, darts. Browser-verified at 1280×720 and/or 1920×1080.
-- **Host screen**: 16:9 lobby stage scaled to fit; room-code marquee, QR
-  ticket, four-seat roster, 18-game shelf, selected-game launch bar.
-- **Controller (V18)**: local fonts, room-code join ticket, QR-linked join,
-  remembered name/seat rejoin, coach strip, standby state, and restyled
-  one-button, left/right, dpad, text, choice, 20×10 grid and card-hand layouts.
-- **Game logic hardening** (from the logic pass): null/type/grid guards,
-  delta-time quiz timing, golf stroke cap, knife-throw turn fairness, Spin War
-  last-survivor win, bounded food spawning, plus `scripts/deep-probe.ts` and
-  `tests/game-logic.test.ts`.
-- **Manifest fixes**: golf → dpad, Guess Who → choice, Traffic Jam →
-  private-grid, matching their server plugins.
-- **Renderer regression test**: `tests/renderers.test.ts` draws every game
-  through its real renderer with live server state at 1280×720 and 1920×1080.
-- **Controller/lobby logic test**: `tests/controller-logic.test.ts` locks the
-  choice-lock rules, grid cell classes, poker action model and lobby stage
-  scale.
-- **Final hardening**: unique room names (`Ana` → `Ana 2`) so name-keyed
-  winner lookups cannot pick the wrong seat; local SVG favicon served at
-  `/favicon.ico`; optional HTTPS/WSS via `TLS_CERT`/`TLS_KEY` with automatic
-  client scheme selection.
-- **Playability pass** (independent debugger): choice buttons no longer lock when
-  a game omits a turn flag; quiz and hangman now expose the flat options the
-  controller renders; poker's card-hand layout gained Fold / Check / Call /
-  Raise; 26 letters render as a compact grid; archery and darts detect shots
-  beyond their rolling window; victory rankings put the actual winner first;
-  Slot Car reports total distance for a finished car; title cards reset between
-  games; quiz stops shipping the answer before reveal; a finished game releases
-  the room so the lobby cap is not inherited.
-- **UI review fixes**: removed the controller gradient seam, neutral connection
-  dot until a seat is held, larger host lobby type, opaque quiz cards, Sea
-  Battle select-then-Fire confirmation for 31px cells, a sticky confirm bar,
-  stronger Gravity Run obstacle contrast, larger racing car labels, a carded
-  Guess Who question history, and an unclipped Traffic Jam exit label.
-- **Runtime fixes**: correct `/client/` and `/assets/` routes (renderers and
-  fonts now load), DPR-safe rendering, advancing title/countdown/victory cards,
-  result hold after a game ends, multi-word renderer export loading, 60 fps by
-  removing per-frame console logging, canvas/stage fit to the viewport.
+- **Royal Rumble engine** (`server/session.ts`): eligible-game candidates,
+  vote/random selection, 10/6/3/1 placement points, round abort, champion
+  tie-break (points → wins → best single round → name), and trophies: Most Wins,
+  Podium Regular, Wooden Spoon, High Roller, Most Accurate (quiz answers).
+- **Session transport** (`server/index.ts`): per-room `roomSessions`, `session` /
+  `session-vote` messages, host-token `POST /session/start`, `/session/end`,
+  `/end-game`; scoring on game finish; abort without points; cleanup on room
+  deletion and disconnect; new seats blocked while a rumble is active.
+- **Host screen**: Royal Rumble setup (5 / 8 / All, Vote / Random), live vote
+  board, standings, Start round, End rumble, final champion/trophy board, and a
+  double-confirm End game button in the top bar.
+- **Phone controller**: votable session card with live counts, your points,
+  final champion/trophies and "you finished #n"; returns to voting when a game
+  finishes; rejoin restores the session view.
+- **18 game plugins** under `games/*/server.ts`; all pass the automated
+  playthrough, manifest, garbage-input and privacy probes.
+- **Server hardening**: host-token start auth, unique room names, per-game
+  try/catch, result hold, local QR generation, optional TLS, local fonts.
+- **Tests**: 101/101 pass, including 11 pure session-engine tests and a real
+  socket/HTTP session flow (vote → start → abort → play → score → clear).
+
+## In Progress
+- None.
 
 ## Next Three Actions
-1. Independent review pass: debugger for logic regressions, ui-reviewer for the
-   host/controller screens, critic for the final score.
-2. Add a browser-level test for the seven controller layouts and the lobby
-   stage, then check the controller in landscape on a real phone.
-3. Playtest the new game-logic changes (knife-throw fairness, Spin War winner,
-   golf pick-up cap) and tune content packs.
+1. Playtest a full rumble on real phones on the same LAN.
+2. Decide whether sessions should survive a server restart (currently in-memory).
+3. Consider pruning candidates if enough players leave that a candidate no
+   longer fits; the roster is otherwise frozen for the life of a rumble.
 
 ## How to Run & Test
 ```bash
 cd /home/sulav/Projects/TBRN-Games
 npm run typecheck   # 0 errors
-npm run lint        # 0 errors (77 warnings)
-npm test            # 89/89 pass
+npm run lint        # 0 errors (93 warnings)
+npm test            # 101/101 pass
+npm run probe       # 0 issues
 PORT=3100 npm start # server
 ```
-Open `http://localhost:3000/screen/`; phones open `/controller?room=<CODE>`.
+Open `http://localhost:3100` on the laptop; phones open `/controller?room=<CODE>`
+or scan the QR code.
 
 ## Failing Tests / Known Issues
-- **Browser E2E**: the seven controller layouts and lobby stage are
-  browser-verified but not yet automated (logic tests cover their decisions).
-- **HTTPS**: optional and requires the operator to supply a certificate.
-- **Legacy scaffold**: `public/`, `src/`, `test/`, `dist/` remain excluded from
+- No failing tests.
+- Rumble state is in memory; a server restart clears the series.
+- The session roster is fixed at start; a player who leaves and does not rejoin
+  stays in the standings with their existing points.
+- Browser UI was exercised manually with Playwright (host + two phone contexts),
+  but that flow is not part of `npm test`.
+- Legacy scaffold (`public/`, `src/`, `test/`, `dist/`) stays excluded from
   typecheck.
-- HTTPS/WSS is not implemented (needed for some mobile PWA features).
 
 ## Decisions Made
-1. **Screen is a spectator**, never a player; it owns the room and starts games.
-2. **Host-token start**: only the connected screen can start a game.
-3. **Delta-time timers** in game logic; renderers use `performance.now()` only
-   for cosmetics.
-4. **V1 Racing is the quality bar**; every renderer uses the shared kit.
-5. **One visual pass per game** (V0…V15); no game gets two passes in a phase.
-6. **Render-state ownership**: one module-level state per game on `globalThis`;
-   renderers never mutate server state.
-7. **Privacy**: render only fields the server already exposes (poker hole cards
-   at showdown, no Sea Battle ship positions, no Guess Who secrets).
-8. **Result hold**: the client keeps the final frame for 7 s so the victory
-   screen can play; the server returns to the lobby on the finish tick.
-9. **Host stage**: the lobby is a fixed 1280×666 design scaled to fit, so the
-   composition survives 720p and a TV identically.
-10. **One accent**: magenta is the only filled accent on the host screen; the QR
-    is the only light surface; game tiles are a shelf, not a card grid.
-11. **Player palette**: the lobby seats use the same four colours as the game
-    renderers, so a player keeps their colour from lobby to game.
-12. **Controller identity**: local fonts only (offline), a room-code ticket,
-    a coach strip that highlights your turn, and thumb-sized controls. The
-    controller is a phone UI, not a shrunken screen UI.
-13. **Optional TLS**: HTTPS/WSS is opt-in via `TLS_CERT`/`TLS_KEY`; plain HTTP
-    stays the LAN default. Clients choose `ws`/`wss` from `location.protocol`.
-14. **Unique names per room**: duplicate names are suffixed on join so winner
-    identity (currently name-keyed) stays unambiguous.
-15. **Manifest source of truth**: `server.ts` owns the plugin manifest; the
-    JSON copy must mirror it (controller types corrected for three games).
+1. Rumble lengths are 5, 8 or all eligible games.
+2. Points are 10 / 6 / 3 / 1 by placement; champion ties break by wins, then best
+   single round, then name.
+3. Each round is chosen by one private phone vote per player or by random pick.
+4. End game aborts the round without points and reopens voting for the same round.
+5. New phones cannot take a fresh seat mid-rumble; rejoin tokens still work.
+6. Trophies are honorary: Most Wins, Podium Regular, Wooden Spoon, High Roller,
+   and Most Accurate when a quiz round was played.
+7. The server remains the only authority for votes, points and hidden state.
 
 ## Open Questions for Human
-1. Add HTTPS/WSS for mobile PWA features?
+1. Should a rumble survive a server restart?
+2. Should game-point weights change for longer series?

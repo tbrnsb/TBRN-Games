@@ -1,5 +1,5 @@
 import { WebSocket } from "ws";
-import type { ClientMessage, ServerMessage, RoomStateMessage, Player } from "../shared/types.ts";
+import type { ClientMessage, ServerMessage, RoomStateMessage, Player, SessionMessage } from "../shared/types.ts";
 import { MESSAGE_TYPES } from "../shared/constants.js";
 
 export interface BotConfig {
@@ -19,8 +19,10 @@ export class BotClient {
   public player: BotPlayer | null = null;
   public roomId: string = "";
   public roomState: RoomStateMessage["payload"] | null = null;
+  public lastSession: SessionMessage["payload"] | null = null;
   private ws: WebSocket | null = null;
   private messageHandlers: Map<string, (msg: ServerMessage) => void> = new Map();
+  private onceHandlers: Map<string, (msg: ServerMessage) => void> = new Map();
   private pendingRequests: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timeout: NodeJS.Timeout }> = new Map();
   private requestId = 0;
   private config: BotConfig;
@@ -81,10 +83,15 @@ export class BotClient {
   }
 
   private handleMessage(msg: ServerMessage): void {
+    const once = this.onceHandlers.get(msg.type);
+    if (once) {
+      this.onceHandlers.delete(msg.type);
+      once(msg);
+    }
+
     const handler = this.messageHandlers.get(msg.type);
     if (handler) {
       handler(msg);
-      this.messageHandlers.delete(msg.type);
     }
 
     // Handle pong
@@ -96,19 +103,21 @@ export class BotClient {
     if (msg.type === MESSAGE_TYPES.ROOM_STATE) {
       this.roomState = msg.payload;
     }
+    if (msg.type === MESSAGE_TYPES.SESSION) {
+      this.lastSession = msg.payload;
+    }
   }
 
   once(type: string, handler: (msg: ServerMessage) => void): void {
-    this.messageHandlers.set(type, handler);
+    this.onceHandlers.set(type, handler);
   }
 
   on(type: string, handler: (msg: ServerMessage) => void): void {
-    // For persistent handlers, wrap to re-register
-    const wrapper = (msg: ServerMessage) => {
-      handler(msg);
-      this.messageHandlers.set(type, wrapper);
-    };
-    this.messageHandlers.set(type, wrapper);
+    this.messageHandlers.set(type, handler);
+  }
+
+  off(type: string): void {
+    this.messageHandlers.delete(type);
   }
 
   private sendJoin(): void {
@@ -131,6 +140,42 @@ export class BotClient {
       payload: input,
     };
     this.ws?.send(JSON.stringify(msg));
+  }
+
+  sendSessionVote(gameId: string): void {
+    if (!this.player) return;
+    const msg: ClientMessage = {
+      type: MESSAGE_TYPES.SESSION_VOTE,
+      roomId: this.roomId,
+      playerId: this.player.id,
+      timestamp: Date.now(),
+      payload: { gameId },
+    };
+    this.ws?.send(JSON.stringify(msg));
+  }
+
+  /** Resolve with the next session payload that satisfies `predicate`. */
+  waitForSession(
+    predicate: (payload: SessionMessage["payload"]) => boolean = () => true,
+    timeoutMs = 5000,
+  ): Promise<SessionMessage["payload"]> {
+    if (this.lastSession && predicate(this.lastSession)) {
+      return Promise.resolve(this.lastSession);
+    }
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.off(MESSAGE_TYPES.SESSION);
+        reject(new Error("Session timeout"));
+      }, timeoutMs);
+      this.on(MESSAGE_TYPES.SESSION, (msg) => {
+        if (msg.type !== MESSAGE_TYPES.SESSION) return;
+        if (predicate(msg.payload)) {
+          clearTimeout(timer);
+          this.off(MESSAGE_TYPES.SESSION);
+          resolve(msg.payload);
+        }
+      });
+    });
   }
 
   sendPing(): void {

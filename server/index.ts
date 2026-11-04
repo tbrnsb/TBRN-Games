@@ -22,8 +22,19 @@ import type {
   Player,
   GamePlugin,
   GameManifest,
+  SessionVoteMessage,
 } from "../shared/types.ts";
 import type { PluginLoader } from "./plugins.ts";
+import {
+  createSession,
+  sessionView,
+  recordVote,
+  startRound,
+  abortRound,
+  completeRound,
+  quizAccuracy,
+  type SessionState,
+} from "./session.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const MAX_ROOMS = 100; // Prevent unbounded room creation
@@ -39,6 +50,7 @@ const gameLoops = new Map<string, NodeJS.Timeout>(); // roomId -> interval
 const roomScreens = new Map<string, Set<WebSocket>>(); // roomId -> screen sockets
 const screenRooms = new Map<WebSocket, string>(); // screen ws -> roomId
 const roomHostTokens = new Map<string, string>(); // roomId -> host (screen) token
+const roomSessions = new Map<string, SessionState>(); // roomId -> Royal Rumble session
 
 /** Host token for a room; created on first screen join, reused afterwards. */
 function hostTokenFor(roomId: string): string {
@@ -110,6 +122,84 @@ function sendScreenGameState(room: RoomState, plugin: GamePlugin, screen: unknow
       });
     }
   }
+}
+
+// --- Royal Rumble session transport ---
+function sessionMessage(room: RoomState, viewerId: string): ServerMessage {
+  const session = roomSessions.get(room.id) ?? null;
+  const yourVote = viewerId && session ? session.votes[viewerId] ?? null : null;
+  const canVote =
+    !!viewerId &&
+    !!session &&
+    session.status === "voting" &&
+    session.selection === "vote" &&
+    session.candidates.length > 0 &&
+    !yourVote;
+  const yourPoints = viewerId && session ? session.stats[viewerId]?.points ?? 0 : 0;
+  return {
+    type: MESSAGE_TYPES.SESSION,
+    roomId: room.id,
+    playerId: viewerId || undefined,
+    timestamp: Date.now(),
+    payload: {
+      session: session ? sessionView(session) : null,
+      yourVote,
+      canVote,
+      yourPoints,
+    },
+  };
+}
+
+function broadcastSession(room: RoomState): void {
+  const screens = roomScreens.get(room.id);
+  if (screens) {
+    const data = JSON.stringify(sessionMessage(room, ""));
+    for (const ws of screens) {
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    }
+  }
+  for (const player of room.players) {
+    const ws = playerSockets.get(player.id);
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(sessionMessage(room, player.id)));
+    }
+  }
+}
+
+/** True when the request carries the host screen's token for this room. */
+function requireHost(req: IncomingMessage, res: ServerResponse, room: RoomState): boolean {
+  const screens = roomScreens.get(room.id);
+  if (!screens || screens.size === 0) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_HOST_SCREEN", message: "No host screen connected to this room" }));
+    return false;
+  }
+  const provided = String(req.headers["x-host-token"] ?? "");
+  const expected = roomHostTokens.get(room.id) ?? "";
+  if (!expected || provided !== expected) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "HOST_AUTH_REQUIRED", message: "Request must come from the host screen" }));
+    return false;
+  }
+  return true;
+}
+
+function readJsonBody(req: IncomingMessage, limit = 8192): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk: Buffer) => {
+      body += chunk;
+      if (body.length > limit) reject(new Error("body too large"));
+    });
+    req.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) as Record<string, unknown> : {});
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
+  });
 }
 
 function send(ws: WebSocket, message: ServerMessage): void {
@@ -272,6 +362,17 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ code: "QR_FAILED", message: "QR code generation failed" }));
     }
+    return;
+  }
+
+  // Handle Royal Rumble session control (host-token protected)
+  if (await handleSessionStart(req, res, url)) {
+    return;
+  }
+  if (handleSessionEnd(req, res, url)) {
+    return;
+  }
+  if (handleEndGame(req, res, url)) {
     return;
   }
 
@@ -458,6 +559,9 @@ wss.on("connection", (ws) => {
         case MESSAGE_TYPES.INPUT:
           handleInput(ws, msg);
           break;
+        case MESSAGE_TYPES.SESSION_VOTE:
+          handleSessionVote(ws, msg as SessionVoteMessage);
+          break;
         case MESSAGE_TYPES.PING:
           send(ws, { type: MESSAGE_TYPES.PONG, roomId: msg.roomId, timestamp: Date.now() });
           break;
@@ -574,6 +678,7 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
       },
     });
     send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: screenRoom.id, timestamp: Date.now(), payload: publicRoom(screenRoom) });
+    send(ws, sessionMessage(screenRoom, ""));
     return;
   }
 
@@ -621,6 +726,7 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
         });
         // Also send ROOM_STATE to the reconnecting player
         send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
+        send(ws, sessionMessage(room, player.id));
         broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) }, player.id);
         return;
       }
@@ -663,6 +769,15 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
     return;
   }
 
+  // A rumble has already fixed its roster and score table. A brand-new seat
+  // would never be scored, so keep it out until the rumble ends. Reconnects
+  // with a rejoin token are handled above and still work.
+  const activeSession = roomSessions.get(room.id);
+  if (activeSession && activeSession.status !== "finished") {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "SESSION_IN_PROGRESS", message: "Royal Rumble in progress — wait for it to finish" } });
+    return;
+  }
+
   // Seat cap comes from the game manifest when a game is selected, otherwise
   // the platform ceiling.
   const maxPlayers = room.gameId
@@ -699,7 +814,33 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   });
   // Also send ROOM_STATE to the joining player so they have full room state
   send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
+  send(ws, sessionMessage(room, playerId));
   broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) }, playerId);
+}
+
+function handleSessionVote(ws: WebSocket, msg: SessionVoteMessage): void {
+  const playerId = socketPlayers.get(ws);
+  if (!playerId) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "NOT_JOINED", message: "Not joined to a room" } });
+    return;
+  }
+  const room = findRoomByPlayerId(playerId);
+  if (!room) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "ROOM_NOT_FOUND", message: "Room not found" } });
+    return;
+  }
+  const session = roomSessions.get(room.id);
+  const gameId = typeof msg.payload?.gameId === "string" ? msg.payload.gameId : "";
+  if (!session || !gameId || !recordVote(session, playerId, gameId)) {
+    send(ws, {
+      type: MESSAGE_TYPES.ERROR,
+      roomId: room.id,
+      timestamp: Date.now(),
+      payload: { code: "VOTE_REJECTED", message: "That game cannot be voted for right now" },
+    });
+    return;
+  }
+  broadcastSession(room);
 }
 
 function handleInput(ws: WebSocket, msg: ClientMessage & { type: "input" }): void {
@@ -781,6 +922,7 @@ function handleDisconnect(ws: WebSocket): void {
       rooms.delete(screenRoomId);
       gameLoops.delete(screenRoomId);
       roomHostTokens.delete(screenRoomId);
+      roomSessions.delete(screenRoomId);
     }
     return;
   }
@@ -839,10 +981,17 @@ function handleDisconnect(ws: WebSocket): void {
         playerRooms.delete(playerId);
         playerSockets.delete(playerId);
 
+        const session = roomSessions.get(currentRoom.id);
+        if (session) {
+          delete session.votes[playerId];
+          if (currentRoom.players.length > 0) broadcastSession(currentRoom);
+        }
+
         if (currentRoom.players.length === 0) {
           rooms.delete(currentRoom.id);
           gameLoops.delete(currentRoom.id);
           roomHostTokens.delete(currentRoom.id);
+          roomSessions.delete(currentRoom.id);
           return;
         }
         if (currentRoom.hostPlayerId === playerId) {
@@ -944,6 +1093,18 @@ function startGameLoop(roomId: string): void {
     // The result has been delivered; release the finished game so the lobby is
     // not capped by the last game's player limit.
     if (currentRoom.status === "lobby") {
+      const session = roomSessions.get(currentRoom.id);
+      if (session && session.status === "playing") {
+        completeRound(
+          session,
+          currentPlugin.manifest.id,
+          currentPlugin.manifest.name,
+          screen,
+          currentRoom.players,
+          currentPlugin.manifest.id === "quiz" ? quizAccuracy(currentInstance) : undefined,
+        );
+        broadcastSession(currentRoom);
+      }
       currentRoom.gameId = null;
       currentRoom.gameState = null;
     }
@@ -961,6 +1122,140 @@ function _stopGameLoop(roomId: string): void {
 }
 
 // HTTP endpoint to start a game
+function roomByParam(paramId: string): RoomState | undefined {
+  let room = rooms.get(paramId);
+  if (!room) {
+    for (const r of rooms.values()) {
+      if (r.code === paramId) {
+        room = r;
+        break;
+      }
+    }
+  }
+  return room;
+}
+
+async function handleSessionStart(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/session\/start$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+  if (room.status !== "lobby") {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "GAME_IN_PROGRESS", message: "Finish the current game first" }));
+    return true;
+  }
+  if (roomSessions.has(room.id)) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "SESSION_EXISTS", message: "A rumble is already running" }));
+    return true;
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_BODY", message: "Invalid JSON body" }));
+    return true;
+  }
+
+  const length = Number(body.length);
+  if (![5, 8, 18].includes(length)) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_LENGTH", message: "Rumble length must be 5, 8 or 18" }));
+    return true;
+  }
+  const selection = body.selection === "random" ? "random" : "vote";
+  const active = room.players.filter((p) => p.connected);
+  if (active.length === 0) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_PLAYERS", message: "No players are connected" }));
+    return true;
+  }
+
+  const games = [...plugins.values()].map((p) => ({
+    id: p.manifest.id,
+    name: p.manifest.name,
+    description: p.manifest.description,
+    minPlayers: p.manifest.minPlayers,
+    maxPlayers: p.manifest.maxPlayers,
+  }));
+  const session = createSession(active, games, length, selection);
+  if (session.candidates.length === 0) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_GAMES", message: "No games fit the current player count" }));
+    return true;
+  }
+
+  roomSessions.set(room.id, session);
+  broadcastSession(room);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ session: sessionView(session) }));
+  return true;
+}
+
+function handleSessionEnd(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/session\/end$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+  roomSessions.delete(room.id);
+  broadcastSession(room);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: true }));
+  return true;
+}
+
+function handleEndGame(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/end-game$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+  if (room.status !== "playing") {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_ACTIVE_GAME", message: "No game is running" }));
+    return true;
+  }
+
+  _stopGameLoop(room.id);
+  room.status = "lobby";
+  room.gameId = null;
+  room.gameState = null;
+  const session = roomSessions.get(room.id);
+  if (session && session.status === "playing") {
+    abortRound(session);
+    broadcastSession(room);
+  }
+  broadcast(room, {
+    type: MESSAGE_TYPES.ROOM_STATE,
+    roomId: room.id,
+    timestamp: Date.now(),
+    payload: publicRoom(room),
+  });
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: true }));
+  return true;
+}
+
 function handleStartGame(req: any, res: any, url: URL): boolean {
   if (req.method !== "POST" || !url.pathname.startsWith("/api/rooms/") || !url.pathname.endsWith("/start")) {
     return false;
@@ -984,22 +1279,7 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
   }
 
   // Verify the request comes from the host screen.
-  const screens = roomScreens.get(room.id);
-  if (!screens || screens.size === 0) {
-    res.writeHead(403, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ code: "NO_HOST_SCREEN", message: "No host screen connected to this room" }));
-    return true;
-  }
-
-  // The screen receives a host token on join; a start request must present it.
-  // This stops any other client on the LAN from starting a game.
-  const providedToken = String(req.headers["x-host-token"] ?? "");
-  const expectedToken = roomHostTokens.get(room.id) ?? "";
-  if (!expectedToken || providedToken !== expectedToken) {
-    res.writeHead(403, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ code: "HOST_AUTH_REQUIRED", message: "Start request must come from the host screen" }));
-    return true;
-  }
+  if (!requireHost(req, res, room)) return true;
 
   let body = "";
   req.on("data", (chunk: Buffer) => { body += chunk; });
@@ -1038,9 +1318,27 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
         return;
       }
 
+      const session = roomSessions.get(room.id);
+      if (session) {
+        if (session.status !== "voting") {
+          res.writeHead(409, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ code: "SESSION_NOT_VOTING", message: "The rumble is not ready for another game" }));
+          return;
+        }
+        if (!session.candidates.some((g) => g.id === gameId)) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ code: "SESSION_GAME_INVALID", message: "That game is not in this rumble round" }));
+          return;
+        }
+      }
+
       room.gameId = gameId;
       room.status = "playing";
       room.gameState = plugin.onStart(room, room.players);
+      if (session) {
+        startRound(session, gameId);
+        broadcastSession(room);
+      }
 
       // Set controllerType on each player from manifest
       for (const player of room.players) {
