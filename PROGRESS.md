@@ -128,7 +128,8 @@ The phone controller now uses the same identity as the host and games:
 ## Last Updated
 All 18 renderers and both clients now share one visual language. V17 restyled
 archery and darts; V18 rebuilt the phone controller (local fonts, room-code
-join, coach strip, all seven layouts). Manifest controller types were corrected
+join, coach strip, all seven layouts). A renderer smoke test now drives all 18
+screen renderers at 1280×720 and 1920×1080. Manifest controller types were corrected
 for golf (dpad), Guess Who (choice) and Traffic Jam (private-grid). The game
 logic hardening pass is in. `npm run typecheck` clean, `npm run lint` 0 errors
-(65 warnings), `npm test` 62/62.
+(64 warnings), `npm test` 80/80 (18 renderer smoke tests added).

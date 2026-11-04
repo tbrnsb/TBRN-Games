@@ -30,6 +30,8 @@ uncommitted until the next commit.
   `tests/game-logic.test.ts`.
 - **Manifest fixes**: golf → dpad, Guess Who → choice, Traffic Jam →
   private-grid, matching their server plugins.
+- **Renderer regression test**: `tests/renderers.test.ts` draws every game
+  through its real renderer with live server state at 1280×720 and 1920×1080.
 - **Playability pass** (independent debugger): choice buttons no longer lock when
   a game omits a turn flag; quiz and hangman now expose the flat options the
   controller renders; poker's card-hand layout gained Fold / Check / Call /
@@ -51,8 +53,8 @@ uncommitted until the next commit.
 ## Next Three Actions
 1. Independent review pass: debugger for logic regressions, ui-reviewer for the
    host/controller screens, critic for the final score.
-2. Verify the controller in landscape and on a real phone; add a screenshots
-   regression script for the 18 renderers and 7 controller layouts.
+2. Verify the controller in landscape and on a real phone; add a browser-level
+   test for the seven controller layouts and the lobby stage.
 3. Playtest the new game-logic changes (knife-throw fairness, Spin War winner,
    golf pick-up cap) and tune content packs.
 
@@ -60,8 +62,8 @@ uncommitted until the next commit.
 ```bash
 cd /home/sulav/Projects/TBRN-Games
 npm run typecheck   # 0 errors
-npm run lint        # 0 errors (65 warnings)
-npm test            # 62/62 pass
+npm run lint        # 0 errors (64 warnings)
+npm test            # 80/80 pass
 PORT=3100 npm start # server
 ```
 Open `http://localhost:3000/screen/`; phones open `/controller?room=<CODE>`.
