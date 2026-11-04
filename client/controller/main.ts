@@ -12,7 +12,8 @@ import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { getLayout } from "../../shared/controllers.ts";
 import type { ControllerLayout } from "../../shared/controllers.ts";
 
-const wsUrl = `ws://${location.host}`;
+const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+const wsUrl = `${wsProtocol}://${location.host}`;
 let ws: WebSocket;
 let roomId = "";
 let playerId = "";
@@ -65,19 +66,24 @@ function connect() {
 
 function handleMessage(msg: ServerMessage) {
   switch (msg.type) {
-    case MESSAGE_TYPES.JOINED:
+    case MESSAGE_TYPES.JOINED: {
       roomId = msg.roomId;
       playerId = msg.payload.playerId;
       rejoinToken = msg.payload.rejoinToken;
+      // The server may suffix a duplicate name; show the seat's real name.
+      const seatName =
+        msg.payload.roomState.players.find((p) => p.id === playerId)?.name ??
+        nameInput.value.trim() ??
+        "Player";
       // Persist so a refresh or network drop can rejoin this room.
       try {
         localStorage.setItem("tbrn_rejoin_token", rejoinToken);
         localStorage.setItem("tbrn_room_id", roomId);
-        localStorage.setItem("tbrn_player_name", nameInput.value.trim());
+        localStorage.setItem("tbrn_player_name", seatName);
       } catch (e) {
         console.warn("[Controller] Could not persist rejoin token", e);
       }
-      playerNameEl.textContent = nameInput.value.trim() || "Player";
+      playerNameEl.textContent = seatName;
       connDot.className = "dot on";
       joinForm.classList.add("hidden");
       controllerArea.classList.remove("hidden");
@@ -85,6 +91,7 @@ function handleMessage(msg: ServerMessage) {
       statusEl.textContent = "Waiting for the host to start…";
       coach.classList.remove("your-turn");
       break;
+    }
     case MESSAGE_TYPES.ROOM_STATE:
       if (msg.payload.status === "playing" && msg.payload.gameId) {
         statusEl.textContent = gameName ? `Playing ${gameName}` : "Game in progress";

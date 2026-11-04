@@ -131,5 +131,6 @@ archery and darts; V18 rebuilt the phone controller (local fonts, room-code
 join, coach strip, all seven layouts). A renderer smoke test now drives all 18
 screen renderers at 1280×720 and 1920×1080. Manifest controller types were corrected
 for golf (dpad), Guess Who (choice) and Traffic Jam (private-grid). The game
-logic hardening pass is in. `npm run typecheck` clean, `npm run lint` 0 errors
-(64 warnings), `npm test` 80/80 (18 renderer smoke tests added).
+logic hardening pass is in. `npm run typecheck` clean, lint 0 errors, `npm test` 89/89
+(18 renderer smoke tests + 9 controller/lobby logic tests). Optional HTTPS/WSS,
+unique room names and a local favicon are in.

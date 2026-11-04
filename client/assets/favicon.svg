@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TBRN Games">
+  <rect width="64" height="64" rx="14" fill="#0B0820"/>
+  <circle cx="32" cy="30" r="15" fill="#FF2E97"/>
+  <g fill="#0B0820">
+    <rect x="16" y="26" width="32" height="2.5"/>
+    <rect x="16" y="31" width="32" height="3"/>
+    <rect x="16" y="36" width="32" height="3.5"/>
+  </g>
+  <path d="M6 44 H58" stroke="#00E5FF" stroke-width="2"/>
+  <path d="M12 64 L29 44 M52 64 L35 44" stroke="#FF2E97" stroke-opacity="0.55" stroke-width="1"/>
+</svg>

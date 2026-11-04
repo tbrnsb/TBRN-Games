@@ -21,4 +21,4 @@ export declare const REJOIN_TOKEN_BYTES: number;
 export declare const PING_INTERVAL_MS: number;
 export declare const PLAYER_TIMEOUT_MS: number;
 
-export declare function getLanUrls(port: number): Promise<string[]>;
+export declare function getLanUrls(port: number, scheme?: string): Promise<string[]>;

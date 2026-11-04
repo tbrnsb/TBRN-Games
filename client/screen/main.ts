@@ -10,10 +10,12 @@
 
 import type { ServerMessage, RoomState } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
+import { stageScale } from "./layout.ts";
 
 console.log("[Screen] Module loaded");
 
-const wsUrl = `ws://${location.host}`;let ws: WebSocket;
+const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+const wsUrl = `${wsProtocol}://${location.host}`;let ws: WebSocket;
 let roomId = "";
 let hostToken = "";
 let currentScreen: unknown = null;
@@ -343,8 +345,7 @@ function showLobby() {
 function fitLobby(): void {
   const rect = lobby.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) return;
-  const scale = Math.min(rect.width / 1280, rect.height / 666);
-  lobbyStage.style.transform = `scale(${scale})`;
+  lobbyStage.style.transform = `scale(${stageScale(rect.width, rect.height)})`;
 }
 
 function showPlaying() {

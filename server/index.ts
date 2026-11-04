@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
-import type { ServerResponse } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import { WebSocketServer, WebSocket } from "ws";
 import { randomBytes, randomInt } from "node:crypto";
@@ -208,8 +209,24 @@ async function loadPlugins(): Promise<void> {
   }
 }
 
-// --- HTTP server for static files + health ---
-const httpServer = createServer(async (req, res) => {
+// --- HTTP(S) server for static files + health ---
+// Optional TLS: set TLS_CERT and TLS_KEY to run HTTPS/WSS (needed for some PWA
+// features). Without both, the server runs plain HTTP on the LAN as before.
+const tlsCertPath = process.env.TLS_CERT;
+const tlsKeyPath = process.env.TLS_KEY;
+let tlsOptions: { key: Buffer; cert: Buffer } | null = null;
+if (tlsCertPath && tlsKeyPath) {
+  try {
+    tlsOptions = { key: readFileSync(tlsKeyPath), cert: readFileSync(tlsCertPath) };
+  } catch (e) {
+    console.error("[Server] Could not read TLS_CERT/TLS_KEY; falling back to HTTP", e);
+  }
+} else if (tlsCertPath || tlsKeyPath) {
+  console.warn("[Server] Set both TLS_CERT and TLS_KEY for HTTPS; falling back to HTTP");
+}
+const SCHEME = tlsOptions ? "https" : "http";
+
+const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
   if (url.pathname === "/api/health") {
@@ -219,7 +236,7 @@ const httpServer = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/lan-urls") {
-    const urls = await getLanUrls(PORT);
+    const urls = await getLanUrls(PORT, SCHEME);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ urls }));
     return;
@@ -272,7 +289,11 @@ const httpServer = createServer(async (req, res) => {
 
   res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
   res.end("Not found");
-});
+};
+
+const httpServer = tlsOptions
+  ? createHttpsServer(tlsOptions, requestHandler)
+  : createServer(requestHandler);
 
 /**
  * Serve a client/shared/game module to the browser.
@@ -280,7 +301,9 @@ const httpServer = createServer(async (req, res) => {
  */
 function serveStatic(pathname: string, res: ServerResponse): boolean {
   let rel = "";
-  if (pathname === "/" || pathname === "/screen" || pathname === "/screen/") {
+  if (pathname === "/favicon.ico") {
+    rel = "client/assets/favicon.svg";
+  } else if (pathname === "/" || pathname === "/screen" || pathname === "/screen/") {
     rel = "client/screen/index.html";
   } else if (pathname.startsWith("/screen/")) {
     rel = "client/screen/" + pathname.slice("/screen/".length);
@@ -329,6 +352,8 @@ function serveStatic(pathname: string, res: ServerResponse): boolean {
       mime = "text/css; charset=utf-8";
     } else if (ext === "json") {
       mime = "application/json; charset=utf-8";
+    } else if (ext === "svg") {
+      mime = "image/svg+xml";
     }
 
     res.writeHead(200, { "Content-Type": mime, "Cache-Control": "no-store" });
@@ -459,8 +484,21 @@ wss.on("connection", (ws) => {
   startPing();
 });
 
-function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void {
-  const { roomId: initialRoomId, payload } = msg;
+/**
+ * Keep names unique inside a room so name-keyed winner/ranking lookups cannot
+ * pick the wrong seat. "Ana" joins twice → "Ana", "Ana 2".
+ */
+function uniquePlayerName(room: RoomState, name: string): string {
+  const taken = new Set(room.players.map((p) => p.name.toLowerCase()));
+  if (!taken.has(name.toLowerCase())) return name;
+  for (let i = 2; i < 100; i++) {
+    const candidate = `${name} ${i}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+  return `${name} ${randomInt(1000, 9999)}`;
+}
+
+function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void {  const { roomId: initialRoomId, payload } = msg;
   let roomId = initialRoomId;
   const { name, rejoinToken } = payload;
 
@@ -639,7 +677,7 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   const token = generateRejoinToken();
   const player: Player = {
     id: playerId,
-    name,
+    name: uniquePlayerName(room, name),
     joinedAt: Date.now(),
     rejoinToken: token,
     connected: true,
@@ -1040,9 +1078,9 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
 // --- Start ---
 async function start() {
   await loadPlugins();
-  const urls = await getLanUrls(PORT);
+  const urls = await getLanUrls(PORT, SCHEME);
   httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`TBRN-Games server listening on port ${PORT}`);
+    console.log(`TBRN-Games server listening on port ${PORT} (${SCHEME})`);
     console.log("LAN URLs:");
     for (const url of urls) {
       console.log(`  ${url}`);

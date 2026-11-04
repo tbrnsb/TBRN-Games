@@ -32,6 +32,13 @@ Critic score: 9.5/10, no blockers.
   private-grid, matching their server plugins.
 - **Renderer regression test**: `tests/renderers.test.ts` draws every game
   through its real renderer with live server state at 1280×720 and 1920×1080.
+- **Controller/lobby logic test**: `tests/controller-logic.test.ts` locks the
+  choice-lock rules, grid cell classes, poker action model and lobby stage
+  scale.
+- **Final hardening**: unique room names (`Ana` → `Ana 2`) so name-keyed
+  winner lookups cannot pick the wrong seat; local SVG favicon served at
+  `/favicon.ico`; optional HTTPS/WSS via `TLS_CERT`/`TLS_KEY` with automatic
+  client scheme selection.
 - **Playability pass** (independent debugger): choice buttons no longer lock when
   a game omits a turn flag; quiz and hangman now expose the flat options the
   controller renders; poker's card-hand layout gained Fold / Check / Call /
@@ -62,14 +69,16 @@ Critic score: 9.5/10, no blockers.
 ```bash
 cd /home/sulav/Projects/TBRN-Games
 npm run typecheck   # 0 errors
-npm run lint        # 0 errors (64 warnings)
-npm test            # 80/80 pass
+npm run lint        # 0 errors (77 warnings)
+npm test            # 89/89 pass
 PORT=3100 npm start # server
 ```
 Open `http://localhost:3000/screen/`; phones open `/controller?room=<CODE>`.
 
 ## Failing Tests / Known Issues
-- **Favicon**: `/favicon.ico` 404s; cosmetic only.
+- **Browser E2E**: the seven controller layouts and lobby stage are
+  browser-verified but not yet automated (logic tests cover their decisions).
+- **HTTPS**: optional and requires the operator to supply a certificate.
 - **Legacy scaffold**: `public/`, `src/`, `test/`, `dist/` remain excluded from
   typecheck.
 - HTTPS/WSS is not implemented (needed for some mobile PWA features).
@@ -96,7 +105,11 @@ Open `http://localhost:3000/screen/`; phones open `/controller?room=<CODE>`.
 12. **Controller identity**: local fonts only (offline), a room-code ticket,
     a coach strip that highlights your turn, and thumb-sized controls. The
     controller is a phone UI, not a shrunken screen UI.
-13. **Manifest source of truth**: `server.ts` owns the plugin manifest; the
+13. **Optional TLS**: HTTPS/WSS is opt-in via `TLS_CERT`/`TLS_KEY`; plain HTTP
+    stays the LAN default. Clients choose `ws`/`wss` from `location.protocol`.
+14. **Unique names per room**: duplicate names are suffixed on join so winner
+    identity (currently name-keyed) stays unambiguous.
+15. **Manifest source of truth**: `server.ts` owns the plugin manifest; the
     JSON copy must mirror it (controller types corrected for three games).
 
 ## Open Questions for Human

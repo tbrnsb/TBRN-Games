@@ -18,6 +18,20 @@ npm run dev
 Open `http://localhost:3000` on laptop (screen).
 Open `http://<laptop-lan-ip>:3000/controller` on phones (or scan QR code).
 
+## HTTPS / WSS (optional)
+
+Plain HTTP is the default for LAN play. For a secure context (PWA install, some
+mobile APIs), generate a local certificate and point the server at it:
+
+```bash
+mkcert localhost 192.168.1.50
+TLS_CERT=./localhost+1.pem TLS_KEY=./localhost+1-key.pem npm start
+```
+
+The screen and controller switch to `https`/`wss` automatically, and the QR
+code uses the HTTPS LAN address. Without both variables the server runs plain
+HTTP exactly as before.
+
 ## Scripts
 
 | Command | Description |
@@ -25,7 +39,9 @@ Open `http://<laptop-lan-ip>:3000/controller` on phones (or scan QR code).
 | `npm start` | Run server |
 | `npm run dev` | Run with `--watch` for auto-reload |
 | `npm run lint` | Run ESLint |
+| `npm run typecheck` | TypeScript check |
 | `npm test` | Run tests (node --test) |
+| `npm run probe` | Deep invariant probe across all games |
 | `npm run test:watch` | Run tests in watch mode |
 
 ## Project Structure

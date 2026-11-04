@@ -22,7 +22,7 @@ export const PING_INTERVAL_MS = 10000;
 export const PLAYER_TIMEOUT_MS = 30000;
 
 // --- LAN Utilities ---
-export async function getLanUrls(port) {
+export async function getLanUrls(port, scheme = "http") {
   const os = await import("node:os");
   const interfaces = os.networkInterfaces();
   const urls = [];
@@ -31,7 +31,7 @@ export async function getLanUrls(port) {
     if (!addrs) continue;
     for (const addr of addrs) {
       if (addr.family === "IPv4" && !addr.internal) {
-        urls.push(`http://${addr.address}:${port}`);
+        urls.push(`${scheme}://${addr.address}:${port}`);
       }
     }
   }

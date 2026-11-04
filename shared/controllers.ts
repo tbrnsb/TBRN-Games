@@ -268,7 +268,7 @@ export function createChoiceLayout(): ControllerLayout {
 }
 
 // --- Private Grid ---
-function gridValueClass(raw: string): string {
+export function gridValueClass(raw: string): string {
   if (!raw) return "";
   if (raw.startsWith("[")) return "v-selected";
   if (raw === "X") return "v-X";
@@ -405,6 +405,41 @@ const SUIT_SYMBOLS: Record<string, string> = {
   spades: "♠"
 };
 
+export interface PokerActions {
+  show: boolean;
+  yourTurn: boolean;
+  locked: boolean;
+  canCheck: boolean;
+  canCall: boolean;
+  canRaise: boolean;
+  callAmount: number;
+  minRaiseTo: number;
+}
+
+/**
+ * Pure description of the action bar a card-hand controller should show.
+ * Exported so the controller logic can be tested without a DOM.
+ */
+export function pokerActions(state: unknown): PokerActions {
+  const s = state && typeof state === "object" ? state as Record<string, unknown> : {};
+  const show =
+    typeof s.yourTurn === "boolean" ||
+    typeof s.canCheck === "boolean" ||
+    typeof s.canCall === "boolean" ||
+    typeof s.canRaise === "boolean";
+  const yourTurn = s.yourTurn === true;
+  return {
+    show,
+    yourTurn,
+    locked: !yourTurn,
+    canCheck: s.canCheck === true,
+    canCall: s.canCall === true,
+    canRaise: s.canRaise === true,
+    callAmount: typeof s.callAmount === "number" ? s.callAmount : 0,
+    minRaiseTo: typeof s.minRaiseTo === "number" ? s.minRaiseTo : 0,
+  };
+}
+
 export function createCardHandLayout(): ControllerLayout {
   return {
     type: "card-hand",
@@ -413,21 +448,11 @@ export function createCardHandLayout(): ControllerLayout {
       const cards = Array.isArray(s.cards)
         ? (s.cards as Array<{ suit: string; rank: string; faceDown?: boolean }>)
         : [];
-      const hasActions =
-        typeof s.yourTurn === "boolean" ||
-        typeof s.canCheck === "boolean" ||
-        typeof s.canCall === "boolean" ||
-        typeof s.canRaise === "boolean";
-      const yourTurn = s.yourTurn === true;
-      const canCheck = s.canCheck === true;
-      const canCall = s.canCall === true;
-      const canRaise = s.canRaise === true;
-      const callAmount = typeof s.callAmount === "number" ? s.callAmount : 0;
-      const minRaiseTo = typeof s.minRaiseTo === "number" ? s.minRaiseTo : 0;
+      const { show: hasActions, yourTurn, locked, canCheck, canCall, canRaise, callAmount, minRaiseTo } =
+        pokerActions(state);
       const pot = typeof s.pot === "number" ? s.pot : null;
       const bet = typeof s.bet === "number" ? s.bet : null;
       const timeLeft = typeof s.timeLeft === "number" ? Math.max(0, Math.ceil(s.timeLeft / 1000)) : null;
-      const locked = !yourTurn;
 
       const info: string[] = [];
       if (pot !== null) info.push(`Pot ${pot}`);
