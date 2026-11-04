@@ -6,7 +6,8 @@ phone controller share one visual language. Game-logic hardening is in.
 Critic score: 9.5/10, no blockers.
 
 ## Last Commit
-`5fb4c46` (renderer regression test) — all commits are local, nothing pushed.
+`ba943ba` (hardening, favicon, optional TLS) — all commits are local,
+nothing pushed.
 
 ## Done
 - **18 game plugins** under `games/*/server.ts`; every game passes the automated
