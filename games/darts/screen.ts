@@ -48,7 +48,7 @@ interface DartsRenderState {
   victoryScreen: ReturnType<typeof createVictoryScreen> | null;
   shake: ReturnType<typeof createShake>;
   lastUpdate: number;
-  lastThrows: number;
+  lastThrowKey: string;
   lastScore: number;
   hitAt: number;
 }
@@ -59,7 +59,7 @@ function createDartsRenderState(): DartsRenderState {
     victoryScreen: null,
     shake: createShake(6, 250),
     lastUpdate: 0,
-    lastThrows: 0,
+    lastThrowKey: "",
     lastScore: 0,
     hitAt: 0,
   };
@@ -88,8 +88,13 @@ export function renderDarts(
     applyShakeTransform(ctx, rs.shake, now);
     updateParticles(dt);
 
-    if (state.throws.length > rs.lastThrows) {
-      const dart = state.throws[state.throws.length - 1];
+    // The server sends only the last twelve darts, so the list length stops
+    // growing after twelve throws. Compare the newest dart itself instead
+    // of counting, or every dart after the twelfth would go unnoticed.
+    const newest = state.throws[state.throws.length - 1];
+    const throwKey = newest ? `${newest.playerIndex}:${newest.timestamp}:${newest.x.toFixed(3)}` : "";
+    if (throwKey && throwKey !== rs.lastThrowKey) {
+      const dart = newest!;
       rs.lastScore = dart.score;
       rs.hitAt = now;
       const board = boardRect(width, height, scale);
@@ -102,9 +107,9 @@ export function renderDarts(
         emitHitBurst(px, py, colors.danger, scale);
       }
     }
-    rs.lastThrows = state.throws.length;
+    rs.lastThrowKey = throwKey;
 
-    if (!rs.titleCard) {
+    if (!rs.titleCard && !state.finished) {
       rs.titleCard = createTitleCard({
         title: "DARTS",
         subtitle: `${state.gameMode}  ·  three darts a turn`,
@@ -131,6 +136,9 @@ export function renderDarts(
       }
     }
     if (!state.finished && rs.victoryScreen) rs.victoryScreen = null;
+    // The title card belongs to one game: drop it when the game ends so the
+    // next game in the same room gets its own.
+    if (state.finished) rs.titleCard = null;
 
     if (rs.titleCard) updateTitleCard(rs.titleCard, now);
     if (rs.victoryScreen) updateVictoryScreen(rs.victoryScreen, now, dt);

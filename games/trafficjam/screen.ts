@@ -90,6 +90,9 @@ export function renderTrafficjam(
       rs.lastLevel = state.level;
     }
     if (!state.finished && rs.victoryScreen) rs.victoryScreen = null;
+    // The title card belongs to one game: drop it when the game ends so the
+    // next game in the same room gets its own.
+    if (state.finished) rs.titleCard = null;
 
     if (rs.titleCard) updateTitleCard(rs.titleCard, now);
     if (rs.victoryScreen) updateVictoryScreen(rs.victoryScreen, now, dt);

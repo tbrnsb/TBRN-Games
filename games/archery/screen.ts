@@ -49,7 +49,7 @@ interface ArcheryRenderState {
   lastUpdate: number;
   lastPhase: string;
   lastRound: number;
-  lastShotCount: number;
+  lastShotKey: string;
   lastScore: number;
   hitAt: number;
 }
@@ -62,7 +62,7 @@ function createArcheryRenderState(): ArcheryRenderState {
     lastUpdate: 0,
     lastPhase: "",
     lastRound: 0,
-    lastShotCount: 0,
+    lastShotKey: "",
     lastScore: 0,
     hitAt: 0,
   };
@@ -92,8 +92,15 @@ export function renderArchery(
     updateParticles(dt);
 
     const range = rangeRect(width, height, scale);
-    if (state.shots.length > rs.lastShotCount) {
-      const shot = state.shots[state.shots.length - 1];
+    // The server sends only the last five shots, so the list length stops
+    // growing after the fifth arrow. Compare the newest shot itself instead
+    // of counting, or every shot after the fifth would go unnoticed.
+    const newest = state.shots[state.shots.length - 1];
+    const shotKey = newest
+      ? `${newest.playerIndex}:${newest.x.toFixed(3)}:${newest.y.toFixed(3)}:${newest.score}:${newest.round}`
+      : "";
+    if (shotKey && shotKey !== rs.lastShotKey) {
+      const shot = newest!;
       rs.lastScore = shot.score;
       rs.hitAt = now;
       if (shot.score > 0) {
@@ -103,7 +110,7 @@ export function renderArchery(
         emitHitBurst(worldToX(shot.x, range, scale), range.groundY, colors.danger, scale);
       }
     }
-    rs.lastShotCount = state.shots.length;
+    rs.lastShotKey = shotKey;
 
     if (state.phase !== rs.lastPhase || state.round !== rs.lastRound) {
       handlePhaseChange(state, rs, now, width, height);
@@ -111,6 +118,9 @@ export function renderArchery(
       rs.lastRound = state.round;
     }
     if (!state.finished && rs.victoryScreen) rs.victoryScreen = null;
+    // The title card belongs to one game: drop it when the game ends so the
+    // next game in the same room gets its own.
+    if (state.finished) rs.titleCard = null;
 
     if (rs.titleCard) updateTitleCard(rs.titleCard, now);
     if (rs.victoryScreen) updateVictoryScreen(rs.victoryScreen, now, dt);

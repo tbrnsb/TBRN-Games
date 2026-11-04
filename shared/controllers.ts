@@ -199,6 +199,27 @@ export function createTextLayout(): ControllerLayout {
 }
 
 // --- Choice/Vote ---
+
+/**
+ * Whether the choice buttons must be locked.
+ *
+ * A turn flag is optional. Games that expose one (`yourTurn` / `isYourTurn`)
+ * lock the buttons when it is somebody else's turn. Games that only report
+ * "already answered" (`hasSubmitted` / `hasVoted`) stay tappable until the
+ * player has answered — assuming it is not their turn would lock the whole
+ * game away.
+ */
+export function choiceDisabled(state: unknown): boolean {
+  if (!state || typeof state !== "object") return false;
+  const s = state as Record<string, unknown>;
+  const turn =
+    typeof s.yourTurn === "boolean" ? s.yourTurn
+      : typeof s.isYourTurn === "boolean" ? s.isYourTurn
+        : null;
+  const answered = s.hasSubmitted === true || s.hasVoted === true;
+  return turn === false || answered;
+}
+
 export function createChoiceLayout(): ControllerLayout {
   return {
     type: "choice",
@@ -206,12 +227,10 @@ export function createChoiceLayout(): ControllerLayout {
       const options = state && typeof state === "object" && "options" in state
         ? (state as { options: Array<{ id: string; label: string }> }).options
         : [];
-      const isYourTurn = state && typeof state === "object" && (state as any).yourTurn === true;
-      const hasSubmitted = state && typeof state === "object" && (state as any).hasSubmitted === true;
-      const hasVoted = state && typeof state === "object" && (state as any).hasVoted === true;
-      const disabled = !isYourTurn || hasSubmitted || hasVoted;
+      const disabled = choiceDisabled(state);
+      const compact = options.length > 8 && options.every((o) => o.label.length <= 2);
       container.innerHTML = `
-        <div class="choices">
+        <div class="choices ${compact ? "choices-grid" : ""}">
           ${options.map(opt => `
             <button class="choice-btn" data-id="${escapeHtml(opt.id)}" ${disabled ? "disabled" : ""}>${escapeHtml(opt.label)}</button>
           `).join("")}
@@ -241,7 +260,9 @@ export function createChoiceLayout(): ControllerLayout {
       const options = state && typeof state === "object" && "options" in state
         ? (state as { options?: Array<{ id: string; label: string }> }).options ?? []
         : [];
-      return JSON.stringify(options.map(o => `${o.id}|${o.label}`));
+      // The lock state belongs to the signature: a game that only flips
+      // "your turn" (or "already voted") must re-render, not just update.
+      return JSON.stringify([options.map(o => `${o.id}|${o.label}`), choiceDisabled(state)]);
     },
   };
 }
@@ -328,9 +349,30 @@ export function createCardHandLayout(): ControllerLayout {
   return {
     type: "card-hand",
     render(container, state, onInput) {
-      const cards = state && typeof state === "object" && "cards" in state
-        ? (state as { cards: Array<{ suit: string; rank: string; faceDown?: boolean }> }).cards
+      const s = state && typeof state === "object" ? state as Record<string, unknown> : {};
+      const cards = Array.isArray(s.cards)
+        ? (s.cards as Array<{ suit: string; rank: string; faceDown?: boolean }>)
         : [];
+      const hasActions =
+        typeof s.yourTurn === "boolean" ||
+        typeof s.canCheck === "boolean" ||
+        typeof s.canCall === "boolean" ||
+        typeof s.canRaise === "boolean";
+      const yourTurn = s.yourTurn === true;
+      const canCheck = s.canCheck === true;
+      const canCall = s.canCall === true;
+      const canRaise = s.canRaise === true;
+      const callAmount = typeof s.callAmount === "number" ? s.callAmount : 0;
+      const minRaiseTo = typeof s.minRaiseTo === "number" ? s.minRaiseTo : 0;
+      const pot = typeof s.pot === "number" ? s.pot : null;
+      const bet = typeof s.bet === "number" ? s.bet : null;
+      const timeLeft = typeof s.timeLeft === "number" ? Math.max(0, Math.ceil(s.timeLeft / 1000)) : null;
+      const locked = !yourTurn;
+
+      const info: string[] = [];
+      if (pot !== null) info.push(`Pot ${pot}`);
+      if (bet !== null && bet > 0) info.push(`Your bet ${bet}`);
+      if (timeLeft !== null && yourTurn) info.push(`${timeLeft}s`);
 
       container.innerHTML = `
         <div class="hand">
@@ -340,10 +382,37 @@ export function createCardHandLayout(): ControllerLayout {
             </div>
           `).join("")}
         </div>
+        ${hasActions ? `
+          ${info.length ? `<div class="table-info">${info.map((t) => `<span>${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+          <div class="actions">
+            <button class="action-btn fold" data-act="fold" ${locked ? "disabled" : ""}>Fold</button>
+            ${canCheck ? `<button class="action-btn" data-act="check" ${locked ? "disabled" : ""}>Check</button>` : ""}
+            ${canCall ? `<button class="action-btn call" data-act="call" ${locked ? "disabled" : ""}>Call ${callAmount}</button>` : ""}
+            ${canRaise ? `<button class="action-btn raise" data-act="raise" data-amount="${minRaiseTo}" ${locked ? "disabled" : ""}>Raise ${minRaiseTo}</button>` : ""}
+          </div>
+          ${!yourTurn && typeof s.turnName === "string" && s.turnName ? `<p class="action-hint">Waiting for ${escapeHtml(s.turnName)}…</p>` : ""}
+        ` : ""}
       `;
-      container.querySelectorAll<HTMLDivElement>(".card:not(.face-down)").forEach(card => {
-        card.addEventListener("click", () => {
-          onInput({ playCard: Number(card.dataset.index) });
+
+      // Hole cards are informational in poker; only attach a play handler when
+      // the game actually exposes a card-play action.
+      if (!hasActions) {
+        container.querySelectorAll<HTMLDivElement>(".card:not(.face-down)").forEach(card => {
+          card.addEventListener("click", () => {
+            onInput({ playCard: Number(card.dataset.index) });
+          });
+        });
+      }
+
+      container.querySelectorAll<HTMLButtonElement>(".action-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (btn.disabled) return;
+          const action = btn.dataset.act;
+          if (action === "raise") {
+            onInput({ action: "raise", amount: Number(btn.dataset.amount) });
+          } else {
+            onInput({ action });
+          }
         });
       });
     },
@@ -359,10 +428,19 @@ export function createCardHandLayout(): ControllerLayout {
       });
     },
     signature(state) {
-      const cards = state && typeof state === "object" && "cards" in state
-        ? (state as { cards?: Array<{ suit: string; rank: string; faceDown?: boolean }> }).cards ?? []
+      const s = state && typeof state === "object" ? state as Record<string, unknown> : {};
+      const cards = Array.isArray(s.cards)
+        ? (s.cards as Array<{ suit: string; rank: string; faceDown?: boolean }>)
         : [];
-      return JSON.stringify(cards.map(c => `${c.suit}${c.rank}${c.faceDown ? "d" : "u"}`));
+      return JSON.stringify({
+        cards: cards.map(c => `${c.suit}${c.rank}${c.faceDown ? "d" : "u"}`),
+        turn: s.yourTurn ?? null,
+        check: s.canCheck ?? null,
+        call: s.canCall ?? null,
+        raise: s.canRaise ?? null,
+        amount: s.minRaiseTo ?? null,
+        callAmount: s.callAmount ?? null,
+      });
     },
   };
 }

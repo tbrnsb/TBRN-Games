@@ -201,7 +201,14 @@ const plugin: GamePlugin = {
 
     return {
       phase: state.phase,
-      question: q ? { text: q.text, options: q.options, correct: q.correct } : null,
+      question: q
+        ? {
+            text: q.text,
+            options: q.options,
+            // Do not ship the answer to the shared screen before the reveal.
+            correct: state.phase === "reveal" || state.phase === "finished" ? q.correct : null,
+          }
+        : null,
       currentQuestion: state.currentQuestion + 1,
       totalQuestions: state.questions.length,
       timeLeft: Math.max(0, state.timeLeft),
@@ -220,7 +227,13 @@ const plugin: GamePlugin = {
 
     return {
       question: q ? { text: q.text, options: q.options } : null,
+      // The choice controller reads a flat `options` list; without it the
+      // phone renders no answer buttons at all. `selected` keeps the
+      // player's own pick highlighted.
+      options: q ? q.options.map(o => ({ ...o, selected: o.id === playerAnswer?.optionId })) : [],
       hasAnswered,
+      // `hasVoted` is the field the choice layout uses to lock the buttons.
+      hasVoted: hasAnswered,
       yourAnswer: playerAnswer?.optionId ?? null,
       correctAnswer: state.phase === "reveal" || state.phase === "finished" ? q?.correct : null,
       yourScore: state.scores[playerIndex],

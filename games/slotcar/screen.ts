@@ -39,6 +39,19 @@ interface SlotCarScreenState {
   winner: { name: string; lap: number } | null;
 }
 
+/**
+ * Metres driven so far.
+ *
+ * The server clamps a finished car's lap counter and wraps its progress back
+ * to zero (the car sits on the start/finish line), so the distance of a
+ * finished car has to be rebuilt from the lap count — otherwise the winner
+ * appears to have driven less than the runner-up.
+ */
+function totalDistance(state: SlotCarScreenState, car: SlotCar): number {
+  if (car.finished) return state.maxLaps * state.trackLength;
+  return (car.lap - 1) * state.trackLength + car.progress;
+}
+
 interface SlotCarRenderState {
   titleCard: ReturnType<typeof createTitleCard> | null;
   victoryScreen: ReturnType<typeof createVictoryScreen> | null;
@@ -154,7 +167,7 @@ function handlePhaseChange(
 
   if (state.phase === "finished" && state.winner) {
     const entries = buildRankedEntries(
-      state.cars.map((c) => ({ name: c.name, score: (c.lap - 1) * state.trackLength + c.progress })),
+      state.cars.map((c) => ({ name: c.name, score: totalDistance(state, c) })),
       state.winner.name,
     );
     const winner = entries.find((e) => e.isWinner) ?? entries[0];
@@ -284,7 +297,7 @@ function drawTrack(
 
   // Cars.
   state.cars.forEach((car, i) => {
-    const total = (car.lap - 1) * state.trackLength + car.progress;
+    const total = totalDistance(state, car);
     // A small angular offset keeps cars readable when they are level.
     const spread = (i - (state.cars.length - 1) / 2) * 0.035;
     const angle = startAngle + clamp(car.progress / state.trackLength, 0, 1) * Math.PI * 2 + spread;
@@ -349,7 +362,7 @@ function drawTrack(
 
   // Centre HUD.
   const leader = [...state.cars].sort(
-    (a, b) => (b.lap - 1) * state.trackLength + b.progress - ((a.lap - 1) * state.trackLength + a.progress),
+    (a, b) => totalDistance(state, b) - totalDistance(state, a),
   )[0];
   if (leader) {
     ctx.textAlign = "center";
@@ -431,16 +444,16 @@ function drawRail(
   drawBentoCard(ctx, { ...rail, height: listH }, { glow: colors.magenta });
 
   const ranked = state.cars
-    .map((c, i) => ({ c, i, total: (c.lap - 1) * state.trackLength + c.progress }))
+    .map((c, i) => ({ c, i, total: totalDistance(state, c) }))
     .sort((a, b) => b.total - a.total);
 
   const entries = ranked.map(({ c, i }, rank) => ({
     name: c.name,
-    score: Math.round((c.lap - 1) * state.trackLength + c.progress),
+    score: Math.round(totalDistance(state, c)),
     playerIndex: i,
     isCurrent: rank === 0 && state.phase === "racing",
     isWinner: state.finished && state.winner?.name === c.name,
-    animatedScore: Math.round((c.lap - 1) * state.trackLength + c.progress),
+    animatedScore: Math.round(totalDistance(state, c)),
   }));
 
   drawScoreboard(ctx, { ...rail, height: listH }, entries, { title: "POSITIONS", scale });

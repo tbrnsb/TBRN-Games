@@ -309,14 +309,21 @@ export function buildRankedEntries(
   players: Array<{ name: string; score: number }>,
   winnerName: string | null
 ): RankedEntry[] {
-  return players
+  // The winner always takes rank 1. Several games decide the winner on
+  // something other than the score (last survivor, first across the line),
+  // so sorting by score alone can list the actual winner below an opponent.
+  const ranked = players
     .map((p, playerIndex) => ({ ...p, playerIndex }))
-    .sort((a, b) => b.score - a.score)
-    .map((p, i) => ({
-      rank: i + 1,
-      name: p.name,
-      score: p.score,
-      playerIndex: p.playerIndex,
-      isWinner: winnerName !== null && p.name === winnerName,
-    }));
+    .sort((a, b) => {
+      const aWinner = winnerName !== null && a.name === winnerName ? 1 : 0;
+      const bWinner = winnerName !== null && b.name === winnerName ? 1 : 0;
+      return bWinner - aWinner || b.score - a.score;
+    });
+  return ranked.map((p, i) => ({
+    rank: i + 1,
+    name: p.name,
+    score: p.score,
+    playerIndex: p.playerIndex,
+    isWinner: winnerName !== null && p.name === winnerName,
+  }));
 }

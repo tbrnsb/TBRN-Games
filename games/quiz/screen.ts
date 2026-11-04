@@ -28,7 +28,7 @@ import {
 
 interface QuizScreenState {
   phase: "waiting" | "question" | "reveal" | "finished";
-  question: { text: string; options: Array<{ id: string; label: string }>; correct: string } | null;
+  question: { text: string; options: Array<{ id: string; label: string }>; correct: string | null } | null;
   currentQuestion: number;
   totalQuestions: number;
   timeLeft: number;

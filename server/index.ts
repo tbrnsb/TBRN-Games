@@ -902,6 +902,13 @@ function startGameLoop(roomId: string): void {
       }
     }
     sendScreenGameState(currentRoom, currentPlugin, screen);
+
+    // The result has been delivered; release the finished game so the lobby is
+    // not capped by the last game's player limit.
+    if (currentRoom.status === "lobby") {
+      currentRoom.gameId = null;
+      currentRoom.gameState = null;
+    }
   }, 16); // ~60fps
 
   gameLoops.set(roomId, interval);

@@ -30,6 +30,14 @@ uncommitted until the next commit.
   `tests/game-logic.test.ts`.
 - **Manifest fixes**: golf → dpad, Guess Who → choice, Traffic Jam →
   private-grid, matching their server plugins.
+- **Playability pass** (independent debugger): choice buttons no longer lock when
+  a game omits a turn flag; quiz and hangman now expose the flat options the
+  controller renders; poker's card-hand layout gained Fold / Check / Call /
+  Raise; 26 letters render as a compact grid; archery and darts detect shots
+  beyond their rolling window; victory rankings put the actual winner first;
+  Slot Car reports total distance for a finished car; title cards reset between
+  games; quiz stops shipping the answer before reveal; a finished game releases
+  the room so the lobby cap is not inherited.
 - **Runtime fixes**: correct `/client/` and `/assets/` routes (renderers and
   fonts now load), DPR-safe rendering, advancing title/countdown/victory cards,
   result hold after a game ends, multi-word renderer export loading, 60 fps by
