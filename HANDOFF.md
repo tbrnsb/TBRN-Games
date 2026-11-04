@@ -3,10 +3,10 @@
 ## Current Phase
 Visual overhaul V0–V18 complete: all 18 game renderers, the host lobby and the
 phone controller share one visual language. Game-logic hardening is in.
+Critic score: 9.5/10, no blockers.
 
 ## Last Commit
-`c6246f4` (visual overhaul + game renderers) — this controller/archery pass is
-uncommitted until the next commit.
+`5fb4c46` (renderer regression test) — all commits are local, nothing pushed.
 
 ## Done
 - **18 game plugins** under `games/*/server.ts`; every game passes the automated
@@ -53,8 +53,8 @@ uncommitted until the next commit.
 ## Next Three Actions
 1. Independent review pass: debugger for logic regressions, ui-reviewer for the
    host/controller screens, critic for the final score.
-2. Verify the controller in landscape and on a real phone; add a browser-level
-   test for the seven controller layouts and the lobby stage.
+2. Add a browser-level test for the seven controller layouts and the lobby
+   stage, then check the controller in landscape on a real phone.
 3. Playtest the new game-logic changes (knife-throw fairness, Spin War winner,
    golf pick-up cap) and tune content packs.
 
