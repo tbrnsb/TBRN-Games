@@ -1,8 +1,21 @@
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import {
+  MAX_ROUND_SCORE,
+  scalePayout,
+  standingsFromScores,
+  type GameResult,
+} from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
 
 /**
  * Dumb Inventions - server logic.
  * You get a problem and two random words. Invent a product that uses both, then pitch it.
+ *
+ * Scoring: `scalePayout(1000, N)` per vote, capped at the shared round bound
+ * from five players up (3-4 keep the uncapped total for parity). Skipping a
+ * chip only forfeits the chip credit for that pitch; it never costs points, so
+ * a player can never finish a round below zero.
  */
 
 interface GameManifest {
@@ -67,6 +80,7 @@ interface GamePlugin {
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
 
 
@@ -93,9 +107,13 @@ interface InventionState {
   scores: number[];
   timerMs: number;
   reveal: { rows: Array<{ name: string; pitch: string; votes: number; usedBoth: boolean }> } | null;
+  stats: Record<string, number>;
 }
 
 interface InventionInstance extends GameInstance { state: InventionState }
+
+/** Flat `<playerId>:<statKey>` counters for the finale awards. */
+type InventionStat = "votesReceived" | "chipsUsed";
 
 const INVENT_MS = 90000;
 const VOTE_MS = 25000;
@@ -103,29 +121,93 @@ const REVEAL_MS = 9000;
 const MAX_NAME = 30;
 const MAX_PITCH = 120;
 
+/** Standalone rounds; the catalog's `scale()` reports 3 standalone / 2 rumble. */
+const ROUNDS = 3;
+
+/** Per-vote payout before `scalePayout` applies `f(N)`. */
+const VOTE_POINTS = 1000;
+
 const manifest: GameManifest = {
   id: "dumbinventions",
   name: "Dumb Inventions",
   minPlayers: 3,
-  maxPlayers: 4,
+  maxPlayers: 6,
   controllerType: "text",
   description: "You get a problem and two random words. Invent a product that uses both, then pitch it.",
 };
 
-/** Both chips must appear somewhere in the pitch, case-insensitively. */
-export function usesChips(pitch: string, chips: string[]): boolean {
+/** How many of the dealt chips appear somewhere in the pitch, case-insensitively. */
+export function chipsUsed(pitch: string, chips: readonly string[]): number {
   const lower = pitch.toLowerCase();
-  return chips.every((chip) => lower.includes(chip.toLowerCase()));
+  return chips.reduce((count, chip) => (lower.includes(chip.toLowerCase()) ? count + 1 : count), 0);
 }
 
-/** 1000 per vote, minus 200 when the pitch did not use both chips. */
-export function roundPoints(votes: Array<number | null>, usedBoth: boolean[], playerCount: number): number[] {
+/** Both chips must appear somewhere in the pitch, case-insensitively. */
+export function usesChips(pitch: string, chips: string[]): boolean {
+  return chipsUsed(pitch, chips) === chips.length;
+}
+
+/**
+ * Points for one round: `scalePayout(1000, N)` per vote. From five players up
+ * the gain is capped at the shared round bound; 3 and 4 players keep the
+ * uncapped total so their scores stay identical to the pre-change game. A pitch
+ * that skips a chip earns no chip credit but loses nothing, so a player with
+ * zero votes scores 0.
+ */
+export function roundPoints(votes: Array<number | null>, playerCount: number): number[] {
   const tally = new Array<number>(playerCount).fill(0);
   for (const vote of votes) {
     if (vote === null || !Number.isInteger(vote) || vote < 0 || vote >= playerCount) continue;
     tally[vote]++;
   }
-  return tally.map((count, i) => count * 1000 - (usedBoth[i] ? 0 : 200));
+  const perVote = scalePayout(VOTE_POINTS, playerCount);
+  return tally.map((count) => {
+    const gain = count * perVote;
+    return playerCount >= 5 ? Math.min(gain, MAX_ROUND_SCORE) : gain;
+  });
+}
+
+function bumpStat(state: InventionState, playerId: string, stat: InventionStat, amount = 1): void {
+  const key = playerStatKey(playerId, stat);
+  state.stats[key] = (state.stats[key] ?? 0) + amount;
+}
+
+/** Who the TV is waiting on during each timed phase. */
+function waitingNames(instance: InventionInstance): string[] {
+  const s = instance.state;
+  if (s.phase === "invent") {
+    return instance.players
+      .filter((_, i) => s.names[i] === null || s.pitches[i] === null)
+      .map((p) => p.name);
+  }
+  if (s.phase === "vote") {
+    return instance.players.filter((_, i) => s.votes[i] === null).map((p) => p.name);
+  }
+  return [];
+}
+
+/** Reveal line: the most-voted pitch's author. Never carries pitch text. */
+function revealCaption(instance: InventionInstance): string | null {
+  const s = instance.state;
+  if (s.phase !== "reveal" || !s.reveal) return null;
+
+  let topIndex = -1;
+  let topVotes = 0;
+  s.reveal.rows.forEach((row, i) => {
+    if (row.votes > topVotes) {
+      topVotes = row.votes;
+      topIndex = i;
+    }
+  });
+  if (topIndex >= 0) {
+    return captionFor({
+      kind: "favourite",
+      name: instance.players[topIndex]?.name,
+      count: topVotes,
+      seed: s.round,
+    });
+  }
+  return captionFor({ kind: "reveal", seed: s.round });
 }
 
 function invLeader(instance: InventionInstance): string | null {
@@ -153,15 +235,22 @@ function invBegin(instance: InventionInstance, round: number): void {
 
 function invSettle(instance: InventionInstance): void {
   const s = instance.state;
-  const usedBoth = s.chips.map((chips, i) => usesChips(s.pitches[i] ?? "", chips));
-  const points = roundPoints(s.votes, usedBoth, instance.players.length);
+  const usedChips = s.chips.map((chips, i) => chipsUsed(s.pitches[i] ?? "", chips));
+  const points = roundPoints(s.votes, instance.players.length);
   points.forEach((p, i) => { s.scores[i] += p; });
+
+  const tally = instance.players.map((_, i) => s.votes.filter((v) => v === i).length);
+  instance.players.forEach((player, i) => {
+    bumpStat(s, player.id, "votesReceived", tally[i]);
+    bumpStat(s, player.id, "chipsUsed", usedChips[i]);
+  });
+
   s.reveal = {
     rows: instance.players.map((p, i) => ({
       name: s.names[i] ?? "Unnamed gadget",
       pitch: s.pitches[i] ?? "",
-      votes: s.votes.filter((v) => v === i).length,
-      usedBoth: usedBoth[i],
+      votes: tally[i],
+      usedBoth: usedChips[i] === s.chips[i].length,
     })),
   };
   s.phase = "reveal";
@@ -179,7 +268,7 @@ const plugin: GamePlugin = {
       players,
       state: {
         round: 0,
-        maxRounds: 2,
+        maxRounds: ROUNDS,
         phase: "invent",
         problems: players.map((_, i) => problems[i % problems.length]),
         chips: players.map((_, i) => [words[(i * 2) % words.length], words[(i * 2 + 1) % words.length]] as [string, string]),
@@ -189,6 +278,12 @@ const plugin: GamePlugin = {
         scores: players.map(() => 0),
         timerMs: INVENT_MS,
         reveal: null,
+        stats: Object.fromEntries(
+          players.flatMap((p): Array<[string, number]> => [
+            [playerStatKey(p.id, "votesReceived"), 0],
+            [playerStatKey(p.id, "chipsUsed"), 0],
+          ]),
+        ),
       } satisfies InventionState,
     };
   },
@@ -251,20 +346,38 @@ const plugin: GamePlugin = {
     const inst = instance as InventionInstance;
     const s = inst.state;
     const revealed = s.phase === "reveal" || s.phase === "finished";
+    // Privacy: product names and pitches stay off the TV until the reveal. The
+    // TV shows only the roster, the problem/chip challenge and progress; each
+    // phone still gets the names it needs to vote on.
+    const options = revealed
+      ? inst.players.map((_, i) => ({
+          id: `p:${i}`,
+          label: s.names[i] ?? "Unnamed gadget",
+          text: s.pitches[i] ?? "",
+          author: i,
+          votes: s.votes.filter((v) => v === i).length,
+        }))
+      : [];
     return {
       phase: s.phase,
       round: s.round + 1,
       maxRounds: s.maxRounds,
+      playerCount: inst.players.length,
       inventions: inst.players.map((p, i) => ({
         author: p.name,
         problem: s.problems[i],
         chips: s.chips[i],
-        name: s.names[i],
-        pitch: s.pitches[i],
-        usedBoth: s.pitches[i] !== null && usesChips(s.pitches[i] ?? "", s.chips[i]),
+        name: revealed ? s.names[i] : null,
+        pitch: revealed ? s.pitches[i] : null,
+        usedBoth: revealed && s.pitches[i] !== null && usesChips(s.pitches[i] ?? "", s.chips[i]),
         votes: revealed ? s.votes.filter((v) => v === i).length : null,
       })),
+      options,
+      optionColumns: options.length >= 6 ? 2 : 1,
       reveal: s.reveal,
+      waitingOn: waitingNames(inst),
+      caption: revealCaption(inst),
+      sound: s.phase === "reveal" ? "reveal" : null,
       timerMs: Math.max(0, s.timerMs),
       scores: inst.players.map((p, i) => ({ name: p.name, score: s.scores[i] })),
       finished: s.phase === "finished",
@@ -306,6 +419,16 @@ const plugin: GamePlugin = {
     }
 
     return { ...base, mode: "wait", controllerType: "choice", options: [], info: s.reveal ? "Round complete" : "" };
+  },
+
+  results(instance: GameInstance): GameResult {
+    const inst = instance as InventionInstance;
+    return {
+      standings: standingsFromScores(
+        inst.players.map((p, i) => ({ id: p.id, raw: inst.state.scores[i] })),
+      ),
+      stats: { ...inst.state.stats },
+    };
   },
 };
 

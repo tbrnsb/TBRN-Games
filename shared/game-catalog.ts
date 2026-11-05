@@ -188,13 +188,19 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "writing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 6,
     idealMin: 4,
     idealMax: 6,
-    minutes: { standalone: 4, rumble: 4 },
+    minutes: { standalone: 6, rumble: 4 },
     dropoutPolicy: "continue",
     contentPacks: ["problems", "words"],
-    scale: fixedScale(2, { invent: 90, vote: 25, reveal: 9 }),
+    scale: (playerCount, mode) => ({
+      // Three standalone rounds; the Rumble runs two shorter rounds. The
+      // invent/vote/reveal timers stay as they were at every count.
+      rounds: mode === "rumble" ? 2 : 3,
+      timers: { invent: 90, vote: 25, reveal: 9 },
+      optionCaps: { options: playerCount },
+    }),
   },
   mostlikely: {
     id: "mostlikely",

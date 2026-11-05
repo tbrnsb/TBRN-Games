@@ -147,7 +147,7 @@ describe("game catalog", () => {
       survive: 3,
       frankenanswers: 3,
       bracket: 2,
-      dumbinventions: 2,
+      dumbinventions: 3,
       mostlikely: 8,
       stowaway: 4,
       fakin: 3,
