@@ -72,3 +72,4 @@ Do not commit or push without the human asking.
 - feat(games): add frankenanswers with per-player chip pools
 - feat(games): add bracket brawl with a knockout bracket
 - feat(games): add dumb inventions with problem and word cards
+- feat(games): add word chain with an offline dictionary
