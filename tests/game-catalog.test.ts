@@ -223,6 +223,15 @@ describe("gameAvailability", () => {
     assert.strictEqual(gameAvailability(splitroom, 9), "max 8");
   });
 
+  test("survive moved from 3-4 to 3-6", () => {
+    const survive = GAME_CATALOG.survive;
+    assert.strictEqual(gameAvailability(survive, 2), "needs 3-6");
+    assert.strictEqual(gameAvailability(survive, 3), null);
+    assert.strictEqual(gameAvailability(survive, 4), null);
+    assert.strictEqual(gameAvailability(survive, 6), null);
+    assert.strictEqual(gameAvailability(survive, 7), "max 6");
+  });
+
   test("solo and fixed-seat games stay sane", () => {
     assert.strictEqual(gameAvailability({ minPlayers: 1, maxPlayers: 8 }, 1), null);
     assert.strictEqual(gameAvailability({ minPlayers: 1, maxPlayers: 8 }, 0), "needs 1+");
