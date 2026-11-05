@@ -146,25 +146,67 @@ function driver(gameId: string, cs: any, playerId: string): unknown {
       }
       return null;
     }
-    case "trafficjam":
-    case "seabattle": {
-      const rows = typeof cs.rows === "number" ? cs.rows : 6;
-      const cols = typeof cs.cols === "number" ? cs.cols : 6;
-      return { grid: { row: rnd(rows), col: rnd(cols) } };
+    case "percentile":
+    case "splitroom":
+    case "dictionarium":
+    case "drawful":
+    case "fakin":
+    case "trivia":
+    case "wordspud":
+    case "survive":
+    case "blather":
+    case "mindmeld":
+    case "mindreader":
+    case "stowaway":
+    case "bdate": {
+      // These games switch controller UI per phase and report it as `mode`.
+      if (cs.mode === "slider") {
+        return Math.random() < 0.5 ? { slider: { axis: "x", value: Math.random() } } : { action: "action" };
+      }
+      if (cs.mode === "canvas") {
+        return Math.random() < 0.75
+          ? { stroke: { points: [[0.2, 0.2], [0.6, 0.6], [0.8, 0.4]], color: "#111111" } }
+          : { action: "action" };
+      }
+      if (cs.mode === "text") return { text: `${gameId} answer by ${playerId}` };
+      if (cs.mode === "chat") {
+        const contacts = ((cs.chat as { contacts?: Array<{ id: string }> } | undefined)?.contacts ?? []);
+        if (contacts.length) return { chat: { to: contacts[0].id, text: "hello there" } };
+        return { action: "lol" };
+      }
+      if (cs.mode === "rank") {
+        const items = ((cs.rank as { items?: Array<{ id: string }> } | undefined)?.items ?? []);
+        const ids = items.map((i) => i.id);
+        for (let k = ids.length - 1; k > 0; k--) {
+          const j = Math.floor(Math.random() * (k + 1));
+          const tmp = ids[k]; ids[k] = ids[j]; ids[j] = tmp;
+        }
+        return { rank: { order: ids } };
+      }
+      if (cs.mode === "choice") {
+        const opts = (cs.options as Array<{ id: string }>) ?? [];
+        if (!opts.length) return null;
+        return { choice: opts[rnd(opts.length)].id };
+      }
+      return null;
     }
     case "snakes":
     case "golf":
       return { move: ["up", "down", "left", "right"][rnd(4)] };
     case "racing":
-      return { move: Math.random() < 0.5 ? "left" : "right" };
+      return { tap: true };
+    case "darts":
+      return Math.random() < 0.5
+        ? { slider: { axis: Math.random() < 0.5 ? "x" : "y", value: Math.random() } }
+        : { action: "action" };
     default:
       return { tap: true };
   }
 }
 
 const budgets: Record<string, number> = {
-  seabattle: 20000, trafficjam: 2500, poker: 40000, snakes: 4000,
-  darts: 6000, gravityrun: 600, racing: 4000, slotcar: 4000,
+  poker: 40000, snakes: 4000,
+  darts: 6000, racing: 4000,
 };
 
 const report: string[] = [];

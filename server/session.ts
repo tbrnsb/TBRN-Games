@@ -184,13 +184,6 @@ function entriesFromScreen(gameId: string, screen: unknown): ScoreEntry[] {
       return asEntries(s.players, "score");
     case "racing":
       return asEntries(s.racers, "progress");
-    case "slotcar":
-      return (Array.isArray(s.cars) ? s.cars as Array<Record<string, unknown>> : []).map((c) => {
-        const track = Number(s.trackLength ?? 900);
-        const laps = Number(s.maxLaps ?? 3);
-        const total = c.finished ? track * laps : (Number(c.lap ?? 1) - 1) * track + Number(c.progress ?? 0);
-        return { name: String(c.name ?? ""), score: total };
-      }).filter((e) => e.name.length > 0);
     case "poker":
       return asEntries(s.players, "chips");
     case "spinwar":

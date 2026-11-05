@@ -60,3 +60,4 @@ Do not commit or push without the human asking.
 - fix(engine): keep disconnected seats and recover stale rejoin tokens
 - feat(controllers): add motion, value and role layouts
 - feat(games): real dart aiming, golf joystick, tap race, guess who board
+- chore: drop seabattle, trafficjam, slotcar and gravityrun
