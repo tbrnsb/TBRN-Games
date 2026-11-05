@@ -36,7 +36,7 @@ async function waitForHealth(httpUrl: string, proc: ChildProcess | null, timeout
   }
 }
 
-export async function startServer(): Promise<ServerFixture> {
+export async function startServer(extraEnv: Record<string, string> = {}): Promise<ServerFixture> {
   const external = process.env.TBRN_TEST_URL;
   if (external) {
     const httpUrl = external.replace(/^ws/, "http");
@@ -49,7 +49,7 @@ export async function startServer(): Promise<ServerFixture> {
   const httpUrl = `http://127.0.0.1:${port}`;
   const proc = spawn(process.execPath, ["server/index.ts"], {
     cwd: repoRoot,
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, PORT: String(port), ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],
   });
   proc.stderr?.on("data", (chunk: Buffer) => {

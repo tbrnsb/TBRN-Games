@@ -731,8 +731,16 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
         return;
       }
     }
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId, timestamp: Date.now(), payload: { code: "INVALID_TOKEN", message: "Invalid or expired rejoin token" } });
-    return;
+    // The token no longer matches a seat: it was reaped, or the room was
+    // recycled between rounds. If the link still names a room that is not
+    // mid-game, recover by taking a fresh seat instead of locking the phone
+    // out for the rest of the night.
+    const recoverRoom = roomId ? rooms.get(roomId) : undefined;
+    if (!recoverRoom || recoverRoom.status === "playing") {
+      send(ws, { type: MESSAGE_TYPES.ERROR, roomId, timestamp: Date.now(), payload: { code: "INVALID_TOKEN", message: "Invalid or expired rejoin token" } });
+      return;
+    }
+    room = recoverRoom;
   }
 
   // New join - find or create room
@@ -955,14 +963,18 @@ function handleDisconnect(ws: WebSocket): void {
         const currentPlayer = currentRoom.players.find((p) => p.id === playerId);
         if (!currentPlayer || currentPlayer.connected) return;
 
+        if (currentRoom.players.some((p) => p.connected)) {
+          // Somebody is still here, so keep the seat even if this player never
+          // comes back. Phones drop their socket constantly (screen lock,
+          // app switch); deleting the seat is what made one player vanish from
+          // every lobby and locked them out with INVALID_TOKEN. The seat is
+          // pruned at game start instead, where an absent player would stall
+          // the turn order.
+          broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
+          return;
+        }
+
         if (currentRoom.status === "playing") {
-          // Keep the seat while others are still playing: per-player arrays in
-          // the running game state are indexed by seat, so removing a player
-          // here would desynchronise them from room.players.
-          if (currentRoom.players.some((p) => p.connected)) {
-            broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
-            return;
-          }
           // Nobody is left: tear the session down instead of running forever.
           const loop = gameLoops.get(currentRoom.id);
           if (loop) {

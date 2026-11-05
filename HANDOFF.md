@@ -1,79 +1,60 @@
-# TBRN-Games Handoff
+# HANDOFF
 
-## Current Phase
-Visual overhaul and Royal Rumble sessions are complete. All 18 game renderers,
-the host lobby and the phone controller share one visual language, and a room
-can play a 5/8/all-game series with phone votes or random picks.
+## Current state
+Game-feel rebuild + GAMES-SPEC-2 build in progress. **27 games**, all passing.
+Nothing is committed; the whole working tree is uncommitted.
 
-## Last Commit
-`1266aeb` (Royal Rumble sessions) — all commits are local; nothing is pushed.
+Last gate: `npm test` 139/139 · typecheck 0 errors · lint 0 errors (123 warnings)
+· `npm run probe` 0 issues across 27 games × 1-4 players.
 
-## Done
-- **Royal Rumble engine** (`server/session.ts`): eligible-game candidates,
-  vote/random selection, 10/6/3/1 placement points, round abort, champion
-  tie-break (points → wins → best single round → name), and trophies: Most Wins,
-  Podium Regular, Wooden Spoon, High Roller, Most Accurate (quiz answers).
-- **Session transport** (`server/index.ts`): per-room `roomSessions`, `session` /
-  `session-vote` messages, host-token `POST /session/start`, `/session/end`,
-  `/end-game`; scoring on game finish; abort without points; cleanup on room
-  deletion and disconnect; new seats blocked while a rumble is active.
-- **Host screen**: Royal Rumble setup (5 / 8 / All, Vote / Random), live vote
-  board, standings, Start round, End rumble, final champion/trophy board, and a
-  double-confirm End game button in the top bar.
-- **Phone controller**: votable session card with live counts, your points,
-  final champion/trophies and "you finished #n"; returns to voting when a game
-  finishes; rejoin restores the session view.
-- **18 game plugins** under `games/*/server.ts`; all pass the automated
-  playthrough, manifest, garbage-input and privacy probes.
-- **Server hardening**: host-token start auth, unique room names, per-game
-  try/catch, result hold, local QR generation, optional TLS, local fonts.
-- **Tests**: 101/101 pass, including 11 pure session-engine tests and a real
-  socket/HTTP session flow (vote → start → abort → play → score → clear).
+## Done in this session
+1. **Seat/reconnect bug fixed.** Phones that dropped in the lobby were deleted after
+   `PLAYER_TIMEOUT_MS`, then could never rejoin (`INVALID_TOKEN`). That was why every game
+   started one player short and Bluff would not start. Seats now survive while anyone else
+   is in the room; a dead token into a lobby room takes a fresh seat.
+   Tests: `tests/reconnect.test.ts`.
+2. **Removed** seabattle, trafficjam, slotcar, gravityrun.
+3. **9 new controller layouts**: slider, dual-slider, pad, aim, tap-race, board, numpad,
+   canvas, chat, rank. Plus a per-game `maxLength` on `text`.
+4. **Rewired**: darts (real two-slider aiming, was a random dice roll), golf (joystick +
+   power + SHOOT), racing (pure mash), guesswho (fixed opponent, manual flips, shared board).
+5. **New games (9)**: percentile, splitroom, dictionarium, drawful, fakin, trivia,
+   wordspud, survive, blather.
+6. **GAMES-SPEC-2**: mindmeld (61-item pack, pure scoring, 6 tests), mindreader (`rank`
+   controller, footrule scoring, 4 tests), stowaway (`role` controller, 5 tests), bdate
+   (chat wiring confirmed, 3 tests).
 
-## In Progress
-- None.
+## Next three actions
+1. **Frankenanswers** (spec item 3) - `rank` + text now exist; needs a per-player chip pool.
+2. Content packs + `screen.ts` for the 9 games added from GAMES-SPEC-2 whose content is
+   still inline (dictionarium needs the 80-word pack; blather needs 80 words + templates).
 
-## Next Three Actions
-1. Playtest a full rumble on real phones on the same LAN.
-2. Decide whether sessions should survive a server restart (currently in-memory).
-3. Consider pruning candidates if enough players leave that a candidate no
-   longer fits; the roster is otherwise frozen for the life of a rumble.
+## Remaining from GAMES-SPEC-2
+Dumb Inventions, Slide Roulette, Bracket Brawl, Frankenanswers, Word Chain,
+Stowaway, Last Seat, Blind Date Chat, Slogan Shirts, Mash-Up Monsters, Slingshot Arena.
 
-## How to Run & Test
+Already covered by existing games: Word Fraud=dictionarium, Fence Sitters=splitroom,
+Gut Check=percentile, Fact or Fiction=trivia, Clue Crafters=blather, Twist It=survive,
+The Fake Out=fakin, Sketch & Lie=drawful, Mind Meld + Mind Reader built to spec.
+
+## Known gaps / deviations
+- No `screen.ts` for the 9 new games; they use the fallback renderer.
+- Content is inline in most games, not in `content/*.json` (only mindmeld uses the pack).
+- No host announcer (`S6`) and no per-game `theme.json`.
+- Poker still lacks host stack config, numpad bets and a round limit.
+- Tutorials (`howTo`) not added.
+- Drawful canvas has no colour picker or undo (spec S5 asks for 6 colours, 3 sizes, undo).
+
+## How to run
 ```bash
-cd /home/sulav/Projects/TBRN-Games
-npm run typecheck   # 0 errors
-npm run lint        # 0 errors (93 warnings)
-npm test            # 101/101 pass
-npm run probe       # 0 issues
-PORT=3100 npm start # server
+npm start          # PORT env, default 3000
+npm test
+npm run typecheck
+npm run lint
+npm run probe
 ```
-Open `http://localhost:3100` on the laptop; phones open `/controller?room=<CODE>`
-or scan the QR code.
+ufw already allows 3000 and 3100/tcp on this machine, so phones can connect.
+Do not commit or push without the human asking.
 
-## Failing Tests / Known Issues
-- No failing tests.
-- Independent critic review: 9/10, no blockers. The `reviewer` subagent could
-  not run (model usage limit), so the critic also served as the read-only review.
-- Rumble state is in memory; a server restart clears the series.
-- The session roster is fixed at start; a player who leaves and does not rejoin
-  stays in the standings with their existing points.
-- Browser UI was exercised manually with Playwright (host + two phone contexts),
-  but that flow is not part of `npm test`.
-- Legacy scaffold (`public/`, `src/`, `test/`, `dist/`) stays excluded from
-  typecheck.
-
-## Decisions Made
-1. Rumble lengths are 5, 8 or all eligible games.
-2. Points are 10 / 6 / 3 / 1 by placement; champion ties break by wins, then best
-   single round, then name.
-3. Each round is chosen by one private phone vote per player or by random pick.
-4. End game aborts the round without points and reopens voting for the same round.
-5. New phones cannot take a fresh seat mid-rumble; rejoin tokens still work.
-6. Trophies are honorary: Most Wins, Podium Regular, Wooden Spoon, High Roller,
-   and Most Accurate when a quiz round was played.
-7. The server remains the only authority for votes, points and hidden state.
-
-## Open Questions for Human
-1. Should a rumble survive a server restart?
-2. Should game-point weights change for longer series?
+## Commit log
+- fix(engine): keep disconnected seats and recover stale rejoin tokens

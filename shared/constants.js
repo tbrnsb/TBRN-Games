@@ -21,7 +21,9 @@ export const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const ROOM_CODE_LENGTH = 5;
 export const REJOIN_TOKEN_BYTES = 16;
 export const PING_INTERVAL_MS = 10000;
-export const PLAYER_TIMEOUT_MS = 30000;
+// How long a disconnected seat stays reserved before it is reaped. Overridable
+// so tests can exercise the reap path without waiting half a minute.
+export const PLAYER_TIMEOUT_MS = Number(process.env.PLAYER_TIMEOUT_MS ?? 30000);
 
 // --- LAN Utilities ---
 export async function getLanUrls(port, scheme = "http") {
