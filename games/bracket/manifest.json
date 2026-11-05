@@ -1,0 +1,8 @@
+{
+  "id": "bracket",
+  "name": "Bracket Brawl",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "text",
+  "description": "Everyone writes one answer, then it is a knockout bracket. Only players not in a duel get to vote."
+}
