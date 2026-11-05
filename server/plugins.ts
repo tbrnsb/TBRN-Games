@@ -73,6 +73,8 @@ export interface GamePlugin<
   onTick(instance: GameInstance<TState>, deltaMs: number): void;
   screenState(instance: GameInstance<TState>): TScreenState;
   controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
+  /** Optional host-token control for the running game (authenticated by the server). */
+  onHostAction?(instance: GameInstance<TState>, action: string): boolean;
   /** Optional per-game standings and stats; the platform extracts a fallback. */
   results?(instance: GameInstance<TState>): GameResult;
 }

@@ -1387,7 +1387,12 @@ function renderGeneric(width: number, height: number): void {
   if (typeof state.round === "number" && typeof state.totalRounds === "number") {
     meta.push(`Round ${state.round}/${state.totalRounds}`);
   }
-  if (typeof state.round === "number" && typeof state.maxRounds === "number") {
+  if (typeof state.drawingNumber === "number" && typeof state.totalDrawings === "number") {
+    meta.push(`Drawing ${state.drawingNumber}/${state.totalDrawings}`);
+    if (typeof state.artistName === "string" && state.artistName.length > 0) {
+      meta.push(`Artist: ${state.artistName}`);
+    }
+  } else if (typeof state.round === "number" && typeof state.maxRounds === "number") {
     meta.push(`Round ${state.round + 1}/${state.maxRounds}`);
   }
   if (typeof state.holeNumber === "number" && typeof state.maxHoles === "number") {

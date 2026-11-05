@@ -168,7 +168,7 @@ describe("game catalog", () => {
     }
     // Presenter/artist counts follow the room size.
     assert.strictEqual(GAME_CATALOG.slideroulette.scale(3, "standalone").rounds, 3);
-    assert.strictEqual(GAME_CATALOG.drawful.scale(8, "standalone").rounds, 3);
+    assert.strictEqual(GAME_CATALOG.drawful.scale(8, "standalone").rounds, 8);
   });
 
   test("bracket plays two brackets at 3-4 and one full bracket at 5-6", () => {

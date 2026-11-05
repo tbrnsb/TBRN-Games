@@ -311,16 +311,23 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "drawing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 7, rumble: 7 },
     dropoutPolicy: "void-round",
     contentPacks: [],
-    scale: (playerCount) => ({
-      rounds: Math.min(3, playerCount),
+    scale: (playerCount, mode) => ({
+      // 3-4 keeps the original three drawings for parity. From five players
+      // every seat draws once in seat order. The Rumble caps at four drawings,
+      // selected by secure random, and never asks for more than the table has.
+      rounds: mode === "rumble"
+        ? (playerCount <= 4 ? 3 : 4)
+        : (playerCount <= 4 ? 3 : Math.min(playerCount, 8)),
       timers: { draw: 60, bluff: 35, vote: 25, reveal: 9 },
-      optionCaps: { options: playerCount + 1 },
+      // Real title plus one bluff per other seat: N options on the TV, N-1 on
+      // each phone because a player never votes for their own bluff.
+      optionCaps: { options: Math.max(1, Math.min(playerCount, 8)) },
     }),
   },
   sloganshirts: {

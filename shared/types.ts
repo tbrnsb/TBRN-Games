@@ -273,6 +273,12 @@ export interface GamePlugin<
   screenState(instance: GameInstance<TState>): TScreenState;
   controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
   /**
+   * Optional host-token control (skip, hide) for the running game. Returns true
+   * when the action was understood. Host authentication happens in the server;
+   * a game never sees an unauthenticated action.
+   */
+  onHostAction?(instance: GameInstance<TState>, action: string): boolean;
+  /**
    * Optional per-game standings and stats. Games that do not implement it fall
    * back to the platform's screen-state extraction.
    */

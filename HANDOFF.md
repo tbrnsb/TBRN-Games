@@ -59,6 +59,8 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   (floor 100), presenter 100 x f(N) capped 600, word hidden until reveal.
 - Phase 3 (c) Most Likely To: 3-8, eight options, 8/5 rounds, existing
   top-vote scoring kept for 3-4 parity, safer prompts, tally/reveal hooks.
+- Phase 3 (d) Drawful: 3-8, 3 drawings at 3-4 / N at 5-8 / 4 rumble, scaled
+  500/250, opaque ballots, host hide/skip drawing.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,

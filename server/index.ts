@@ -592,6 +592,9 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
   if (handleEndGame(req, res, url)) {
     return;
   }
+  if (await handleHostAction(req, res, url)) {
+    return;
+  }
 
   // Handle start game
   if (handleStartGame(req, res, url)) {
@@ -1677,6 +1680,65 @@ function handleEndGame(req: IncomingMessage, res: ServerResponse, url: URL): boo
   });
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ success: true }));
+  return true;
+}
+
+async function handleHostAction(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/host-action$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+  if (room.status !== "playing" || !room.gameId || !room.gameState) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_ACTIVE_GAME", message: "No game is running" }));
+    return true;
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_BODY", message: "Invalid JSON body" }));
+    return true;
+  }
+  const action = typeof body.action === "string" ? body.action.trim() : "";
+  if (!action) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_ACTION", message: "An action is required" }));
+    return true;
+  }
+
+  const plugin = plugins.get(room.gameId);
+  if (!plugin || typeof plugin.onHostAction !== "function") {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "HOST_ACTION_UNSUPPORTED", message: `${room.gameId} has no host actions` }));
+    return true;
+  }
+
+  let handled = false;
+  try {
+    handled = plugin.onHostAction(room.gameState as GameInstance, action) === true;
+  } catch (e) {
+    console.error("[Server] Plugin onHostAction error:", e);
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "HOST_ACTION_FAILED", message: "The game rejected the action" }));
+    return true;
+  }
+  if (!handled) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "HOST_ACTION_UNSUPPORTED", message: `Unknown action: ${action}` }));
+    return true;
+  }
+
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: true, action }));
   return true;
 }
 
