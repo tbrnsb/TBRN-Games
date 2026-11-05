@@ -213,15 +213,18 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "party",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 3, rumble: 2 },
     dropoutPolicy: "continue",
     contentPacks: [],
-    scale: (playerCount) => ({
-      rounds: 8,
-      timers: { vote: 15, reveal: 4 },
+    scale: (playerCount, mode) => ({
+      // Standalone keeps the eight-round game; the Rumble runs five.
+      rounds: mode === "rumble" ? 5 : 8,
+      // The 15-second ballot and 4-second result are unchanged; the 2-second
+      // tally beat is the drum-roll added for eight-seat reveals.
+      timers: { vote: 15, tally: 2, reveal: 4 },
       optionCaps: { options: playerCount },
     }),
   },

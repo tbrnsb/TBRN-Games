@@ -234,6 +234,15 @@ describe("gameAvailability", () => {
     assert.strictEqual(gameAvailability(splitroom, 9), "max 8");
   });
 
+  test("mostlikely moved from 3-4 to 3-8", () => {
+    const mostlikely = GAME_CATALOG.mostlikely;
+    assert.strictEqual(gameAvailability(mostlikely, 2), "needs 3+");
+    assert.strictEqual(gameAvailability(mostlikely, 3), null);
+    assert.strictEqual(gameAvailability(mostlikely, 4), null);
+    assert.strictEqual(gameAvailability(mostlikely, 8), null);
+    assert.strictEqual(gameAvailability(mostlikely, 9), "max 8");
+  });
+
   test("survive moved from 3-4 to 3-6", () => {
     const survive = GAME_CATALOG.survive;
     assert.strictEqual(gameAvailability(survive, 2), "needs 3-6");
