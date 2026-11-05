@@ -1295,6 +1295,8 @@ interface RankView {
   submitLabel: string;
   disabled: boolean;
   hasSubmitted: boolean;
+  min: number;
+  max: number;
 }
 
 function rankView(state: unknown): RankView {
@@ -1309,6 +1311,8 @@ function rankView(state: unknown): RankView {
     submitLabel: typeof r.submitLabel === "string" ? r.submitLabel : "Submit",
     disabled: r.disabled === true,
     hasSubmitted: r.hasSubmitted === true,
+    min: typeof r.min === "number" ? Math.max(1, Math.floor(r.min)) : items.length,
+    max: typeof r.max === "number" ? Math.max(1, Math.floor(r.max)) : items.length,
   };
 }
 
@@ -1336,7 +1340,7 @@ export function createRankLayout(): ControllerLayout {
             ${pool ? `<div class="rank-pool">${pool}</div>` : ""}
             <div class="rank-actions">
               <button class="action-btn rank-reset" ${v.disabled ? "disabled" : ""}>Reset</button>
-              <button class="action-btn primary rank-submit" ${v.disabled || order.length !== v.items.length ? "disabled" : ""}>${escapeHtml(v.submitLabel)}</button>
+              <button class="action-btn primary rank-submit" ${v.disabled || order.length < v.min || order.length > v.max ? "disabled" : ""}>${escapeHtml(v.submitLabel)}</button>
             </div>
           </div>`;
 
@@ -1361,7 +1365,7 @@ export function createRankLayout(): ControllerLayout {
           paint();
         });
         container.querySelector(".rank-submit")?.addEventListener("click", () => {
-          if (v.disabled || order.length !== v.items.length) return;
+          if (v.disabled || order.length < v.min || order.length > v.max) return;
           onInput({ rank: { order } });
         });
       };
@@ -1371,7 +1375,7 @@ export function createRankLayout(): ControllerLayout {
     update(_container, _state) {},
     signature(state) {
       const v = rankView(state);
-      return JSON.stringify({ items: v.items.map((i) => `${i.id}|${i.label}`), d: v.disabled });
+      return JSON.stringify({ items: v.items.map((i) => `${i.id}|${i.label}`), d: v.disabled, min: v.min, max: v.max });
     },
   };
 }

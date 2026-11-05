@@ -1,0 +1,8 @@
+{
+  "id": "frankenanswers",
+  "name": "Frankenanswers",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "rank",
+  "description": "Everyone writes three word chips. Then build the best answer you can out of other people's words."
+}
