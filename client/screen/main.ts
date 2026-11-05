@@ -13,6 +13,8 @@ import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { GAME_CATALOG, gameAvailability } from "../../shared/game-catalog.ts";
 import { SEATS, seatForIndex, type SeatIdentity } from "../../shared/seat-identity.ts";
 import { stageScale } from "./layout.ts";
+import { drawVoteOptions, type VoteOption } from "./kit/vote.ts";
+import { scaleForViewport } from "./kit/theme.ts";
 
 console.log("[Screen] Module loaded");
 
@@ -805,6 +807,34 @@ function frameLoop(): void {
 }
 requestAnimationFrame(frameLoop);
 
+/** Normalise a game's screen `options` array into the kit's VoteOption shape. */
+function readVoteOptions(state: Record<string, unknown>): VoteOption[] {
+  if (!Array.isArray(state.options)) return [];
+  const options: VoteOption[] = [];
+  for (const raw of state.options) {
+    if (typeof raw === "string") {
+      options.push({ id: raw, label: raw });
+      continue;
+    }
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const label =
+      typeof record.label === "string"
+        ? record.label
+        : typeof record.text === "string"
+          ? record.text
+          : "";
+    if (!label) continue;
+    options.push({
+      id: typeof record.id === "string" ? record.id : String(options.length),
+      label,
+      votes: typeof record.votes === "number" ? record.votes : undefined,
+      selected: record.selected === true,
+    });
+  }
+  return options;
+}
+
 /** Generic renderer: works with every game's standard screen-state fields. */
 function renderGeneric(width: number, height: number): void {
   ctx.fillStyle = "#0F172A";
@@ -854,14 +884,33 @@ function renderGeneric(width: number, height: number): void {
     y = drawWrapped(ctx, bigText, 32, y, width - 64, 32) + 16;
   }
 
+  // Vote options: use the shared layout whenever a game exposes one, even if
+  // it has no custom renderer. This keeps letter badges and type sizes
+  // consistent with the phone controllers.
+  const voteOptions = readVoteOptions(state);
+  if (voteOptions.length > 0) {
+    const rect = {
+      x: 32,
+      y,
+      width: width - 64,
+      height: Math.max(120, height - y - 24),
+    };
+    drawVoteOptions(ctx, rect, voteOptions, {
+      scale: scaleForViewport(width, height),
+      selectedId: typeof state.selectedId === "string" ? state.selectedId : null,
+      showVoteCounts: state.showVoteCounts === true,
+    });
+    y = rect.y + rect.height;
+  }
+
   // Grid (traffic jam, sea battle style screen states).
-  if (Array.isArray(state.cells) && Array.isArray(state.cells[0])) {
+  if (voteOptions.length === 0 && Array.isArray(state.cells) && Array.isArray(state.cells[0])) {
     y = drawCellGrid(ctx, state.cells as string[][], 32, y, height - y - 260) + 16;
   }
 
   // Scores / players table.
   const players = Array.isArray(state.players) ? (state.players as Array<Record<string, unknown>>) : [];
-  if (players.length) {
+  if (voteOptions.length === 0 && players.length) {
     for (let i = 0; i < players.length && y < height - 120; i++) {
       const p = players[i];
       const seat = (p.seat as SeatIdentity | undefined) ?? seatForIndex(i);

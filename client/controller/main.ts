@@ -369,7 +369,11 @@ function statusFrom(controller: Record<string, unknown>): string {
   if (controller.yourTurn === true || controller.isYourTurn === true) return "Your turn";
   if (controller.yourTime === true) return "Time to write";
   if (controller.hasSubmitted === true) return "Answer locked in — waiting for others…";
-  if (controller.hasVoted === true) return "Vote locked in — waiting for others…";
+  if (controller.hasVoted === true) {
+    return controller.canChangeVote === true
+      ? "Vote cast — tap another to change it"
+      : "Vote locked in — waiting for others…";
+  }
   if (controller.yourTurn === false || controller.isYourTurn === false) {
     const turnName = controller.turnName;
     if (typeof turnName === "string" && turnName) return `Waiting for ${turnName}…`;

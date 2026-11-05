@@ -14,6 +14,8 @@
  * All text coming from game state is HTML-escaped before rendering.
  */
 
+import { optionLetter } from "./vote-options.ts";
+
 export type ControllerType =
   | "one-button"
   | "left-right"
@@ -230,6 +232,10 @@ export function createTextLayout(): ControllerLayout {
 export function choiceDisabled(state: unknown): boolean {
   if (!state || typeof state !== "object") return false;
   const s = state as Record<string, unknown>;
+  // Voting games may keep the ballot open after the first pick so a player can
+  // change their mind until everyone has voted. Honour the server's flag
+  // rather than inventing a rule on the phone.
+  if (s.canChangeVote === true) return false;
   const turn =
     typeof s.yourTurn === "boolean" ? s.yourTurn
       : typeof s.isYourTurn === "boolean" ? s.isYourTurn
@@ -247,10 +253,19 @@ export function createChoiceLayout(): ControllerLayout {
         : [];
       const disabled = choiceDisabled(state);
       const compact = options.length > 8 && options.every((o) => o.label.length <= 2);
+      // 7+ real vote options get the TV-matching letter badges and a dense
+      // two-column phone grid. Single-character keypads (Hangman-style) keep
+      // the existing compact auto-fill grid.
+      const twoColumn = !compact && options.length >= 7;
+      const layoutClass = compact
+        ? "choices choices-grid"
+        : twoColumn
+          ? "choices two-column"
+          : "choices";
       container.innerHTML = `
-        <div class="choices ${compact ? "choices-grid" : ""}">
-          ${options.map(opt => `
-            <button class="choice-btn" data-id="${escapeHtml(opt.id)}" ${disabled ? "disabled" : ""}>${escapeHtml(opt.label)}</button>
+        <div class="${layoutClass}">
+          ${options.map((opt, index) => `
+            <button class="choice-btn" data-id="${escapeHtml(opt.id)}" ${disabled ? "disabled" : ""}>${twoColumn ? `<span class="choice-letter" aria-hidden="true">${optionLetter(index)}</span>` : ""}${escapeHtml(opt.label)}</button>
           `).join("")}
         </div>
       `;

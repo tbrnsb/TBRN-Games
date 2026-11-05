@@ -30,5 +30,8 @@ export * from "./titleCard.ts";
 // Victory Screen
 export * from "./victory.ts";
 
+// Voting list / grid
+export * from "./vote.ts";
+
 // Utilities
 export * from "./utils.ts";

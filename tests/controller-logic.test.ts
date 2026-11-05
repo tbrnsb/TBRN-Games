@@ -29,6 +29,12 @@ describe("choice controller: lock semantics", () => {
     assert.strictEqual(choiceDisabled(null), false);
     assert.strictEqual(choiceDisabled(undefined), false);
   });
+
+  test("canChangeVote keeps the ballot open after a pick", () => {
+    assert.strictEqual(choiceDisabled({ options: [], hasVoted: true, canChangeVote: true }), false);
+    assert.strictEqual(choiceDisabled({ options: [], hasVoted: true, canChangeVote: false }), true);
+    assert.strictEqual(choiceDisabled({ options: [], hasVoted: true }), true);
+  });
 });
 
 describe("private grid: cell classes", () => {

@@ -620,8 +620,16 @@
       flex-direction: column;
       gap: 9px;
       width: 100%;
+      /* Long ballots scroll inside the play area instead of pushing the
+         coach/status off screen. */
+      max-height: min(62vh, 560px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding-right: 2px;
     }
     .choice-btn {
+      /* 56px stays above the 48dp minimum even at 1.5x text. Never shrink it. */
       min-height: 56px;
       padding: 12px 14px;
       border-radius: 12px;
@@ -657,6 +665,37 @@
       font-family: var(--display);
       font-weight: 700;
       font-size: 18px;
+    }
+    /* 7+ vote options: two columns with the same A/B/C badges as the TV. */
+    .choices.two-column {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      gap: 8px;
+    }
+    .choices.two-column .choice-btn {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 11px;
+      min-height: 56px;
+      overflow-wrap: anywhere;
+    }
+    .choice-letter {
+      flex: 0 0 auto;
+      display: inline-grid;
+      place-items: center;
+      min-width: 26px;
+      height: 26px;
+      padding: 0 4px;
+      border-radius: 7px;
+      background: rgba(255,46,151,0.15);
+      border: 1px solid rgba(255,46,151,0.45);
+      color: var(--magenta);
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 12px;
+      line-height: 1;
     }
     /* ---- Poker action bar ---- */
     .table-info {
