@@ -199,7 +199,7 @@ export function interludeCard(input: InterludeCardInput = {}): InterludeCard {
 
 // --- Caption bank ---------------------------------------------------------
 
-export type CaptionKind = "fooled" | "fastest" | "perfect" | "catchup" | "reveal";
+export type CaptionKind = "fooled" | "fastest" | "perfect" | "catchup" | "favourite" | "reveal";
 
 export interface CaptionEvent {
   kind: CaptionKind;
@@ -236,6 +236,11 @@ const CAPTION_BANK: Record<CaptionKind, readonly string[]> = {
     "Look out — {name} is coming back.",
     "{name} just made it interesting.",
   ],
+  favourite: [
+    "{name} won the room with {count} votes!",
+    "{count} votes for {name} — the crowd has spoken.",
+    "{name} is the crowd favourite with {count} votes.",
+  ],
   reveal: [
     "Here comes the reveal.",
     "Let's see how that landed.",
@@ -243,7 +248,7 @@ const CAPTION_BANK: Record<CaptionKind, readonly string[]> = {
   ],
 };
 
-const CAPTION_KINDS: readonly CaptionKind[] = ["fooled", "fastest", "perfect", "catchup", "reveal"];
+const CAPTION_KINDS: readonly CaptionKind[] = ["fooled", "fastest", "perfect", "catchup", "favourite", "reveal"];
 
 function isCaptionKind(value: unknown): value is CaptionKind {
   return typeof value === "string" && (CAPTION_KINDS as readonly string[]).includes(value);

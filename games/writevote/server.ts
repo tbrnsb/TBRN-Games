@@ -6,6 +6,14 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { canChangeVote } from "../../shared/vote-options.ts";
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import {
+  scalePayout,
+  standingsFromScores,
+  type GameResult,
+} from "../../shared/scoring.ts";
 
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
@@ -68,6 +76,7 @@ interface GamePlugin {
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
 
 // --- Game types ---
@@ -98,6 +107,8 @@ interface WriteVoteState {
   phaseTimerMs: number;
   scores: number[];
   lastResult: RoundResult | null;
+  /** Flat `<playerId>:<statKey>` counters for the finale awards. */
+  stats: Record<string, number>;
 }
 
 interface WriteVoteInstance extends GameInstance {
@@ -129,7 +140,7 @@ const manifest: GameManifest = {
   id: "writevote",
   name: "Write & Vote",
   minPlayers: 3,
-  maxPlayers: 4,
+  maxPlayers: 8,
   controllerType: "text",
   description:
     "Write your funniest response to the prompt. Everyone votes. Most votes wins!",
@@ -158,6 +169,52 @@ function nameOf(instance: WriteVoteInstance, playerId: string): string {
   return p ? p.name : "Unknown";
 }
 
+/** Per-player award counters (`Crowd Favourite`, creator stats). */
+function bumpStat(
+  state: WriteVoteState,
+  playerId: string,
+  stat: "votesReceived" | "wordsWritten",
+  amount = 1,
+): void {
+  const key = playerStatKey(playerId, stat);
+  state.stats[key] = (state.stats[key] ?? 0) + amount;
+}
+
+function waitingNames(instance: WriteVoteInstance): string[] {
+  const state = instance.state;
+  if (state.phase === "writing") {
+    return instance.players
+      .filter((p) => state.responses[p.id] === undefined)
+      .map((p) => p.name);
+  }
+  if (state.phase === "voting") {
+    return instance.players
+      .filter((p) => state.votes[p.id] === undefined)
+      .map((p) => p.name);
+  }
+  return [];
+}
+
+/** Public caption for the reveal: the top vote-getter and their count. */
+function revealCaption(state: WriteVoteState): string | null {
+  if (state.phase !== "reveal" || !state.lastResult) return null;
+
+  let top: RoundResponse | null = null;
+  for (const response of state.lastResult.responses) {
+    if (response.votes <= 0) continue;
+    if (!top || response.votes > top.votes) top = response;
+  }
+  if (top) {
+    return captionFor({
+      kind: "favourite",
+      name: top.author,
+      count: top.votes,
+      seed: state.currentPrompt,
+    });
+  }
+  return captionFor({ kind: "reveal", seed: state.currentPrompt });
+}
+
 function enterVoting(instance: WriteVoteInstance): void {
   const state = instance.state;
   state.voteOrder = secureShuffle(Object.keys(state.responses));
@@ -181,10 +238,15 @@ function buildResult(instance: WriteVoteInstance): RoundResult {
 function scoreRound(instance: WriteVoteInstance): void {
   const state = instance.state;
   const result = buildResult(instance);
+  // Per-vote payout scales with the table; 3-4 players stay at exactly 100.
+  const votePayout = scalePayout(POINTS_PER_VOTE, instance.players.length);
   for (const r of result.responses) {
     if (r.votes > 0) {
       const idx = instance.players.findIndex((p) => p.id === r.id);
-      if (idx >= 0) state.scores[idx] += r.votes * POINTS_PER_VOTE;
+      if (idx >= 0) {
+        state.scores[idx] += r.votes * votePayout;
+        bumpStat(state, r.id, "votesReceived", r.votes);
+      }
     }
   }
   state.lastResult = result;
@@ -223,6 +285,7 @@ const plugin: GamePlugin = {
         phaseTimerMs: WRITE_TIME_MS,
         scores: players.map(() => 0),
         lastResult: null,
+        stats: {},
       } satisfies WriteVoteState,
     } as WriteVoteInstance;
   },
@@ -237,6 +300,9 @@ const plugin: GamePlugin = {
     if (state.phase === "writing") {
       const text = cleanText(inp?.text);
       if (text === null) return;
+      if (state.responses[playerId] === undefined) {
+        bumpStat(state, playerId, "wordsWritten");
+      }
       state.responses[playerId] = text;
       if (respondedCount(state) >= instance.players.length) enterVoting(instance);
       return;
@@ -248,7 +314,13 @@ const plugin: GamePlugin = {
       if (!state.voteOrder.includes(choice)) return;
       // You cannot vote for your own response.
       if (choice === playerId) return;
-      if (state.votes[playerId] !== undefined) return; // one vote per player
+      // One vote per player, but it stays changeable (the later pick replaces
+      // the earlier one) until everyone has voted or the server clock ends.
+      if (!canChangeVote({
+        hasVoted: state.votes[playerId] !== undefined,
+        allVoted: votedCount(state) >= instance.players.length,
+        timeLeftMs: state.phaseTimerMs,
+      })) return;
       state.votes[playerId] = choice;
       // Everyone has at least two options (min 3 players), so all can vote.
       if (votedCount(state) >= instance.players.length) {
@@ -308,7 +380,10 @@ const plugin: GamePlugin = {
       responded: respondedCount(state),
       playerCount: instance.players.length,
       voted: votedCount(state),
+      waitingOn: waitingNames(instance),
       responses,
+      caption: revealCaption(state),
+      sound: isReveal ? "reveal" : null,
       timeLeft: Math.max(0, state.phaseTimerMs),
       scores: instance.players.map((p, i) => ({ name: p.name, score: state.scores[i] })),
       finished: state.phase === "finished",
@@ -352,6 +427,11 @@ const plugin: GamePlugin = {
         prompt: prompt ? prompt.text : null,
         options,
         hasVoted: state.votes[playerId] !== undefined,
+        canChangeVote: canChangeVote({
+          hasVoted: state.votes[playerId] !== undefined,
+          allVoted: votedCount(state) >= instance.players.length,
+          timeLeftMs: state.phaseTimerMs,
+        }),
         timeLeft: Math.max(0, state.phaseTimerMs),
         round: Math.min(state.currentPrompt + 1, state.prompts.length),
         totalRounds: state.prompts.length,
@@ -383,6 +463,16 @@ const plugin: GamePlugin = {
       winner: getWinner(instance),
       finished: true,
       youWon: getWinner(instance)?.name === instance.players[playerIndex].name,
+    };
+  },
+
+  results(instance: WriteVoteInstance): GameResult {
+    const state = instance.state;
+    return {
+      standings: standingsFromScores(
+        instance.players.map((p, i) => ({ id: p.id, raw: state.scores[i] })),
+      ),
+      stats: { ...state.stats },
     };
   },
 };

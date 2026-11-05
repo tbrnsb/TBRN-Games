@@ -205,6 +205,15 @@ describe("gameAvailability", () => {
     assert.strictEqual(gameAvailability(bluff, 9), "max 8");
   });
 
+  test("writevote moved from 3-4 to 3-8", () => {
+    const writevote = GAME_CATALOG.writevote;
+    assert.strictEqual(gameAvailability(writevote, 2), "needs 3+");
+    assert.strictEqual(gameAvailability(writevote, 3), null);
+    assert.strictEqual(gameAvailability(writevote, 4), null);
+    assert.strictEqual(gameAvailability(writevote, 8), null);
+    assert.strictEqual(gameAvailability(writevote, 9), "max 8");
+  });
+
   test("solo and fixed-seat games stay sane", () => {
     assert.strictEqual(gameAvailability({ minPlayers: 1, maxPlayers: 8 }, 1), null);
     assert.strictEqual(gameAvailability({ minPlayers: 1, maxPlayers: 8 }, 0), "needs 1+");

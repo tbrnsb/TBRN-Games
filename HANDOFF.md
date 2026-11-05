@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 357/357 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 373/373 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -39,15 +39,17 @@ Last gate: `npm test` 357/357 · typecheck clean · lint 0 errors (236 warnings)
 - Phase 3 (a) Bluff: 3-8 players, standalone 6 / rumble 4 (3 at 7+),
   truth 500 fixed, fooled 200 x f(N), Facts + 84-entry Dictionary packs,
   nine-option reveal grid, result stats.
+- Phase 3 (a) Write & Vote: 3-8, 100 x f(N) per vote, changeable votes,
+  six-plus-answer grid, result stats.
 
 ## In progress
 Phase 3: widen each existing game on its own task, in shared-system groups.
 Room cap is 8; a game stays at its old max until its own task.
 
 ## Next three actions
-1. Write & Vote (3-8, f(N) per vote).
-2. Split the Room (3-8, writer rotation).
-3. Survive the Internet (3-6, f(N) per vote).
+1. Split the Room (3-8, writer rotation).
+2. Survive the Internet (3-6, f(N) per vote).
+3. Then the chips/composed-text group.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and

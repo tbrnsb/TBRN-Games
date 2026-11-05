@@ -16,6 +16,7 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp,
 } from "../../client/screen/kit/index.ts";
+import { voteLayout, type VoteLayout } from "../../shared/vote-options.ts";
 
 interface WriteVoteResponse {
   text: string;
@@ -32,7 +33,10 @@ interface WriteVoteScreenState {
   responded: number;
   playerCount: number;
   voted: number;
+  waitingOn?: string[];
   responses: WriteVoteResponse[];
+  caption?: string | null;
+  sound?: string | null;
   timeLeft: number;
   scores: Array<{ name: string; score: number }>;
   finished: boolean;
@@ -283,11 +287,17 @@ function drawPhasePanel(
 
   ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.textMuted;
-  ctx.fillText(
-    writing ? "Everyone is writing on their phones…" : "Vote for the funniest response",
-    rect.x + rect.width / 2,
-    rect.y + rect.height * 0.62 + scaledSize(34, scale),
-  );
+  const waiting = state.waitingOn ?? [];
+  const hint = waiting.length > 0
+    ? `Waiting on: ${waiting.join(", ")}`
+    : writing
+      ? "Everyone is writing on their phones…"
+      : "Vote for the funniest response";
+  const hintLines = wrap(ctx, hint, rect.width - scaledSize(60, scale)).slice(0, 2);
+  const hintY = rect.y + rect.height * 0.62 + scaledSize(34, scale);
+  hintLines.forEach((line, i) => {
+    ctx.fillText(line, rect.x + rect.width / 2, hintY + i * scaledSize(20, scale));
+  });
 }
 
 function drawResponses(
@@ -300,6 +310,14 @@ function drawResponses(
   drawBentoCard(ctx, rect, { fill: "rgba(18,13,46,0.97)", stroke: colors.border });
 
   const responses = [...state.responses].sort((a, b) => b.votes - a.votes);
+  const layout = voteLayout(responses.length);
+  // Write & Vote switches to the two-column letter grid from six answers
+  // (brief 4) so a full 6-8 player reveal is never a squeeze.
+  if (responses.length >= 6) {
+    drawResponseGrid(ctx, rect, responses, layout, scale, now);
+    return;
+  }
+
   const gap = scaledSize(10, scale);
   const rowH = Math.min(
     scaledSize(110, scale),
@@ -368,6 +386,123 @@ function drawResponses(
       ctx.strokeStyle = colors.cyan;
       ctx.lineWidth = Math.max(1, scaledSize(2, scale));
       drawRoundRect(ctx, rect.x + scaledSize(12, scale), y, rect.width - scaledSize(24, scale), rowH, scaledSize(12, scale));
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  });
+}
+
+/**
+ * Six or more responses: two columns with the same A/B/C letter badges the
+ * phones show. The type floor comes from `voteLayout`, so the reveal stays
+ * readable at 1080p and 720p even at a full eight-player table.
+ */
+function drawResponseGrid(
+  ctx: CanvasRenderingContext2D,
+  rect: { x: number; y: number; width: number; height: number },
+  responses: WriteVoteResponse[],
+  layout: VoteLayout,
+  scale: number,
+  now: number,
+): void {
+  const columns = 2;
+  const rows = Math.max(1, Math.ceil(responses.length / columns));
+  const pad = scaledSize(14, scale);
+  const gap = scaledSize(10, scale);
+  const innerW = rect.width - pad * 2;
+  const innerH = rect.height - pad * 2;
+  const cellW = Math.max(1, (innerW - gap * (columns - 1)) / columns);
+  const cellH = Math.max(1, (innerH - gap * (rows - 1)) / rows);
+
+  const minFont = scaledSize(layout.minFontPx, scale);
+  const maxFont = scaledSize(layout.maxFontPx, scale);
+  const fontPx = Math.max(minFont, Math.min(maxFont, Math.round(cellH * 0.3)));
+  const metaSize = Math.max(scaledSize(12, scale), Math.min(scaledSize(16, scale), cellH * 0.15));
+  const badgeSize = Math.max(
+    scaledSize(20, scale),
+    Math.min(cellH * 0.42, cellW * 0.16, scaledSize(44, scale)),
+  );
+  const innerPad = scaledSize(12, scale);
+  const textGap = scaledSize(10, scale);
+  const maxVotes = Math.max(1, ...responses.map((r) => r.votes));
+
+  responses.forEach((response, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const x = rect.x + pad + column * (cellW + gap);
+    const y = rect.y + pad + row * (cellH + gap);
+    const isTop = index === 0 && response.votes > 0;
+    const votes = `${response.votes} ${response.votes === 1 ? "vote" : "votes"}`;
+
+    ctx.save();
+    drawRoundRect(
+      ctx,
+      x,
+      y,
+      cellW,
+      cellH,
+      scaledSize(12, scale),
+      isTop ? "rgba(0,229,255,0.10)" : "rgba(11,8,32,0.72)",
+      isTop ? colors.cyan : "rgba(255,255,255,0.07)",
+      isTop ? Math.max(1, scaledSize(2, scale)) : 1,
+    );
+
+    const badgeX = x + innerPad;
+    const badgeY = y + (cellH - badgeSize) / 2;
+    drawRoundRect(
+      ctx,
+      badgeX,
+      badgeY,
+      badgeSize,
+      badgeSize,
+      scaledSize(8, scale),
+      isTop ? colors.cyan : "rgba(255,255,255,0.10)",
+      isTop ? colors.cyan : "rgba(255,255,255,0.16)",
+      1,
+    );
+    ctx.fillStyle = isTop ? colors.bg0 : colors.text;
+    ctx.font = `700 ${Math.max(scaledSize(11, scale), Math.round(badgeSize * 0.46))}px ${fonts.display.family}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(layout.letters[index] ?? "", badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 1);
+
+    const textX = badgeX + badgeSize + textGap;
+    const textW = Math.max(scaledSize(24, scale), x + cellW - innerPad - textX);
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 ${metaSize}px ${fonts.body.family}`;
+    ctx.fillStyle = isTop ? colors.cyan : colors.textMuted;
+    ctx.fillText(`${response.author}  ·  ${votes}`, textX, y + cellH * 0.28, textW);
+
+    ctx.font = `600 ${fontPx}px ${fonts.display.family}`;
+    ctx.fillStyle = colors.text;
+    const lines = wrap(ctx, response.text, textW).slice(0, 2);
+    const lh = fontPx * 1.08;
+    const startY = y + cellH * 0.58;
+    lines.forEach((line, li) => ctx.fillText(line, textX, startY + li * lh));
+
+    // Vote bar along the bottom of the cell.
+    const barW = cellW - innerPad * 2;
+    const barY = y + cellH - scaledSize(9, scale);
+    drawRoundRect(ctx, badgeX, barY, barW, scaledSize(3, scale), scaledSize(1.5, scale), "rgba(255,255,255,0.06)");
+    drawRoundRect(
+      ctx,
+      badgeX,
+      barY,
+      Math.max(scaledSize(3, scale), barW * (response.votes / maxVotes)),
+      scaledSize(3, scale),
+      scaledSize(1.5, scale),
+      isTop ? colors.cyan : colors.player[index % colors.player.length],
+    );
+
+    if (isTop) {
+      const pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
+      ctx.globalAlpha = 0.25 + 0.35 * pulse;
+      ctx.strokeStyle = colors.cyan;
+      ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+      drawRoundRect(ctx, x, y, cellW, cellH, scaledSize(12, scale));
       ctx.stroke();
       ctx.globalAlpha = 1;
     }

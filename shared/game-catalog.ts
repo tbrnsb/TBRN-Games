@@ -93,14 +93,15 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "writing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 6, rumble: 4 },
     dropoutPolicy: "continue",
     contentPacks: [],
-    scale: (playerCount) => ({
-      rounds: 5,
+    scale: (playerCount, mode) => ({
+      // Five standalone rounds; the Rumble runs three shorter rounds.
+      rounds: mode === "rumble" ? 3 : 5,
       timers: { write: 45, vote: 20, reveal: 6 },
       optionCaps: { options: playerCount },
     }),
