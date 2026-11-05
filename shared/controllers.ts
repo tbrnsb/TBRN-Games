@@ -1131,6 +1131,13 @@ export function createCanvasLayout(): ControllerLayout {
           ${v.prompt ? `<div class="canvas-prompt">${escapeHtml(v.prompt)}</div>` : ""}
           <canvas class="draw-surface" width="600" height="600" ${v.disabled ? 'style="opacity:.45"' : ""}></canvas>
           <div class="canvas-tools">
+            <div class="canvas-colors">
+              ${["#111111", "#e23b3b", "#f0a500", "#2f9e44", "#2f6fed", "#8e44ad"].map((c, i) => `
+                <button class="canvas-swatch ${i === 0 ? "active" : ""}" data-color="${c}" style="--swatch:${c}" aria-label="Colour ${i + 1}"></button>`).join("")}
+            </div>
+            <div class="canvas-sizes">
+              ${[3, 6, 12].map((w, i) => `<button class="canvas-size ${i === 1 ? "active" : ""}" data-width="${w}"><span style="--dot:${w}px"></span></button>`).join("")}
+            </div>
             <button class="action-btn clear-drawing" ${v.disabled ? "disabled" : ""}>Clear</button>
           </div>
         </div>`;
@@ -1139,8 +1146,27 @@ export function createCanvasLayout(): ControllerLayout {
       const ctx = canvas.getContext("2d")!;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.strokeStyle = v.color;
-      ctx.lineWidth = 6;
+      let colour = v.color;
+      let width = 6;
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = width;
+
+      container.querySelectorAll<HTMLButtonElement>(".canvas-swatch").forEach((swatch) => {
+        swatch.addEventListener("click", () => {
+          colour = swatch.dataset.color ?? colour;
+          ctx.strokeStyle = colour;
+          container.querySelectorAll(".canvas-swatch").forEach((s2) => s2.classList.remove("active"));
+          swatch.classList.add("active");
+        });
+      });
+      container.querySelectorAll<HTMLButtonElement>(".canvas-size").forEach((size) => {
+        size.addEventListener("click", () => {
+          width = Number(size.dataset.width ?? 6);
+          ctx.lineWidth = width;
+          container.querySelectorAll(".canvas-size").forEach((s2) => s2.classList.remove("active"));
+          size.classList.add("active");
+        });
+      });
 
       let points: Array<[number, number]> = [];
       let drawing = false;
@@ -1180,7 +1206,7 @@ export function createCanvasLayout(): ControllerLayout {
         if (points.length < 2) return;
         const rounded = points.map(([x, y]) => [Number(x.toFixed(3)), Number(y.toFixed(3))]);
         points = [];
-        onInput({ stroke: { points: rounded, color: v.color } });
+        onInput({ stroke: { points: rounded, color: colour, width } });
       };
       canvas.addEventListener("pointerup", finish);
       canvas.addEventListener("pointercancel", finish);

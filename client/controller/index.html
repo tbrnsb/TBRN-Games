@@ -1004,6 +1004,20 @@
       border: 1px solid var(--border, rgba(255,255,255,.12));
     }
     .howto.hidden { display: none; }
+    .canvas-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .canvas-colors { display: flex; gap: 6px; }
+    .canvas-swatch {
+      width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border, rgba(255,255,255,.2));
+      background: var(--swatch); padding: 0;
+    }
+    .canvas-swatch.active { outline: 3px solid var(--accent, #ffd166); outline-offset: 2px; }
+    .canvas-sizes { display: flex; gap: 6px; margin-left: auto; }
+    .canvas-size {
+      width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+      border: 1px solid var(--border, rgba(255,255,255,.2)); background: var(--surface, rgba(255,255,255,.06));
+    }
+    .canvas-size span { display: block; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--text, #fff); }
+    .canvas-size.active { outline: 2px solid var(--accent, #ffd166); outline-offset: 1px; }
   </style>
 </head>
 <body>

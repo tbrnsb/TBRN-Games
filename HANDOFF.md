@@ -80,3 +80,4 @@ Do not commit or push without the human asking.
 - feat(games): add slide roulette with a written slide deck
 - feat(games): add last seat with trivia, minigames and a finale
 - feat(meta): per-game theme.json and howTo tutorials on every game
+- feat(controllers): colour and brush size pickers on the draw layout
