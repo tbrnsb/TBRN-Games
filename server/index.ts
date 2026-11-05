@@ -1311,7 +1311,7 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
   req.on("data", (chunk: Buffer) => { body += chunk; });
   req.on("end", () => {
     try {
-      const { gameId } = JSON.parse(body);
+      const { gameId, options } = JSON.parse(body) as { gameId: string; options?: Record<string, unknown> };
       const plugin = plugins.get(gameId);
       if (!plugin) {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -1360,7 +1360,7 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
 
       room.gameId = gameId;
       room.status = "playing";
-      room.gameState = plugin.onStart(room, room.players);
+      room.gameState = plugin.onStart(room, room.players, options);
       if (session) {
         startRound(session, gameId);
         broadcastSession(room);

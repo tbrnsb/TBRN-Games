@@ -147,6 +147,8 @@ function updateLaunchBar(): void {
   const reachable = selectedGameReachable();
 
   selectedGameEl.textContent = game ? game.name : "No game picked";
+  // Poker is the only game with host-tunable settings so far.
+  document.getElementById("stackField")?.classList.toggle("hidden", game?.id !== "poker");
 
   if (!game) {
     startBtn.textContent = "Pick a game";
@@ -313,6 +315,17 @@ async function endRumble(): Promise<void> {
   }
 }
 
+/** Host-tunable settings for the few games that take them. */
+function hostOptionsFor(gameId: string): Record<string, unknown> {
+  if (gameId !== "poker") return {};
+  const stack = Number((document.getElementById("stackInput") as HTMLInputElement | null)?.value);
+  const hands = Number((document.getElementById("handsInput") as HTMLInputElement | null)?.value);
+  const options: Record<string, unknown> = {};
+  if (Number.isFinite(stack)) options.startingStack = stack;
+  if (Number.isFinite(hands)) options.maxHands = hands;
+  return options;
+}
+
 async function startSessionGame(gameId: string): Promise<void> {
   if (!roomId || !gameId) return;
   sessionStartBtn.disabled = true;
@@ -320,7 +333,7 @@ async function startSessionGame(gameId: string): Promise<void> {
     const res = await fetch(`/api/rooms/${roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": hostToken },
-      body: JSON.stringify({ gameId }),
+      body: JSON.stringify({ gameId, options: hostOptionsFor(gameId) }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { message?: string };

@@ -63,7 +63,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -615,9 +615,19 @@ function autoAct(instance: PokerInstance): void {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): PokerInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): PokerInstance {
+    // The host picks the stack and the number of hands. Everyone starts equal.
+    const rawStack = Number(options?.startingStack);
+    const startingStack = Number.isFinite(rawStack)
+      ? Math.min(100000, Math.max(100, Math.round(rawStack)))
+      : STARTING_CHIPS;
+    const rawHands = Number(options?.maxHands);
+    const maxHands = Number.isFinite(rawHands)
+      ? Math.min(50, Math.max(1, Math.round(rawHands)))
+      : MAX_HANDS;
+
     const seats: SeatState[] = players.map(() => ({
-      chips: STARTING_CHIPS,
+      chips: startingStack,
       bet: 0,
       totalBet: 0,
       folded: false,
@@ -642,7 +652,7 @@ const plugin: GamePlugin = {
         turnIndex: -1,
         phase: "preflop",
         handNumber: 0,
-        maxHands: MAX_HANDS,
+        maxHands,
         actionTimerMs: ACTION_TIMEOUT_MS,
         transitionTimerMs: 0,
         awaitingTransition: null,

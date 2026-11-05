@@ -54,7 +54,7 @@ export interface GamePlugin<
   TControllerState = unknown
 > {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance<TState>;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance<TState>;
   onInput(instance: GameInstance<TState>, playerId: string, input: TInput): void;
   onTick(instance: GameInstance<TState>, deltaMs: number): void;
   screenState(instance: GameInstance<TState>): TScreenState;
