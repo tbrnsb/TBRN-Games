@@ -53,6 +53,10 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   byes, 2 brackets at 3-4 / one at 5-6, new TV bracket renderer, stats.
 - Phase 3 (c) Stowaway: 3-8, three-word clue cap, 500 x f(N) correct voters,
   round-1 setup bug fixed, pre-reveal secrecy, stats.
+- Phase 3 (c) Fakin' It: 3-8, shuffled Faker cycles, 200 x f(N) correct
+  voters, strict majority, TV secrecy, stats.
+- Phase 3 (c) Blather Round: 3-8, min(N,6)/4 rounds, speed-decayed guesses
+  (floor 100), presenter 100 x f(N) capped 600, word hidden until reveal.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,

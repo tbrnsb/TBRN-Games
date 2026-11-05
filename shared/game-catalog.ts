@@ -273,13 +273,17 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "party",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
-    minutes: { standalone: 5, rumble: 5 },
+    minutes: { standalone: 6, rumble: 4 },
     dropoutPolicy: "void-round",
     contentPacks: [],
-    scale: fixedScale(3, { clue: 40, guess: 45, reveal: 8 }),
+    scale: (playerCount, mode) => ({
+      // One round per player, capped at six standalone; the Rumble runs four.
+      rounds: mode === "rumble" ? 4 : Math.min(Math.max(playerCount, 1), 6),
+      timers: { clue: 45, guess: 45, reveal: 8 },
+    }),
   },
   slideroulette: {
     id: "slideroulette",
