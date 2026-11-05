@@ -18,6 +18,9 @@ export * from "./bento.ts";
 // Scoreboard & Animated Counters
 export * from "./scoreboard.ts";
 
+// Watchability overlays (ticker, waiting banner, caption, reveal)
+export * from "./ticker.ts";
+
 // Particles
 export * from "./particles.ts";
 

@@ -729,6 +729,165 @@
       color: var(--color-danger);
     }
     #pauseEnd:hover { background: rgba(255, 77, 109, 0.18); }
+    /* ---- Between-game interlude ---- */
+    .interlude {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 3vw, 48px);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(255, 46, 151, 0.20), transparent 55%),
+        rgba(7, 5, 15, 0.95);
+      backdrop-filter: blur(8px);
+    }
+    .interlude-card {
+      width: min(1040px, 96vw);
+      max-height: calc(100vh - clamp(32px, 6vw, 96px));
+      overflow-y: auto;
+      padding: clamp(22px, 3vw, 40px) clamp(22px, 3.2vw, 46px);
+      border-radius: var(--radius-card);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: linear-gradient(160deg, rgba(37, 28, 90, 0.97), rgba(20, 15, 51, 0.96));
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(12px, 1.4vw, 20px);
+      animation: rise 240ms ease both;
+    }
+    .interlude-kicker {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(12px, 1vw, 15px);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-magenta);
+    }
+    .interlude-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(30px, 3.4vw, 52px);
+      line-height: 1.05;
+    }
+    .interlude-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: clamp(18px, 2.4vw, 36px);
+      align-items: start;
+    }
+    .interlude-label {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(12px, 1vw, 15px);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-text-muted);
+      margin-bottom: 8px;
+    }
+    .interlude-empty { font-size: clamp(15px, 1.2vw, 18px); color: var(--color-text-muted); }
+    .il-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: clamp(5px, 0.55vw, 8px) 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .il-row:last-child { border-bottom: 0; }
+    .il-move {
+      width: clamp(18px, 1.5vw, 24px);
+      text-align: center;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(13px, 1.1vw, 17px);
+      color: var(--color-text-muted);
+      flex: 0 0 auto;
+    }
+    .il-move.up { color: var(--color-success); }
+    .il-move.down { color: var(--color-danger); }
+    .il-move.new {
+      color: var(--color-cyan);
+      font-size: clamp(10px, 0.85vw, 13px);
+      letter-spacing: 0.04em;
+    }
+    .il-row .badge {
+      width: clamp(22px, 1.9vw, 30px);
+      height: clamp(22px, 1.9vw, 30px);
+      border-radius: 7px;
+      display: inline-grid;
+      place-items: center;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(12px, 1vw, 15px);
+      color: var(--ink);
+      flex: 0 0 auto;
+    }
+    .il-row .nm {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(16px, 1.35vw, 21px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .il-row .pts {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(16px, 1.35vw, 21px);
+      color: var(--color-amber);
+      font-variant-numeric: tabular-nums;
+    }
+    .il-next {
+      padding: clamp(14px, 1.6vw, 22px);
+      border-radius: 12px;
+      background: rgba(255, 46, 151, 0.08);
+      border: 1px solid rgba(255, 46, 151, 0.32);
+    }
+    .next-game {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(26px, 2.8vw, 42px);
+      line-height: 1.08;
+    }
+    .next-rule {
+      margin-top: 8px;
+      font-size: clamp(16px, 1.4vw, 22px);
+      line-height: 1.4;
+      color: var(--color-text);
+      opacity: 0.88;
+    }
+    .next-count {
+      margin-top: 10px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(15px, 1.2vw, 19px);
+      color: var(--color-cyan);
+    }
+    .interlude-foot {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.09);
+      padding-top: clamp(10px, 1.2vw, 16px);
+    }
+    .il-count {
+      margin-right: auto;
+      font-family: var(--font-title);
+      font-weight: 700;
+      font-size: clamp(24px, 2.4vw, 36px);
+      color: var(--color-cyan);
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 900px) {
+      .interlude-body { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .interlude-card { animation: none; }
+    }
   </style>
 </head>
 <body>
@@ -848,6 +1007,28 @@
       <canvas id="gameCanvas" width="1280" height="720"></canvas>
     </section>
   </main>
+  <div class="interlude hidden" id="interlude" role="dialog" aria-live="polite" aria-labelledby="interludeTitle">
+    <div class="interlude-card">
+      <p class="interlude-kicker" id="interludeKicker">Between games</p>
+      <h2 class="interlude-title" id="interludeTitle">That's a wrap</h2>
+      <div class="interlude-body">
+        <section class="interlude-standings">
+          <p class="interlude-label">Standings</p>
+          <div id="interludeStandings"></div>
+        </section>
+        <section class="il-next">
+          <p class="interlude-label">Next up</p>
+          <p class="next-game" id="interludeGame">Table's choice</p>
+          <p class="next-rule" id="interludeRule">The host picks the next game on the TV.</p>
+          <p class="next-count" id="interludeCount">Waiting for players</p>
+        </section>
+      </div>
+      <div class="interlude-foot">
+        <span class="il-count" id="interludeCountdown" aria-label="Seconds left">15s</span>
+        <button class="primary" id="interludeSkip" type="button">Skip</button>
+      </div>
+    </div>
+  </div>
   <div class="pause-overlay hidden" id="pauseOverlay" role="alertdialog" aria-live="assertive" aria-labelledby="pauseTitle">
     <div class="pause-card">
       <p class="pause-kicker">Game paused</p>

@@ -8,13 +8,24 @@
  * otherwise a generic renderer draws the standard screen-state fields.
  */
 
-import type { ServerMessage, RoomState, RoomPause, SessionView, PlayerPresence } from "../../shared/types.ts";
+import type { ServerMessage, RoomState, RoomPause, SessionView, Player } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { GAME_CATALOG, gameAvailability } from "../../shared/game-catalog.ts";
 import { SEATS, seatForIndex, type SeatIdentity } from "../../shared/seat-identity.ts";
+import { interludeCard, standingsMovement, type MovementDirection } from "../../shared/interlude.ts";
 import { stageScale } from "./layout.ts";
 import { drawVoteOptions, type VoteOption } from "./kit/vote.ts";
 import { scaleForViewport } from "./kit/theme.ts";
+import {
+  createWatchOverlay,
+  drawWatchOverlay,
+  revealTextFromScreen,
+  tickerRowsFromScreen,
+  updateWatchOverlay,
+  waitingNamesFromScreen,
+  type WatchOverlayState,
+  type WatchTickerRow,
+} from "./kit/ticker.ts";
 
 console.log("[Screen] Module loaded");
 
@@ -36,9 +47,37 @@ let endConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 let roomPause: RoomPause | null = null;
 let pauseTicker: ReturnType<typeof setInterval> | null = null;
 
+/** Live room players, kept for the between-game card and interlude badges. */
+let roomPlayers: Player[] = [];
+/** Standings captured when the current game started, for up/down movement. */
+let standingsBeforeGame: StandingRow[] | null = null;
+/** Final standings of the last standalone game, so the next one can show movement. */
+let lastStandings: StandingRow[] | null = null;
+let snapshotGameId: string | null = null;
+let interludeTimer: ReturnType<typeof setTimeout> | null = null;
+let interludeTicker: ReturnType<typeof setInterval> | null = null;
+
+/** Never-a-dead-screen canvas layer, shared across the whole game loop. */
+const watchOverlay: WatchOverlayState = createWatchOverlay();
+const reducedMotionQuery =
+  typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+let prefersReducedMotion = reducedMotionQuery?.matches ?? false;
+if (reducedMotionQuery) {
+  reducedMotionQuery.addEventListener("change", (event) => {
+    prefersReducedMotion = event.matches;
+  });
+}
+
+interface StandingRow {
+  playerId: string;
+  name: string;
+  points: number;
+}
+
 /** Seat lookup for scoreboards, refreshed from every room state. */
 const seatByPlayerId = new Map<string, SeatIdentity>();
 const seatByPlayerName = new Map<string, SeatIdentity>();
+const playerIdByName = new Map<string, string>();
 
 interface GameManifestLite {
   id: string;
@@ -105,6 +144,15 @@ const pauseTitle = document.getElementById("pauseTitle")!;
 const pauseCountdown = document.getElementById("pauseCountdown")!;
 const pauseWaitBtn = document.getElementById("pauseWait") as HTMLButtonElement;
 const pauseEndBtn = document.getElementById("pauseEnd") as HTMLButtonElement;
+const interludeEl = document.getElementById("interlude")!;
+const interludeKicker = document.getElementById("interludeKicker")!;
+const interludeTitle = document.getElementById("interludeTitle")!;
+const interludeStandingsEl = document.getElementById("interludeStandings")!;
+const interludeGameEl = document.getElementById("interludeGame")!;
+const interludeRuleEl = document.getElementById("interludeRule")!;
+const interludeCountEl = document.getElementById("interludeCount")!;
+const interludeCountdownEl = document.getElementById("interludeCountdown")!;
+const interludeSkipBtn = document.getElementById("interludeSkip") as HTMLButtonElement;
 
 function getPlayersList(): HTMLElement {
   return _playersList;
@@ -203,7 +251,10 @@ function updateLaunchBar(): void {
 
 /** Show the session panel, the final trophy board, or the normal game shelf. */
 function applySession(view: SessionView | null): void {
+  const hadSession = sessionView !== null;
   sessionView = view;
+  // Standalone movement never compares across a Rumble boundary.
+  if (view === null || !hadSession) lastStandings = null;
   // Ending a paused Rumble round skips to the next game instead of ending it.
   pauseEndBtn.textContent = view?.status === "playing" ? "Skip to next game" : "End game";
   const inSession = view !== null;
@@ -468,7 +519,7 @@ function connect() {
 /**
  * The server returns the room to the lobby on the same tick that a game
  * reports "finished". Keep the final frame on screen for a few seconds so the
- * victory screen can actually play, then fall back to the lobby.
+ * victory screen can actually play, then show the between-game interlude.
  */
 function beginResultsHold(ms: number): void {
   resultsHoldUntil = performance.now() + ms;
@@ -476,9 +527,13 @@ function beginResultsHold(ms: number): void {
   resultsTimer = setTimeout(() => {
     resultsTimer = null;
     resultsHoldUntil = 0;
+    // The interlude needs the final screen and game name; clear them after.
+    const finishedScreen = currentScreen;
+    const finishedName = currentGameName;
     currentGameId = null;
     currentScreen = null;
     showLobby();
+    beginInterlude(finishedScreen, finishedName);
   }, ms);
 }
 
@@ -544,6 +599,22 @@ function handleMessage(msg: ServerMessage) {
     currentScreen = payload.screen;
     if (payload.gameId !== undefined) currentGameId = payload.gameId;
     if (payload.gameName) currentGameName = payload.gameName;
+
+    // Snapshot the standings once per game so the interlude can show movement.
+    // A Rumble uses its own points; a standalone game compares with the
+    // previous standalone finish, and has no baseline on the first game.
+    if (currentGameId && currentGameId !== snapshotGameId) {
+      snapshotGameId = currentGameId;
+      if (sessionView && sessionView.standings.length > 0) {
+        standingsBeforeGame = sessionView.standings.map((standing) => ({
+          playerId: standing.playerId,
+          name: standing.name,
+          points: standing.points,
+        }));
+      } else {
+        standingsBeforeGame = lastStandings ? lastStandings.map((row) => ({ ...row })) : null;
+      }
+    }
 
     const finished = !!payload.screen && typeof payload.screen === "object" && (payload.screen as { finished?: unknown }).finished === true;
     if (finished) beginResultsHold(7000);
@@ -648,20 +719,23 @@ function updatePauseCountdown(): void {
 }
 
 function updatePlayers(
-  players: Array<{ id: string; name: string; connected: boolean; presence?: PlayerPresence; spectator?: boolean; seat?: SeatIdentity }>,
+  players: Player[],
   status: string,
   gameId: string | null,
 ): void {
   playerCount = players.length;
   playerCountEl.textContent = String(playerCount);
+  roomPlayers = players;
 
   seatByPlayerId.clear();
   seatByPlayerName.clear();
+  playerIdByName.clear();
   const bySeat = new Map<number, (typeof players)[number]>();
   players.forEach((player, index) => {
     const seat = player.seat ?? seatForIndex(index);
     seatByPlayerId.set(player.id, seat);
     seatByPlayerName.set(player.name, seat);
+    playerIdByName.set(player.name, player.id);
     bySeat.set(seat.index, player);
   });
 
@@ -714,6 +788,154 @@ function selectedGameReachable(): boolean {
   return !!g && unavailableReason(g) === null;
 }
 
+// --- Between-game interlude ---
+
+/** Standings from whichever score table the finished game published. */
+function standingsFromScreen(screen: unknown): StandingRow[] {
+  return tickerRowsFromScreen(screen)
+    .map((row) => ({
+      playerId: playerIdByName.get(row.name) ?? row.name,
+      name: row.name,
+      points: row.score,
+    }))
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+}
+
+/**
+ * Current standings for the interlude. A Rumble's own table wins because it
+ * already carries placement points; otherwise the finished game's final scores
+ * are read from the screen, and the bare seat list is the last resort.
+ */
+function currentStandingRows(screen: unknown): StandingRow[] {
+  if (sessionView && sessionView.standings.length > 0) {
+    return sessionView.standings.map((standing) => ({
+      playerId: standing.playerId,
+      name: standing.name,
+      points: standing.points,
+    }));
+  }
+  const fromScreen = standingsFromScreen(screen);
+  if (fromScreen.length > 0) return fromScreen;
+  return roomPlayers
+    .filter((player) => !player.spectator)
+    .map((player) => ({ playerId: player.id, name: player.name, points: 0 }));
+}
+
+/** The next game to headline: the Rumble leader, else the lobby's pick. */
+function nextGameForInterlude(): { name: string; description?: string } | null {
+  if (sessionView) {
+    const wanted = sessionView.leadingGameId ?? sessionView.currentGameId;
+    const candidate =
+      sessionView.candidates.find((game) => game.id === wanted) ?? sessionView.candidates[0] ?? null;
+    if (candidate) return { name: candidate.name, description: candidate.description };
+    return null;
+  }
+  const game = manifests.find((manifest) => manifest.id === selectedGameId) ?? null;
+  return game ? { name: gameName(game), description: game.description } : null;
+}
+
+function movementGlyph(direction: MovementDirection): string {
+  if (direction === "up") return "▲";
+  if (direction === "down") return "▼";
+  if (direction === "new") return "NEW";
+  return "–";
+}
+
+function renderInterludeStandings(rows: StandingRow[], movement: Map<string, MovementDirection>): void {
+  interludeStandingsEl.innerHTML = "";
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "interlude-empty";
+    empty.textContent = "Waiting for players";
+    interludeStandingsEl.appendChild(empty);
+    return;
+  }
+
+  for (const row of rows.slice(0, 8)) {
+    const direction = movement.get(row.playerId) ?? "same";
+    const seat = seatByPlayerId.get(row.playerId) ?? seatByPlayerName.get(row.name);
+    const el = document.createElement("div");
+    el.className = "il-row";
+    el.innerHTML = `
+      <span class="il-move ${direction}" aria-label="${direction === "new" ? "new" : direction}">${movementGlyph(direction)}</span>
+      ${seat ? `<span class="badge" style="background:${seat.color}" title="${escapeHtml(seat.shape)}" aria-hidden="true">${seat.emoji}</span>` : ""}
+      <span class="nm">${escapeHtml(row.name)}</span>
+      <span class="pts">${row.points}</span>
+    `;
+    interludeStandingsEl.appendChild(el);
+  }
+}
+
+/**
+ * Show the 15-second between-game card: standings movement, next game, live
+ * player count, a visible countdown and a host Skip button. The lobby sits
+ * behind it, so skipping lands straight back on the picker or voting panel.
+ */
+function beginInterlude(screen: unknown, gameLabel: string): void {
+  const activePlayers = roomPlayers.filter(
+    (player) => !player.spectator && (player.presence ?? (player.connected ? "active" : "away")) === "active",
+  );
+
+  // The finale and an empty room are not between-game moments.
+  if (sessionView?.status === "finished" || activePlayers.length === 0) {
+    standingsBeforeGame = null;
+    return;
+  }
+
+  const card = interludeCard({
+    session: sessionView,
+    nextGame: nextGameForInterlude(),
+    players: roomPlayers,
+  });
+
+  const current = currentStandingRows(screen);
+  const previous = standingsBeforeGame ?? current;
+  const movement = new Map(standingsMovement(previous, current).map((item) => [item.playerId, item.direction]));
+
+  interludeTitle.textContent = card.title;
+  interludeKicker.textContent = sessionView
+    ? `Round ${Math.max(1, sessionView.round - 1)} of ${sessionView.length}${gameLabel ? ` · ${gameLabel}` : ""}`
+    : gameLabel || "Between games";
+  renderInterludeStandings(current, movement);
+
+  interludeGameEl.textContent = card.gameName;
+  interludeRuleEl.textContent = card.rule;
+  interludeCountEl.textContent =
+    card.playerCount > 0
+      ? `Playing with ${card.playerCount} ${card.playerCount === 1 ? "player" : "players"}`
+      : "Waiting for players";
+
+  // Remember this finish for the next standalone game's movement. An all-zero
+  // fallback table is not a real result, so it never becomes the new baseline.
+  if (current.some((row) => row.points !== 0)) lastStandings = current;
+  standingsBeforeGame = null;
+
+  if (interludeTimer) clearTimeout(interludeTimer);
+  if (interludeTicker) clearInterval(interludeTicker);
+  interludeEl.classList.remove("hidden");
+
+  const startedAt = performance.now();
+  const total = card.durationMs;
+  interludeCountdownEl.textContent = `${Math.ceil(total / 1000)}s`;
+  interludeTicker = setInterval(() => {
+    const left = Math.max(0, total - (performance.now() - startedAt));
+    interludeCountdownEl.textContent = `${Math.ceil(left / 1000)}s`;
+  }, 250);
+  interludeTimer = setTimeout(dismissInterlude, total);
+}
+
+function dismissInterlude(): void {
+  interludeEl.classList.add("hidden");
+  if (interludeTimer) {
+    clearTimeout(interludeTimer);
+    interludeTimer = null;
+  }
+  if (interludeTicker) {
+    clearInterval(interludeTicker);
+    interludeTicker = null;
+  }
+}
+
 function showLobby() {
   lobby.classList.remove("hidden");
   playing.classList.add("hidden");
@@ -730,6 +952,7 @@ function fitLobby(): void {
 }
 
 function showPlaying() {
+  dismissInterlude();
   const wasHidden = playing.classList.contains("hidden");
   lobby.classList.add("hidden");
   playing.classList.remove("hidden");
@@ -827,6 +1050,10 @@ pauseWaitBtn.addEventListener("click", async () => {
 });
 pauseEndBtn.addEventListener("click", () => void endGame());
 
+// The screen already holds the host token; skipping is a local dismiss because
+// the lobby (or the Rumble voting panel) is already rendered behind the card.
+interludeSkipBtn.addEventListener("click", dismissInterlude);
+
 // --- Rendering ---
 type ScreenRenderer = (ctx: CanvasRenderingContext2D, width: number, height: number, state: unknown) => void;
 const rendererCache = new Map<string, ScreenRenderer | null>();
@@ -903,6 +1130,46 @@ function renderGame(): void {
   } finally {
     ctx.restore();
   }
+
+  // Never-a-dead-screen layer, on top of the game's own renderer.
+  ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  try {
+    drawWatchLayer(width, height);
+  } catch (e) {
+    console.debug("[Screen] Watch overlay failed", e);
+  } finally {
+    ctx.restore();
+  }
+}
+
+/**
+ * Draw the ticker, waiting banner, caption and reveal flash from the current
+ * screen state. A finished game is skipped so the victory screen stays clean.
+ */
+function drawWatchLayer(width: number, height: number): void {
+  const state = (currentScreen ?? {}) as Record<string, unknown>;
+  const finished = state.finished === true;
+  if (finished) return;
+
+  const rows: WatchTickerRow[] = tickerRowsFromScreen(state).map((row) => ({
+    name: row.name,
+    seat: seatByPlayerName.get(row.name) ?? seatForIndex(0),
+    score: row.score,
+  }));
+
+  const now = performance.now();
+  const caption = typeof state.caption === "string" && state.caption.trim() ? state.caption : null;
+  updateWatchOverlay(watchOverlay, {
+    rows,
+    waitingNames: waitingNamesFromScreen(state),
+    timeLeft: typeof state.timeLeft === "number" && Number.isFinite(state.timeLeft) ? state.timeLeft : null,
+    caption,
+    reveal: revealTextFromScreen(state),
+    now,
+    reducedMotion: prefersReducedMotion,
+  });
+  drawWatchOverlay(ctx, width, height, watchOverlay, now, prefersReducedMotion);
 }
 
 /** Continuous frame loop so particles, cards and victory screens animate smoothly. */

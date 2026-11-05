@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 297/297 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 327/327 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -31,14 +31,16 @@ Last gate: `npm test` 297/297 · typecheck clean · lint 0 errors (236 warnings)
 - Phase 2.6a: optional `results()` game hook, fallback result extraction from
   screen scores, raw scores and per-player stats per Rumble round, and the
   seven briefed awards (max 6 on the finale). Placement points unchanged.
+- Phase 2.6b: 15 s between-game interlude with movement arrows and a next-up
+  card, always-on score ticker, waiting-on banner, caption/reveal hooks.
 
 ## In progress
-Phase 2 platform foundation: between-game interlude and TV watchability.
+Phase 2 platform foundation: sound/TTS hooks, then Phase 3 game widening.
 
 ## Next three actions
-1. Result/award schema from game stats.
-2. Between-game interlude, waiting-on card, sound/TTS hooks.
-3. Then widen the games one at a time (Phase 3).
+1. Sound and speech hooks with mute toggles.
+2. Widen the first game group (text answer and voting) one game at a time.
+3. Bot-test each group before the next.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and
