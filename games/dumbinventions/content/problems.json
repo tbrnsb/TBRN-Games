@@ -1,0 +1,402 @@
+[
+  {
+    "id": "prob_1",
+    "text": "a phone that dies at 3pm",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_2",
+    "text": "socks that vanish in the wash",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_3",
+    "text": "a fridge that smells strange",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_4",
+    "text": "neighbours who mow at 7am",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_5",
+    "text": "a printer that jams on page one",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_6",
+    "text": "wifi that drops during calls",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_7",
+    "text": "a chair that squeaks",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_8",
+    "text": "a bag with no pockets",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_9",
+    "text": "a door that sticks in winter",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_10",
+    "text": "shoes that squeak on tile",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_11",
+    "text": "a kettle that boils too slowly",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_12",
+    "text": "a tap that drips all night",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_13",
+    "text": "a car that beeps for no reason",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_14",
+    "text": "a TV with too many remotes",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_15",
+    "text": "a mattress that sags",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_16",
+    "text": "a shower that goes cold",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_17",
+    "text": "a laptop fan that roars",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_18",
+    "text": "a phone charger that only works bent",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_19",
+    "text": "a bin that always overflows",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_20",
+    "text": "a smoke alarm that chirps",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_21",
+    "text": "a queue that never moves",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_22",
+    "text": "a lift that stops on every floor",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_23",
+    "text": "a bus that is always late",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_24",
+    "text": "a parking spot that is too small",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_25",
+    "text": "a garden full of weeds",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_26",
+    "text": "a fridge door that never shuts",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_27",
+    "text": "a dishwasher that leaves grit",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_28",
+    "text": "a washing machine that walks",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_29",
+    "text": "a bed that is too short",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_30",
+    "text": "a pillow that goes flat",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_31",
+    "text": "a mirror that fogs forever",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_32",
+    "text": "a window that whistles",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_33",
+    "text": "a key that sticks",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_34",
+    "text": "a lock that jams",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_35",
+    "text": "a gate that sags",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_36",
+    "text": "a fence with a gap",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_37",
+    "text": "a roof that leaks",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_38",
+    "text": "a gutter full of leaves",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_39",
+    "text": "a cable that tangles itself",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_40",
+    "text": "a drawer that will not close",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_41",
+    "text": "a cupboard with one broken hinge",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_42",
+    "text": "a plug with no socket",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_43",
+    "text": "a remote with dead batteries",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_44",
+    "text": "a clock that runs fast",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_45",
+    "text": "a watch with a bad strap",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_46",
+    "text": "a pen that skips",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_47",
+    "text": "a notebook that falls apart",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_48",
+    "text": "a mug that leaks",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_49",
+    "text": "a plate that chips",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  },
+  {
+    "id": "prob_50",
+    "text": "a pan that sticks",
+    "tags": [
+      "problem"
+    ],
+    "safe": true
+  }
+]
