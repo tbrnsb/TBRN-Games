@@ -8,7 +8,7 @@
  * otherwise a generic renderer draws the standard screen-state fields.
  */
 
-import type { ServerMessage, RoomState, SessionView } from "../../shared/types.ts";
+import type { ServerMessage, RoomState, SessionView, PlayerPresence } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { GAME_CATALOG, gameAvailability } from "../../shared/game-catalog.ts";
 import { SEATS, seatForIndex, type SeatIdentity } from "../../shared/seat-identity.ts";
@@ -543,6 +543,12 @@ function handleMessage(msg: ServerMessage) {
   } else if (msg.type === MESSAGE_TYPES.SESSION) {
     const m = msg as ServerMessage & { type: "session"; payload: { session: SessionView | null } };
     applySession(m.payload.session ?? null);
+  } else if (msg.type === MESSAGE_TYPES.REACTION) {
+    const m = msg as ServerMessage & {
+      type: "reaction";
+      payload: { playerId: string; name: string; seat: SeatIdentity | null; id: string; emoji: string };
+    };
+    showReaction(m.payload);
   } else if (msg.type === MESSAGE_TYPES.ERROR) {
     const m = msg as ServerMessage & { type: "error"; payload: { code: string; message: string } };
     console.error("[Screen] Error:", m.payload);
@@ -564,8 +570,33 @@ function handleMessage(msg: ServerMessage) {
   }
 }
 
+// --- Audience reactions ---
+const reactionLayer = document.getElementById("reactionLayer");
+
+/**
+ * Float one reaction up the screen. Several can run at once; old ones are
+ * culled so a spammy room cannot accumulate DOM nodes.
+ */
+function showReaction(payload: { name: string; seat: SeatIdentity | null; emoji: string }): void {
+  if (!reactionLayer) return;
+  while (reactionLayer.childElementCount >= 12) {
+    reactionLayer.firstElementChild?.remove();
+  }
+  const el = document.createElement("div");
+  el.className = "reaction-float";
+  // Spread the floats across the middle of the stage, never at the edges.
+  el.style.left = `${10 + Math.random() * 80}%`;
+  if (payload.seat?.color) el.style.color = payload.seat.color;
+  el.innerHTML = `
+    <span class="emoji">${escapeHtml(payload.emoji)}</span>
+    <span class="who">${escapeHtml(payload.name)}</span>
+  `;
+  reactionLayer.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
 function updatePlayers(
-  players: Array<{ id: string; name: string; connected: boolean; seat?: SeatIdentity }>,
+  players: Array<{ id: string; name: string; connected: boolean; presence?: PlayerPresence; spectator?: boolean; seat?: SeatIdentity }>,
   status: string,
   gameId: string | null,
 ): void {
@@ -591,11 +622,13 @@ function updatePlayers(
     const el = document.createElement("div");
     if (p) {
       const seat = p.seat ?? seatForIndex(i);
-      el.className = "seat filled";
+      const presence = p.presence ?? (p.connected ? "active" : "away");
+      // Away and left seats stay on the board, greyed and labelled.
+      el.className = `seat filled${presence === "active" ? "" : ` ${presence}`}`;
       el.innerHTML = `
         <span class="swatch" style="background:${seat.color}" title="${escapeHtml(seat.shape)}" aria-label="Seat ${seat.index + 1}: ${escapeHtml(seat.shape)}">${seat.emoji}</span>
         <span class="nm" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
-        <span class="st">${p.connected ? "" : "away"}</span>
+        <span class="st">${presence === "active" ? "" : presence}</span>
       `;
     } else {
       el.className = "seat empty";
@@ -915,6 +948,7 @@ function renderGeneric(width: number, height: number): void {
       const p = players[i];
       const seat = (p.seat as SeatIdentity | undefined) ?? seatForIndex(i);
       const rawName = String(p.name ?? `Player ${i + 1}`);
+      const presence = typeof p.presence === "string" ? p.presence : "active";
       const bits: string[] = [];
       for (const key of ["score", "chips", "totalStrokes", "taps", "shipsLeft", "remaining", "lives", "speed"]) {
         if (typeof p[key] === "number") bits.push(`${key === "score" ? "score" : key}: ${p[key]}`);
@@ -922,6 +956,8 @@ function renderGeneric(width: number, height: number): void {
       if (p.out === true || p.eliminated === true) bits.push("OUT");
       if (p.folded === true) bits.push("folded");
       if (p.alive === false) bits.push("out");
+      // Away/left players keep their row, greyed and labelled.
+      if (presence !== "active") bits.push(presence);
 
       // Colour + shape badge: never colour alone.
       ctx.fillStyle = seat.color;
@@ -930,7 +966,7 @@ function renderGeneric(width: number, height: number): void {
       ctx.font = "700 12px Inter, sans-serif";
       ctx.fillText(seat.emoji, 36, y + 3);
 
-      ctx.fillStyle = "#F8FAFC";
+      ctx.fillStyle = presence === "active" ? "#F8FAFC" : "#64748B";
       ctx.font = "400 22px Inter, sans-serif";
       const name = ellipsize(ctx, rawName, Math.max(120, width - 360));
       ctx.fillText(`${name}  ${bits.join("  ")}`, 56, y);

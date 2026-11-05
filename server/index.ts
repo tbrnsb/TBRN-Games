@@ -20,14 +20,18 @@ import type {
   ServerMessage,
   RoomState,
   Player,
+  PlayerPresence,
+  GameInstance,
   GamePlugin,
   GameManifest,
   SessionVoteMessage,
+  ReactionMessage,
 } from "../shared/types.ts";
 import type { PluginLoader } from "./plugins.ts";
 import { catalogEntry, isGameEnabled } from "../shared/game-catalog.ts";
 import { seatForIndex, type SeatIdentity } from "../shared/seat-identity.ts";
 import { sanitisePlayerName, uniquePlayerName } from "../shared/player-name.ts";
+import { isReaction, reactionById, REACTION_COOLDOWN_MS } from "../shared/reactions.ts";
 import {
   createSession,
   sessionView,
@@ -54,6 +58,7 @@ const roomScreens = new Map<string, Set<WebSocket>>(); // roomId -> screen socke
 const screenRooms = new Map<WebSocket, string>(); // screen ws -> roomId
 const roomHostTokens = new Map<string, string>(); // roomId -> host (screen) token
 const roomSessions = new Map<string, SessionState>(); // roomId -> Royal Rumble session
+const lastReactionAt = new Map<string, number>(); // playerId -> server-clock ms
 
 /** Host token for a room; created on first screen join, reused afterwards. */
 function hostTokenFor(roomId: string): string {
@@ -220,7 +225,8 @@ function send(ws: WebSocket, message: ServerMessage): void {
 }
 
 /**
- * Attach seat identity to the player-shaped arrays inside a game payload.
+ * Attach platform identity (seat, presence) to the player-shaped arrays inside
+ * a game payload.
  *
  * Games build their own screen/controller states, and most copy just a name or
  * id per player. Rather than editing every game, enrich the platform-owned
@@ -230,13 +236,20 @@ function send(ws: WebSocket, message: ServerMessage): void {
 function withSeatIdentity(room: RoomState, payload: unknown): unknown {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
 
-  const byId = new Map<string, SeatIdentity>();
-  const byName = new Map<string, SeatIdentity>();
-  for (const player of room.players) {
-    const seat = player.seat ?? seatForIndex(room.players.indexOf(player));
-    byId.set(player.id, seat);
-    byName.set(player.name, seat);
+  interface Identity {
+    seat: SeatIdentity;
+    presence: PlayerPresence;
   }
+  const byId = new Map<string, Identity>();
+  const byName = new Map<string, Identity>();
+  room.players.forEach((player, index) => {
+    const identity: Identity = {
+      seat: player.seat ?? seatForIndex(index),
+      presence: player.presence ?? "active",
+    };
+    byId.set(player.id, identity);
+    byName.set(player.name, identity);
+  });
 
   const source = payload as Record<string, unknown>;
   let result: Record<string, unknown> | null = null;
@@ -249,16 +262,23 @@ function withSeatIdentity(room: RoomState, payload: unknown): unknown {
     const enriched = collection.map((entry) => {
       if (!entry || typeof entry !== "object") return entry;
       const record = entry as Record<string, unknown>;
-      if (record.seat) return entry;
 
-      const seat =
+      const identity =
         (typeof record.playerId === "string" ? byId.get(record.playerId) : undefined) ??
         (typeof record.id === "string" ? byId.get(record.id) : undefined) ??
         (typeof record.name === "string" ? byName.get(record.name) : undefined);
-      if (!seat) return entry;
+      if (!identity) return entry;
+
+      const needsSeat = !record.seat;
+      const needsPresence = record.presence === undefined;
+      if (!needsSeat && !needsPresence) return entry;
 
       changed = true;
-      return { ...record, seat };
+      return {
+        ...record,
+        ...(needsSeat ? { seat: identity.seat } : {}),
+        ...(needsPresence ? { presence: identity.presence } : {}),
+      };
     });
 
     if (changed) {
@@ -309,12 +329,68 @@ function gameStateMessage(
 }
 
 /**
+ * Controller payload for one phone.
+ *
+ * Spectators and players who left never get a playable controller: the game
+ * instance does not contain them, so a real controller would be meaningless
+ * and could leak state. They get an inert payload instead.
+ */
+function controllerStateFor(plugin: GamePlugin<any, any, any, any>, instance: unknown, player: Player): unknown {
+  if (player.spectator) return { spectator: true };
+  if (player.presence === "left") return { spectator: true, presence: "left" };
+  return plugin.controllerState(instance as GameInstance<Record<string, unknown>>, player.id);
+}
+
+/** Send one current game frame to a specific phone. */
+function sendGameStateTo(
+  room: RoomState,
+  plugin: GamePlugin<any, any, any, any>,
+  player: Player,
+  instance: unknown,
+  screen: unknown,
+): void {
+  const ws = playerSockets.get(player.id);
+  if (ws?.readyState !== WebSocket.OPEN) return;
+  let controller: unknown;
+  try {
+    controller = controllerStateFor(plugin, instance, player);
+  } catch (e) {
+    console.error("[Server] Plugin controllerState error:", e);
+    return;
+  }
+  send(ws, gameStateMessage(room, plugin, player.id, screen, controller));
+}
+
+/** Send the current game frame to a phone that has just (re)joined. */
+function sendCurrentGameFrame(room: RoomState, player: Player): void {
+  const plugin = room.gameId ? plugins.get(room.gameId) : undefined;
+  const instance = room.gameState;
+  if (!plugin || !instance) return;
+  try {
+    const screen = plugin.screenState(instance as { roomId: string; players: Player[]; state: unknown });
+    sendGameStateTo(room, plugin, player, instance, screen);
+  } catch (e) {
+    console.error("[Server] Plugin screenState error:", e);
+  }
+}
+
+/**
  * Room copy with the live game instance stripped out.
  * room.gameState contains private per-player data (hole cards, boards,
  * secret characters) and must never be sent to clients.
  */
 function publicRoom(room: RoomState): RoomState {
   return { ...room, gameState: null };
+}
+
+/**
+ * Clear spectator flags when a room returns to the lobby. A phone that joined
+ * mid-game gets a normal seat for the next game.
+ */
+function promoteSpectators(room: RoomState): void {
+  for (const player of room.players) {
+    if (player.spectator) delete player.spectator;
+  }
 }
 
 // --- Plugin loader ---
@@ -654,11 +730,17 @@ wss.on("connection", (ws) => {
         case MESSAGE_TYPES.JOIN:
           handleJoin(ws, msg);
           break;
+        case MESSAGE_TYPES.LEAVE:
+          handleLeave(ws, msg);
+          break;
         case MESSAGE_TYPES.INPUT:
           handleInput(ws, msg);
           break;
         case MESSAGE_TYPES.SESSION_VOTE:
           handleSessionVote(ws, msg as SessionVoteMessage);
+          break;
+        case MESSAGE_TYPES.REACTION:
+          handleReaction(ws, msg as ReactionMessage);
           break;
         case MESSAGE_TYPES.PING:
           send(ws, { type: MESSAGE_TYPES.PONG, roomId: msg.roomId, timestamp: Date.now() });
@@ -810,6 +892,7 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
       if (player) {
         room = r;
         player.connected = true;
+        player.presence = "active";
         // Old seats and fixtures may predate seat identity; backfill once.
         if (!player.seat) player.seat = seatForIndex(nextSeatIndex(room));
         playerSockets.set(player.id, ws);
@@ -826,16 +909,20 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
         // Also send ROOM_STATE to the reconnecting player
         send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
         send(ws, sessionMessage(room, player.id));
+        // A token rejoin puts a spectator back in the audience, not the game.
+        if (room.status === "playing") {
+          sendCurrentGameFrame(room, player);
+        }
         broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) }, player.id);
         return;
       }
     }
     // The token no longer matches a seat: it was reaped, or the room was
-    // recycled between rounds. If the link still names a room that is not
-    // mid-game, recover by taking a fresh seat instead of locking the phone
-    // out for the rest of the night.
+    // recycled between rounds. If the link still names a room, recover by
+    // taking a fresh seat instead of locking the phone out for the rest of the
+    // night; mid-game that recovery seat is a spectator seat.
     const recoverRoom = roomId ? rooms.get(roomId) : undefined;
-    if (!recoverRoom || recoverRoom.status === "playing") {
+    if (!recoverRoom) {
       send(ws, { type: MESSAGE_TYPES.ERROR, roomId, timestamp: Date.now(), payload: { code: "INVALID_TOKEN", message: "Invalid or expired rejoin token" } });
       return;
     }
@@ -869,16 +956,10 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
     rooms.set(id, room);
   }
 
-  // Reject brand-new joins while a game is running. Per-player arrays in the
-  // running game state are sized at start, so a late seat would corrupt them.
-  if (room.status === "playing") {
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "GAME_IN_PROGRESS", message: "Game in progress — wait for the next round" } });
-    return;
-  }
-
   // A rumble has already fixed its roster and score table. A brand-new seat
   // would never be scored, so keep it out until the rumble ends. Reconnects
-  // with a rejoin token are handled above and still work.
+  // with a rejoin token are handled above and still work. Checked before the
+  // spectator path: a mid-Rumble join waits for the Rumble, not for the game.
   const activeSession = roomSessions.get(room.id);
   if (activeSession && activeSession.status !== "finished") {
     send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "SESSION_IN_PROGRESS", message: "Royal Rumble in progress — wait for it to finish" } });
@@ -887,10 +968,16 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
 
   // The lobby has eight seats. Game manifests keep their own maxPlayers and
   // are checked at game start, so a small game can still be picked here.
+  // Spectators take a real seat, so they count toward this ceiling too.
   if (room.players.length >= MAX_PLAYERS_PER_ROOM) {
     send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "ROOM_FULL", message: `Room is full (max ${MAX_PLAYERS_PER_ROOM} players)` } });
     return;
   }
+
+  // A phone that arrives mid-game becomes a spectator: it keeps a seat for the
+  // next game, sees the TV state, and cannot affect the running game. Its seat
+  // is not part of the game instance, which was sized at start.
+  const spectator = room.status === "playing";
 
   const playerId = generatePlayerId();
   const token = generateRejoinToken();
@@ -900,7 +987,9 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
     joinedAt: Date.now(),
     rejoinToken: token,
     connected: true,
+    presence: "active",
     seat: seatForIndex(nextSeatIndex(room)),
+    ...(spectator ? { spectator: true } : {}),
   };
 
   room.players.push(player);
@@ -920,7 +1009,86 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   // Also send ROOM_STATE to the joining player so they have full room state
   send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
   send(ws, sessionMessage(room, playerId));
+  if (spectator) sendCurrentGameFrame(room, player);
   broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) }, playerId);
+}
+
+/**
+ * A player chooses to leave. The room row and this game's score stay; the
+ * seat is only dropped by the existing reap path or when the next game starts.
+ */
+function handleLeave(ws: WebSocket, msg: ClientMessage & { type: "leave" }): void {
+  const playerId = socketPlayers.get(ws);
+  if (!playerId) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "NOT_JOINED", message: "Not joined to a room" } });
+    return;
+  }
+  // A stale socket from a replaced phone must not change the live seat.
+  if (playerSockets.get(playerId) !== ws) return;
+  const room = findRoomByPlayerId(playerId);
+  if (!room) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "ROOM_NOT_FOUND", message: "Room not found" } });
+    return;
+  }
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player || player.presence === "left") return;
+
+  player.presence = "left";
+  player.connected = false;
+  lastReactionAt.delete(playerId);
+  broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
+  scheduleSeatReap(room, playerId);
+}
+
+/**
+ * Audience reaction: any active seat may send one allowed id per cooldown.
+ * Spectators are active and welcome; away/left players are not.
+ */
+function handleReaction(ws: WebSocket, msg: ReactionMessage): void {
+  const playerId = socketPlayers.get(ws);
+  if (!playerId) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "NOT_JOINED", message: "Not joined to a room" } });
+    return;
+  }
+  // A stale socket from a replaced phone must not react for the live seat.
+  if (playerSockets.get(playerId) !== ws) return;
+  const room = findRoomByPlayerId(playerId);
+  if (!room) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "ROOM_NOT_FOUND", message: "Room not found" } });
+    return;
+  }
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "NOT_IN_ROOM", message: "You are not at this table" } });
+    return;
+  }
+  const id = msg.payload?.id;
+  if (!isReaction(id)) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "REACTION_INVALID", message: "That reaction is not available" } });
+    return;
+  }
+  if (player.presence !== "active") {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "REACTION_NOT_ALLOWED", message: "Rejoin the table to react" } });
+    return;
+  }
+  const now = Date.now();
+  const previous = lastReactionAt.get(playerId) ?? 0;
+  if (now - previous < REACTION_COOLDOWN_MS) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: now, payload: { code: "REACTION_RATE_LIMITED", message: "Wait a moment between reactions" } });
+    return;
+  }
+  lastReactionAt.set(playerId, now);
+
+  const reaction = reactionById(id);
+  if (!reaction) return;
+  const seat = player.seat ?? seatForIndex(room.players.indexOf(player));
+  broadcast(room, {
+    type: MESSAGE_TYPES.REACTION,
+    roomId: room.id,
+    playerId,
+    timestamp: now,
+    payload: { playerId, name: player.name, seat, id: reaction.id, emoji: reaction.emoji },
+  });
 }
 
 function handleSessionVote(ws: WebSocket, msg: SessionVoteMessage): void {
@@ -961,6 +1129,12 @@ function handleInput(ws: WebSocket, msg: ClientMessage & { type: "input" }): voi
     return;
   }
 
+  // Spectators watch and react; they never affect the game. A player who left
+  // mid-game is also inert. Drop the input silently: a spectator tapping a
+  // leftover control should not surface an error.
+  const sender = room.players.find((p) => p.id === playerId);
+  if (sender?.spectator || sender?.presence === "left") return;
+
   const plugin = plugins.get(room.gameId);
   if (!plugin) return;
 
@@ -996,17 +1170,7 @@ function handleInput(ws: WebSocket, msg: ClientMessage & { type: "input" }): voi
   }
 
   for (const player of room.players) {
-    let controller: unknown;
-    try {
-      controller = plugin.controllerState(instance, player.id);
-    } catch (e) {
-      console.error("[Server] Plugin controllerState error:", e);
-      continue;
-    }
-    const pws = playerSockets.get(player.id);
-    if (pws?.readyState === WebSocket.OPEN) {
-      send(pws, gameStateMessage(room, plugin, player.id, screen, controller));
-    }
+    sendGameStateTo(room, plugin, player, instance, screen);
   }
   sendScreenGameState(room, plugin, screen);
 }
@@ -1042,75 +1206,88 @@ function handleDisconnect(ws: WebSocket): void {
 
   socketPlayers.delete(ws);
   playerSockets.delete(playerId);
-  // Capture roomId before deleting from playerRooms (needed for cleanup timeout)
   const playerRoomId = playerRooms.get(playerId);
   playerRooms.delete(playerId);
   if (!playerRoomId) return;
 
   const room = rooms.get(playerRoomId);
-  if (room) {
-    const player = room.players.find((p) => p.id === playerId);
-    if (player) {
-      player.connected = false;
-      // Schedule cleanup if no reconnect within timeout.
-      const disconnectedRoomId = room.id;
-      setTimeout(() => {
-        const currentRoom = rooms.get(disconnectedRoomId);
-        if (!currentRoom) return;
-        const currentPlayer = currentRoom.players.find((p) => p.id === playerId);
-        if (!currentPlayer || currentPlayer.connected) return;
+  if (!room) return;
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return;
 
-        if (currentRoom.players.some((p) => p.connected)) {
-          // Somebody is still here, so keep the seat even if this player never
-          // comes back. Phones drop their socket constantly (screen lock,
-          // app switch); deleting the seat is what made one player vanish from
-          // every lobby and locked them out with INVALID_TOKEN. The seat is
-          // pruned at game start instead, where an absent player would stall
-          // the turn order.
-          broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
-          return;
-        }
+  // Mark the seat away immediately, well inside the five-second budget, so the
+  // TV and the other phones grey it out without waiting for the grace timer.
+  // An explicit leave keeps saying "left".
+  player.connected = false;
+  if (player.presence !== "left") player.presence = "away";
+  broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
+  scheduleSeatReap(room, playerId);
+}
 
-        if (currentRoom.status === "playing") {
-          // Nobody is left: tear the session down instead of running forever.
-          const loop = gameLoops.get(currentRoom.id);
-          if (loop) {
-            clearInterval(loop);
-            gameLoops.delete(currentRoom.id);
-          }
-          currentRoom.status = "lobby";
-          currentRoom.gameId = null;
-          currentRoom.gameState = null;
-        }
+/**
+ * Keep a non-connected seat for the rejoin grace window, then remove it when
+ * nobody else is left. Reuses the existing reap behaviour: as long as somebody
+ * is still connected the seat is kept and pruned at the next game start.
+ */
+function scheduleSeatReap(room: RoomState, playerId: string): void {
+  const disconnectedRoomId = room.id;
+  setTimeout(() => {
+    const currentRoom = rooms.get(disconnectedRoomId);
+    if (!currentRoom) return;
+    const currentPlayer = currentRoom.players.find((p) => p.id === playerId);
+    if (!currentPlayer || currentPlayer.connected) return;
 
-        // Remove the seat in place. Reassigning the array would break every
-        // game instance that still holds a reference to it.
-        const seat = currentRoom.players.indexOf(currentPlayer);
-        if (seat !== -1) currentRoom.players.splice(seat, 1);
-        playerRooms.delete(playerId);
-        playerSockets.delete(playerId);
-
-        const session = roomSessions.get(currentRoom.id);
-        if (session) {
-          delete session.votes[playerId];
-          if (currentRoom.players.length > 0) broadcastSession(currentRoom);
-        }
-
-        if (currentRoom.players.length === 0) {
-          rooms.delete(currentRoom.id);
-          gameLoops.delete(currentRoom.id);
-          roomHostTokens.delete(currentRoom.id);
-          roomSessions.delete(currentRoom.id);
-          return;
-        }
-        if (currentRoom.hostPlayerId === playerId) {
-          const connectedPlayers = currentRoom.players.filter((p) => p.connected);
-          currentRoom.hostPlayerId = (connectedPlayers[0] ?? currentRoom.players[0]).id;
-        }
-        broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
-      }, PLAYER_TIMEOUT_MS);
+    if (currentRoom.players.some((p) => p.connected)) {
+      // Somebody is still here, so keep the seat even if this player never
+      // comes back. Phones drop their socket constantly (screen lock,
+      // app switch); deleting the seat is what made one player vanish from
+      // every lobby and locked them out with INVALID_TOKEN. The seat is
+      // pruned at game start instead, where an absent player would stall
+      // the turn order.
+      broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
+      return;
     }
-  }
+
+    if (currentRoom.status === "playing") {
+      // Nobody is left: tear the session down instead of running forever.
+      const loop = gameLoops.get(currentRoom.id);
+      if (loop) {
+        clearInterval(loop);
+        gameLoops.delete(currentRoom.id);
+      }
+      currentRoom.status = "lobby";
+      promoteSpectators(currentRoom);
+      currentRoom.gameId = null;
+      currentRoom.gameState = null;
+    }
+
+    // Remove the seat in place. Reassigning the array would break every
+    // game instance that still holds a reference to it.
+    const seat = currentRoom.players.indexOf(currentPlayer);
+    if (seat !== -1) currentRoom.players.splice(seat, 1);
+    playerRooms.delete(playerId);
+    playerSockets.delete(playerId);
+    lastReactionAt.delete(playerId);
+
+    const session = roomSessions.get(currentRoom.id);
+    if (session) {
+      delete session.votes[playerId];
+      if (currentRoom.players.length > 0) broadcastSession(currentRoom);
+    }
+
+    if (currentRoom.players.length === 0) {
+      rooms.delete(currentRoom.id);
+      gameLoops.delete(currentRoom.id);
+      roomHostTokens.delete(currentRoom.id);
+      roomSessions.delete(currentRoom.id);
+      return;
+    }
+    if (currentRoom.hostPlayerId === playerId) {
+      const connectedPlayers = currentRoom.players.filter((p) => p.connected);
+      currentRoom.hostPlayerId = (connectedPlayers[0] ?? currentRoom.players[0]).id;
+    }
+    broadcast(currentRoom, { type: MESSAGE_TYPES.ROOM_STATE, roomId: currentRoom.id, timestamp: Date.now(), payload: publicRoom(currentRoom) });
+  }, PLAYER_TIMEOUT_MS);
 }
 
 // --- Game Loop ---
@@ -1177,6 +1354,7 @@ function startGameLoop(roomId: string): void {
       currentRoom.status === "playing"
     ) {
       currentRoom.status = "lobby";
+      promoteSpectators(currentRoom);
       broadcast(currentRoom, {
         type: MESSAGE_TYPES.ROOM_STATE,
         roomId: currentRoom.id,
@@ -1185,17 +1363,7 @@ function startGameLoop(roomId: string): void {
       });
     }
     for (const player of currentRoom.players) {
-      let controller: unknown;
-      try {
-        controller = currentPlugin.controllerState(currentInstance, player.id);
-      } catch (e) {
-        console.error("[Server] Plugin controllerState error:", e);
-        continue;
-      }
-      const pws = playerSockets.get(player.id);
-      if (pws?.readyState === WebSocket.OPEN) {
-        send(pws, gameStateMessage(currentRoom, currentPlugin, player.id, screen, controller));
-      }
+      sendGameStateTo(currentRoom, currentPlugin, player, currentInstance, screen);
     }
     sendScreenGameState(currentRoom, currentPlugin, screen);
 
@@ -1349,6 +1517,7 @@ function handleEndGame(req: IncomingMessage, res: ServerResponse, url: URL): boo
 
   _stopGameLoop(room.id);
   room.status = "lobby";
+  promoteSpectators(room);
   room.gameId = null;
   room.gameState = null;
   const session = roomSessions.get(room.id);
@@ -1415,8 +1584,10 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
       // the game starts with exactly the connected phones.
       for (let i = room.players.length - 1; i >= 0; i--) {
         if (!room.players[i].connected) {
-          playerRooms.delete(room.players[i].id);
-          playerSockets.delete(room.players[i].id);
+          const goneId = room.players[i].id;
+          playerRooms.delete(goneId);
+          playerSockets.delete(goneId);
+          lastReactionAt.delete(goneId);
           room.players.splice(i, 1);
         }
       }
@@ -1424,13 +1595,17 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
         room.hostPlayerId = room.players[0]?.id ?? null;
       }
 
-      if (room.players.length < plugin.manifest.minPlayers) {
+      // Spectators are audience only: never part of the game instance, even if
+      // a stale flag survives a lobby transition.
+      const participants = room.players.filter((p) => !p.spectator);
+
+      if (participants.length < plugin.manifest.minPlayers) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ code: "NOT_ENOUGH_PLAYERS", message: `Need at least ${plugin.manifest.minPlayers} players` }));
         return;
       }
 
-      if (room.players.length > plugin.manifest.maxPlayers) {
+      if (participants.length > plugin.manifest.maxPlayers) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ code: "TOO_MANY_PLAYERS", message: `Maximum ${plugin.manifest.maxPlayers} players allowed` }));
         return;
@@ -1452,25 +1627,21 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
 
       room.gameId = gameId;
       room.status = "playing";
-      room.gameState = plugin.onStart(room, room.players, options);
+      room.gameState = plugin.onStart(room, participants, options);
       if (session) {
         startRound(session, gameId);
         broadcastSession(room);
       }
 
       // Set controllerType on each player from manifest
-      for (const player of room.players) {
+      for (const player of participants) {
         player.controllerType = plugin.manifest.controllerType;
       }
 
       // Broadcast initial game state
       const screen = plugin.screenState(room.gameState as { roomId: string; players: Player[]; state: unknown });
       for (const player of room.players) {
-        const controller = plugin.controllerState(room.gameState as { roomId: string; players: Player[]; state: unknown }, player.id);
-        const pws = playerSockets.get(player.id);
-        if (pws?.readyState === WebSocket.OPEN) {
-          send(pws, gameStateMessage(room, plugin, player.id, screen, controller));
-        }
+        sendGameStateTo(room, plugin, player, room.gameState, screen);
       }
       sendScreenGameState(room, plugin, screen);
 

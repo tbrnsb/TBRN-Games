@@ -38,6 +38,8 @@ export interface Player {
   joinedAt: number;
   rejoinToken: string;
   connected: boolean;
+  presence: "active" | "away" | "left";
+  spectator?: boolean;
   controllerType?: string;
 }
 

@@ -336,6 +336,59 @@
       max-width: 260px;
       line-height: 1.45;
     }
+    .table-note {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-align: center;
+      padding: 18px;
+      min-height: 0;
+    }
+    .reaction-bar {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      width: 100%;
+    }
+    .reaction-btn {
+      min-height: 48px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .reaction-btn:active { background: rgba(255,46,151,0.16); }
+    .reaction-btn:disabled { opacity: 0.35; cursor: default; }
+    .reaction-hint {
+      flex: 0 0 auto;
+      min-height: 14px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .leave-btn {
+      flex: 0 0 auto;
+      align-self: center;
+      min-height: 40px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,77,109,0.35);
+      background: transparent;
+      color: var(--danger);
+      font-family: var(--body);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
     .session-card {
       flex: 1;
       min-height: 0;
@@ -1102,6 +1155,10 @@
       <div class="game-label" id="gameLabel"></div>
       <div class="coach" id="coach"><span class="dot"></span><span id="status">Waiting for the host…</span></div>
       <div class="howto hidden" id="howTo"></div>
+      <div class="table-note hidden" id="tableNote" aria-live="polite">
+        <p class="idle-title" id="tableNoteTitle"></p>
+        <p class="idle-copy" id="tableNoteCopy"></p>
+      </div>
       <section class="session-card hidden" id="sessionCard" aria-live="polite"></section>
       <div class="idle" id="idle">
         <div class="idle-mark"><span></span></div>
@@ -1109,6 +1166,9 @@
         <p class="idle-copy">Keep this tab open. The host picks a game on the laptop.</p>
       </div>
       <div id="controllerContainer"></div>
+      <div class="reaction-bar hidden" id="reactionBar" aria-label="Send a reaction"></div>
+      <p class="reaction-hint hidden" id="reactionHint"></p>
+      <button class="leave-btn hidden" id="leaveBtn" type="button">Leave table</button>
     </section>
   </main>
   <script type="module" src="/controller/main.ts"></script>

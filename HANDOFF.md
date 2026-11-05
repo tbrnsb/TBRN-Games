@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 255/255 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 262/262 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -22,13 +22,16 @@ Last gate: `npm test` 255/255 · typecheck clean · lint 0 errors (236 warnings)
 - Phase 2.4: shared vote layout (1-6 one screen, 7-9 two columns + letter
   badges), canvas vote helper, scrolling 48dp+ phone choices, change-vote
   flag.
+- Phase 2.5a: presence (`active`/`away`/`left`), 30 s rejoin grace, mid-game
+  spectators promoted next game, leave control, 8 emoji reactions with a
+  2-second server-side limit and a floating TV animation.
 
 ## In progress
-Phase 2 platform foundation: spectators/reactions, results/awards and the
-between-game interlude.
+Phase 2 platform foundation: below-minimum pause flow, results/awards and
+the between-game interlude.
 
 ## Next three actions
-1. Spectator/reaction/disconnect handling.
+1. Below-minimum pause flow with host wait/end/continue choices.
 2. Results/awards and the between-game interlude.
 3. Then widen the games one at a time (Phase 3).
 

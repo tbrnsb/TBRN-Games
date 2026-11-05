@@ -4,6 +4,7 @@
  */
 
 import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "./game-catalog.ts";
+import type { ReactionId } from "./reactions.ts";
 import type { SeatIdentity } from "./seat-identity.ts";
 
 // --- Base message envelope ---
@@ -34,7 +35,22 @@ export interface SessionVoteMessage extends BaseMessage {
   payload: { gameId: string };
 }
 
-export type ClientMessage = JoinMessage | InputMessage | PingMessage | SessionVoteMessage;
+export interface LeaveMessage extends BaseMessage {
+  type: "leave";
+}
+
+export interface ReactionMessage extends BaseMessage {
+  type: "reaction";
+  payload: { id: string };
+}
+
+export type ClientMessage =
+  | JoinMessage
+  | InputMessage
+  | PingMessage
+  | SessionVoteMessage
+  | LeaveMessage
+  | ReactionMessage;
 
 // --- Server -> Client messages ---
 export interface JoinedMessage extends BaseMessage {
@@ -65,6 +81,19 @@ export interface ErrorMessage extends BaseMessage {
 
 export interface PongMessage extends BaseMessage {
   type: "pong";
+}
+
+/** Broadcast when a phone sends an audience reaction; reaches TV and phones. */
+export interface ReactionBroadcastMessage extends BaseMessage {
+  type: "reaction";
+  payload: {
+    playerId: string;
+    name: string;
+    /** Seat identity so the TV can colour the float; null for a legacy seat. */
+    seat: SeatIdentity | null;
+    id: ReactionId;
+    emoji: string;
+  };
 }
 
 // --- Royal Rumble session ---
@@ -125,15 +154,30 @@ export type ServerMessage =
   | GameStateMessage
   | ErrorMessage
   | PongMessage
-  | SessionMessage;
+  | SessionMessage
+  | ReactionBroadcastMessage;
 
 // --- Room & Player ---
+/**
+ * Presence is the authoritative table status. `connected` is kept for
+ * compatibility with older clients and games; `presence` is what the TV and
+ * phones render.
+ *
+ * - `active`: holding a live seat.
+ * - `away`: socket closed, inside the rejoin grace window.
+ * - `left`: explicitly left; keeps the room row and score for this game.
+ */
+export type PlayerPresence = "active" | "away" | "left";
+
 export interface Player {
   id: string;
   name: string;
   joinedAt: number;
   rejoinToken: string;
   connected: boolean;
+  presence: PlayerPresence;
+  /** True for a phone that joined mid-game: sees the TV, sends no game input. */
+  spectator?: boolean;
   controllerType?: string;
   /** Stable seat identity, assigned on join and kept for the room's lifetime. */
   seat?: SeatIdentity;

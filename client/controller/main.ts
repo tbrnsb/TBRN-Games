@@ -7,11 +7,12 @@
  * on JOINED so a refresh or dropped connection can rejoin the same room.
  */
 
-import type { ClientMessage, ServerMessage, ControllerType, SessionView } from "../../shared/types.ts";
+import type { ClientMessage, ServerMessage, ControllerType, PlayerPresence, SessionView } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { getLayout } from "../../shared/controllers.ts";
 import type { ControllerLayout } from "../../shared/controllers.ts";
 import type { SeatIdentity } from "../../shared/seat-identity.ts";
+import { REACTIONS, REACTION_COOLDOWN_MS, type ReactionId } from "../../shared/reactions.ts";
 
 const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
 const wsUrl = `${wsProtocol}://${location.host}`;
@@ -31,6 +32,10 @@ let sessionPayload: {
   canVote: boolean;
   yourPoints: number;
 } | null = null;
+let myPresence: PlayerPresence = "active";
+let mySpectator = false;
+let reactionReadyAt = 0;
+let reactionTicker: ReturnType<typeof setInterval> | null = null;
 
 const joinForm = document.getElementById("joinForm")!;
 const controllerArea = document.getElementById("controllerArea")!;
@@ -50,6 +55,12 @@ const idle = document.getElementById("idle")!;
 const statusEl = document.getElementById("status")!;
 const controllerContainer = document.getElementById("controllerContainer")!;
 const sessionCard = document.getElementById("sessionCard")!;
+const tableNote = document.getElementById("tableNote")!;
+const tableNoteTitle = document.getElementById("tableNoteTitle")!;
+const tableNoteCopy = document.getElementById("tableNoteCopy")!;
+const reactionBar = document.getElementById("reactionBar")!;
+const reactionHint = document.getElementById("reactionHint")!;
+const leaveBtn = document.getElementById("leaveBtn") as HTMLButtonElement;
 
 function connect() {
   ws = new WebSocket(wsUrl);
@@ -84,6 +95,8 @@ function handleMessage(msg: ServerMessage) {
       // The server may suffix a duplicate name; show the seat's real name.
       const me = msg.payload.roomState.players.find((p) => p.id === playerId);
       const seatName = me?.name ?? nameInput.value.trim() ?? "Player";
+      myPresence = me?.presence ?? "active";
+      mySpectator = me?.spectator === true;
       // Persist so a refresh or network drop can rejoin this room.
       try {
         localStorage.setItem("tbrn_rejoin_token", rejoinToken);
@@ -102,17 +115,23 @@ function handleMessage(msg: ServerMessage) {
       idle.classList.remove("hidden");
       statusEl.textContent = "Waiting for the host to start…";
       coach.classList.remove("your-turn");
+      renderSeatState(false);
       break;
     }
     case MESSAGE_TYPES.ROOM_STATE:
       roomStatus = msg.payload.status;
       applySeatBadge(msg.payload.players.find((p) => p.id === playerId)?.seat);
+      {
+        const me = msg.payload.players.find((p) => p.id === playerId);
+        myPresence = me?.presence ?? (me?.connected === false ? "away" : "active");
+        mySpectator = me?.spectator === true;
+      }
       if (msg.payload.status !== "playing") {
         document.getElementById("howTo")?.classList.add("hidden");
       }
       inGame = msg.payload.status === "playing" && !!msg.payload.gameId;
       if (msg.payload.status === "playing" && msg.payload.gameId) {
-        statusEl.textContent = gameName ? `Playing ${gameName}` : "Game in progress";
+        statusEl.textContent = mySpectator ? "Spectating this game" : gameName ? `Playing ${gameName}` : "Game in progress";
         sessionCard.classList.add("hidden");
       } else {
         // Back in the lobby (game over or not started yet).
@@ -123,10 +142,11 @@ function handleMessage(msg: ServerMessage) {
         lastSignature = "";
         currentControllerType = "one-button";
         currentLayout = getLayout(currentControllerType);
-        statusEl.textContent = "Waiting for the host to start…";
+        statusEl.textContent = myPresence === "left" ? "You left the table" : "Waiting for the host to start…";
         coach.classList.remove("your-turn");
         renderSessionCard();
       }
+      renderSeatState(inGame);
       break;
     case MESSAGE_TYPES.GAME_STATE: {
       const payload = msg.payload as {
@@ -152,6 +172,24 @@ function handleMessage(msg: ServerMessage) {
       if (payload.gameName) {
         gameName = payload.gameName;
       }
+      if (myPresence === "left") {
+        statusEl.textContent = "You left the table";
+        renderSeatState(true);
+        break;
+      }
+      // Spectators receive the TV state and an inert controller: never build a
+      // playable view for them.
+      if (controller.spectator === true || mySpectator) {
+        inGame = true;
+        gameLabel.textContent = gameName;
+        statusEl.textContent = gameName ? `Watching ${gameName}` : "Spectating";
+        coach.classList.remove("your-turn");
+        sessionCard.classList.add("hidden");
+        renderSeatState(true);
+        break;
+      }
+      hideTableNote();
+      controllerContainer.classList.remove("hidden");
       gameLabel.textContent = gameName;
       inGame = true;
       sessionCard.classList.add("hidden");
@@ -182,6 +220,7 @@ function handleMessage(msg: ServerMessage) {
         controller.yourTime === true;
       coach.classList.toggle("your-turn", isTurn);
       statusEl.textContent = statusFrom(controller);
+      renderSeatState(true);
       break;
     }
     case MESSAGE_TYPES.SESSION: {
@@ -207,8 +246,15 @@ function handleMessage(msg: ServerMessage) {
             ? "Pick a shorter, simpler name."
             : code === "SESSION_IN_PROGRESS"
               ? "A Royal Rumble is running. Wait for it to finish."
-              : `${message}`;
+              : code === "REACTION_RATE_LIMITED"
+                ? "Easy — one reaction every couple of seconds."
+                : `${message}`;
       statusEl.textContent = friendly;
+      if (code === "REACTION_RATE_LIMITED") {
+        // The server is the clock of record; align the phone's buttons to it.
+        reactionReadyAt = Date.now() + REACTION_COOLDOWN_MS;
+        renderReactionBar();
+      }
       if (!playerId) {
         joinBtn.disabled = false;
         joinError.textContent = friendly;
@@ -237,6 +283,113 @@ function applySeatBadge(seat: SeatIdentity | undefined | null): void {
   seatBadgeEl.style.background = seat.color;
   seatBadgeEl.title = `Seat ${seat.index + 1}: ${seat.shape}`;
 }
+
+// --- Presence, spectating and reactions ---
+
+function showTableNote(title: string, copy: string): void {
+  tableNoteTitle.textContent = title;
+  tableNoteCopy.textContent = copy;
+  tableNote.classList.remove("hidden");
+}
+
+function hideTableNote(): void {
+  tableNote.classList.add("hidden");
+  tableNoteTitle.textContent = "";
+  tableNoteCopy.textContent = "";
+}
+
+/**
+ * Render this phone's seat status: normal player controls, a spectator note
+ * during someone else's game, or the left state. The reaction bar stays for
+ * spectators and disappears for a player who left.
+ */
+function renderSeatState(playing: boolean): void {
+  const left = myPresence === "left";
+  const spectating = !left && mySpectator && playing;
+
+  if (left) {
+    idle.classList.add("hidden");
+    controllerContainer.classList.add("hidden");
+    sessionCard.classList.add("hidden");
+    showTableNote("You left the table", "Your score stays on the board. Rejoin from the laptop to play again.");
+  } else if (spectating) {
+    idle.classList.add("hidden");
+    controllerContainer.classList.add("hidden");
+    sessionCard.classList.add("hidden");
+    showTableNote("Spectating", "The game is in progress. You're in the next one — react below.");
+  } else {
+    hideTableNote();
+    if (!playing) controllerContainer.classList.remove("hidden");
+  }
+
+  const canReact = !!playerId && !left;
+  reactionBar.classList.toggle("hidden", !canReact);
+  reactionHint.classList.toggle("hidden", !canReact);
+  leaveBtn.classList.toggle("hidden", !playerId || left);
+  if (canReact) renderReactionBar();
+}
+
+function setupReactions(): void {
+  reactionBar.innerHTML = REACTIONS.map(
+    (reaction) => `<button class="reaction-btn" type="button" data-reaction="${reaction.id}" aria-label="${escapeHtml(reaction.label)}" title="${escapeHtml(reaction.label)}">${reaction.emoji}</button>`,
+  ).join("");
+  reactionBar.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest("button[data-reaction]") as HTMLButtonElement | null;
+    if (!button) return;
+    sendReaction(button.dataset.reaction as ReactionId);
+  });
+  renderReactionBar();
+}
+
+function sendReaction(id: ReactionId): void {
+  if (!playerId || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (Date.now() < reactionReadyAt) return;
+  const msg: ClientMessage = {
+    type: MESSAGE_TYPES.REACTION,
+    roomId,
+    playerId,
+    timestamp: Date.now(),
+    payload: { id },
+  };
+  ws.send(JSON.stringify(msg));
+  reactionReadyAt = Date.now() + REACTION_COOLDOWN_MS;
+  renderReactionBar();
+}
+
+/** Disable the bar and show the same two-second cooldown the server enforces. */
+function renderReactionBar(): void {
+  const remaining = reactionReadyAt - Date.now();
+  const cooling = remaining > 0;
+  for (const button of reactionBar.querySelectorAll<HTMLButtonElement>("button[data-reaction]")) {
+    button.disabled = cooling;
+  }
+  reactionHint.textContent = cooling
+    ? `Next reaction in ${(remaining / 1000).toFixed(1)}s`
+    : "Tap to react on the big screen";
+  if (cooling && !reactionTicker) {
+    reactionTicker = setInterval(() => {
+      if (Date.now() >= reactionReadyAt) {
+        if (reactionTicker) clearInterval(reactionTicker);
+        reactionTicker = null;
+      }
+      renderReactionBar();
+    }, 100);
+  }
+}
+
+leaveBtn.addEventListener("click", () => {
+  if (!playerId || !ws || ws.readyState !== WebSocket.OPEN) return;
+  const msg: ClientMessage = {
+    type: MESSAGE_TYPES.LEAVE,
+    roomId,
+    playerId,
+    timestamp: Date.now(),
+  };
+  ws.send(JSON.stringify(msg));
+  myPresence = "left";
+  statusEl.textContent = "You left the table";
+  renderSeatState(inGame);
+});
 
 /** Royal Rumble card: voting, live points, or the final trophy board. */
 function renderSessionCard(): void {
@@ -492,6 +645,8 @@ try {
 } catch {
   /* storage unavailable */
 }
+
+setupReactions();
 
 if (!roomId) {
   codeInput.focus();

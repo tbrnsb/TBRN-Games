@@ -6,6 +6,7 @@
 // --- Constants ---
 export const MESSAGE_TYPES = {
   JOIN: "join",
+  LEAVE: "leave",
   INPUT: "input",
   PING: "ping",
   JOINED: "joined",
@@ -13,6 +14,7 @@ export const MESSAGE_TYPES = {
   GAME_STATE: "gameState",
   SESSION: "session",
   SESSION_VOTE: "session-vote",
+  REACTION: "reaction",
   ERROR: "error",
   PONG: "pong",
 };

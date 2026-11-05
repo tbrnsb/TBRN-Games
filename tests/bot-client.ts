@@ -69,6 +69,7 @@ export class BotClient {
           joinedAt: Date.now(),
           rejoinToken: msg.payload.rejoinToken,
           connected: true,
+          presence: "active",
           seat: msg.payload.roomState.players.find((p) => p.id === msg.payload.playerId)?.seat,
           ws: this.ws!,
           lastPing: 0,

@@ -6,6 +6,7 @@
  */
 export declare const MESSAGE_TYPES: {
   readonly JOIN: "join";
+  readonly LEAVE: "leave";
   readonly INPUT: "input";
   readonly PING: "ping";
   readonly JOINED: "joined";
@@ -13,6 +14,7 @@ export declare const MESSAGE_TYPES: {
   readonly GAME_STATE: "gameState";
   readonly SESSION: "session";
   readonly SESSION_VOTE: "session-vote";
+  readonly REACTION: "reaction";
   readonly ERROR: "error";
   readonly PONG: "pong";
 };
