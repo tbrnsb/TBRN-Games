@@ -93,7 +93,7 @@ describe("TBRN-Games Server", () => {
     newBot.disconnect();
   });
 
-  test("darts game: bots can send inputs and receive game state", async () => {
+  test("tap race game: bots can send inputs and receive game state", async () => {
     const bots = await createBots(2, wsUrl, "GameBot");
     const [bot1, bot2] = bots;
 
@@ -104,7 +104,7 @@ describe("TBRN-Games Server", () => {
     const startRes = await fetch(`${httpUrl}/api/rooms/${bot1.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(startRes.status, 200);
 
@@ -114,7 +114,7 @@ describe("TBRN-Games Server", () => {
     // Wait a bit for game loop to start
     await new Promise(r => setTimeout(r, 100));
 
-    // Send inputs (darts uses tap to throw)
+    // Send inputs (racing uses tap to boost)
     bot1.sendInput({ tap: true });
     bot2.sendInput({ tap: true });
 
@@ -136,14 +136,14 @@ describe("TBRN-Games Server", () => {
     const noToken = await fetch(`${httpUrl}/api/rooms/${bot.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(noToken.status, 403);
 
     const wrongToken = await fetch(`${httpUrl}/api/rooms/${bot.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": "not-the-token" },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(wrongToken.status, 403);
 
@@ -159,7 +159,7 @@ describe("TBRN-Games Server", () => {
     const startRes = await fetch(`${httpUrl}/api/rooms/${bot1.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(startRes.status, 200);
 

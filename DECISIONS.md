@@ -3,6 +3,39 @@
 Append new decisions at the top. Keep each entry short: the decision, the
 reason, and the date.
 
+## 2026-11-06 — Game catalog as the manifest source of truth
+
+- `shared/game-catalog.ts` owns the new platform manifest fields (`displayName`,
+  `enabled`, `kind`, `idealMin/idealMax`, `minutes`, `dropoutPolicy`,
+  `contentPacks`, `scale`). `games/<id>/manifest.json` still owns the id, engine
+  name, hard player limits and copy; the loader merges catalog fields over it.
+  One list, so the lobby, the start gate and the Rumble cannot disagree.
+- Hard `minPlayers`/`maxPlayers` in the catalog mirror each `manifest.json`, and
+  a test fails if they drift. Ranges are NOT widened here: every game still caps
+  at 4 until its own Phase 3 task. `idealMin/idealMax` are the brief's targets,
+  so the TV can say "best with 4-8" while the hard cap catches up.
+- Kinds: writing (bluff, writevote, splitroom, survive, frankenanswers, bracket,
+  dumbinventions), drawing (drawful, sloganshirts), deduction (stowaway, fakin),
+  trivia (quiz, percentile), skill (archery, arena, racing), party (mostlikely,
+  blather, slideroulette, mindmeld), cards (poker). A game gets the kind of the
+  action players actually perform, not of its theme.
+- Drop-out policy per game: `continue` when a missing player only leaves a hole
+  (timer-driven games); `void-round` when the round needs that specific role
+  (artist, presenter, writer, Stowaway, Faker, guesser); `pause` when a turn has
+  no timer to fall back on (archery aiming); `forfeit` when leaving decides the
+  duel or the match (bracket, guess who, spin war, word chain, last seat).
+- `scale()` reports today's implemented round structure in both modes; the
+  per-game scaling tasks will split standalone from rumble. `minutes.rumble`
+  uses the brief's shorter Rumble round counts because it plans Phase 5, not
+  current behaviour. Timers are whole seconds.
+- `enabled: false` is a registry flag, not a delete: `/api/games`, the lobby and
+  the start endpoint (`GAME_DISABLED`) all consult it, and the Rumble candidate
+  list is filtered the same way. Unknown or uncatalogued ids count as disabled so
+  a new game cannot ship half-registered.
+
+Reason: the brief asks for one manifest surface and a single enable switch; the
+duplication (registry + plugin + lobby) was the audit's main platform gap.
+
 ## 2026-11-04 — Royal Rumble sessions
 
 - A room can start a series of 5, 8, or all eligible games. Candidates are games

@@ -3,6 +3,8 @@
  * Used for type checking. Runtime values are in constants.js.
  */
 
+import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "./game-catalog.ts";
+
 // --- Base message envelope ---
 export interface BaseMessage {
   type: string;
@@ -157,6 +159,17 @@ export interface GameManifest {
   maxPlayers: number;
   controllerType: ControllerType;
   description: string;
+  // Platform metadata, merged from shared/game-catalog.ts at load time.
+  // Optional so a manifest.json without them still loads.
+  displayName?: string;
+  enabled?: boolean;
+  kind?: GameKind;
+  idealMin?: number;
+  idealMax?: number;
+  minutes?: { standalone: number; rumble: number };
+  dropoutPolicy?: DropoutPolicy;
+  contentPacks?: string[];
+  scale?: (playerCount: number, mode: ScaleMode) => GameScale;
 }
 
 export type ControllerType =

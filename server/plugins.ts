@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "../shared/game-catalog.ts";
 
 // Plugin types defined locally to avoid import issues with Node type stripping
 export interface GameManifest {
@@ -10,6 +11,16 @@ export interface GameManifest {
   controllerType: ControllerType;
   description: string;
   howTo?: string;
+  // Platform metadata, merged from shared/game-catalog.ts at load time.
+  displayName?: string;
+  enabled?: boolean;
+  kind?: GameKind;
+  idealMin?: number;
+  idealMax?: number;
+  minutes?: { standalone: number; rumble: number };
+  dropoutPolicy?: DropoutPolicy;
+  contentPacks?: string[];
+  scale?: (playerCount: number, mode: ScaleMode) => GameScale;
 }
 
 export type ControllerType =

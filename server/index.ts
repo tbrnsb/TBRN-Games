@@ -25,6 +25,7 @@ import type {
   SessionVoteMessage,
 } from "../shared/types.ts";
 import type { PluginLoader } from "./plugins.ts";
+import { catalogEntry, isGameEnabled } from "../shared/game-catalog.ts";
 import {
   createSession,
   sessionView,
@@ -106,6 +107,14 @@ function broadcast(room: RoomState, message: ServerMessage, excludePlayerId?: st
 }
 
 /**
+ * User-facing game name: the catalog's displayName when it has one, otherwise
+ * the manifest name. Everything sent to the TV or a phone uses this.
+ */
+function gameDisplayName(manifest: GameManifest): string {
+  return manifest.displayName ?? manifest.name;
+}
+
+/**
  * Send the public screen state to the laptop screen sockets of a room.
  * Screens never receive controller (private) state.
  */
@@ -118,7 +127,7 @@ function sendScreenGameState(room: RoomState, plugin: GamePlugin, screen: unknow
         type: MESSAGE_TYPES.GAME_STATE,
         roomId: room.id,
         timestamp: Date.now(),
-        payload: { screen, controller: null, gameId: room.gameId, gameName: plugin.manifest.name },
+        payload: { screen, controller: null, gameId: room.gameId, gameName: gameDisplayName(plugin.manifest) },
       });
     }
   }
@@ -240,7 +249,7 @@ function gameStateMessage(
       screen,
       controller: payloadController,
       gameId: room.gameId,
-      gameName: plugin.manifest.name,
+      gameName: gameDisplayName(plugin.manifest),
       howTo: (plugin.manifest as { howTo?: string }).howTo,
     },
   };
@@ -272,6 +281,25 @@ async function loadPlugins(): Promise<void> {
       plugin.manifest = { ...plugin.manifest, ...meta, id: plugin.manifest.id };
     } catch {
       /* manifest.json is optional; the inline manifest still works */
+    }
+
+    // The catalog supplies the platform fields; JSON still owns id/name/limits
+    // and the copy. New fields are optional on GameManifest so an unlisted game
+    // still loads (and stays hidden, because isGameEnabled() defaults to false).
+    const entry = catalogEntry(id);
+    if (entry) {
+      plugin.manifest = {
+        ...plugin.manifest,
+        displayName: entry.displayName,
+        enabled: entry.enabled,
+        kind: entry.kind,
+        idealMin: entry.idealMin,
+        idealMax: entry.idealMax,
+        minutes: { ...entry.minutes },
+        dropoutPolicy: entry.dropoutPolicy,
+        contentPacks: [...entry.contentPacks],
+        scale: entry.scale,
+      };
     }
     plugins.set(id, plugin);
   }
@@ -346,9 +374,12 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
     return;
   }
 
-  // Public list of installed games (manifests only)
+  // Public list of enabled games (manifests only). Disabled games stay in the
+  // tree but are not offered to the lobby or the Rumble.
   if (url.pathname === "/api/games") {
-    const games = [...plugins.values()].map((p) => p.manifest);
+    const games = [...plugins.values()]
+      .filter((p) => isGameEnabled(p.manifest.id))
+      .map((p) => p.manifest);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ games }));
     return;
@@ -1124,7 +1155,7 @@ function startGameLoop(roomId: string): void {
         completeRound(
           session,
           currentPlugin.manifest.id,
-          currentPlugin.manifest.name,
+          gameDisplayName(currentPlugin.manifest),
           screen,
           currentRoom.players,
           currentPlugin.manifest.id === "quiz" ? quizAccuracy(currentInstance) : undefined,
@@ -1206,13 +1237,15 @@ async function handleSessionStart(req: IncomingMessage, res: ServerResponse, url
     return true;
   }
 
-  const games = [...plugins.values()].map((p) => ({
-    id: p.manifest.id,
-    name: p.manifest.name,
-    description: p.manifest.description,
-    minPlayers: p.manifest.minPlayers,
-    maxPlayers: p.manifest.maxPlayers,
-  }));
+  const games = [...plugins.values()]
+    .filter((p) => isGameEnabled(p.manifest.id))
+    .map((p) => ({
+      id: p.manifest.id,
+      name: gameDisplayName(p.manifest),
+      description: p.manifest.description,
+      minPlayers: p.manifest.minPlayers,
+      maxPlayers: p.manifest.maxPlayers,
+    }));
   const session = createSession(active, games, length, selection);
   if (session.candidates.length === 0) {
     res.writeHead(400, { "Content-Type": "application/json" });
@@ -1316,6 +1349,13 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
       if (!plugin) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ code: "INVALID_GAME", message: "Game not found" }));
+        return;
+      }
+
+      // Retired games stay loadable but can never be started.
+      if (!isGameEnabled(gameId)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ code: "GAME_DISABLED", message: "That game is not available" }));
         return;
       }
 

@@ -8,6 +8,7 @@ import assert from "node:assert";
 import { WebSocket } from "ws";
 import { createBots } from "./bot-client.ts";
 import { startServer, type ServerFixture } from "./fixtures/server-fixture.ts";
+import { MESSAGE_TYPES } from "../shared/constants.js";
 import type { ServerMessage } from "../shared/types.ts";
 
 describe("Royal Rumble server flow", () => {
@@ -99,11 +100,11 @@ describe("Royal Rumble server flow", () => {
       late.close();
 
       // Every phone can vote; the shared view counts them.
-      for (const bot of bots) bot.sendSessionVote("knifethrow");
+      for (const bot of bots) bot.sendSessionVote("racing");
       const voted = await bots[0].waitForSession(
-        (payload) => payload.session?.votes.find((v) => v.gameId === "knifethrow")?.count === 3,
+        (payload) => payload.session?.votes.find((v) => v.gameId === "racing")?.count === 3,
       );
-      assert.strictEqual(voted.session?.leadingGameId, "knifethrow");
+      assert.strictEqual(voted.session?.leadingGameId, "racing");
       assert.strictEqual(voted.session?.voted, 3);
 
       // A game outside the catalogue is rejected by the host endpoint.
@@ -118,13 +119,13 @@ describe("Royal Rumble server flow", () => {
       const playRes = await fetch(`${httpUrl}/api/rooms/${bots[0].roomId}/start`, {
         method: "POST",
         headers: host,
-        body: JSON.stringify({ gameId: "knifethrow" }),
+        body: JSON.stringify({ gameId: "racing" }),
       });
       assert.strictEqual(playRes.status, 200);
       const playing = await bots[0].waitForSession(
         (payload) => payload.session?.status === "playing",
       );
-      assert.strictEqual(playing.session?.currentGameId, "knifethrow");
+      assert.strictEqual(playing.session?.currentGameId, "racing");
 
       // Host aborts the running round: back to voting, still round 1, no points.
       const endRes = await fetch(`${httpUrl}/api/rooms/${bots[0].roomId}/end-game`, {
@@ -143,19 +144,27 @@ describe("Royal Rumble server flow", () => {
       const replay = await fetch(`${httpUrl}/api/rooms/${bots[0].roomId}/start`, {
         method: "POST",
         headers: host,
-        body: JSON.stringify({ gameId: "knifethrow" }),
+        body: JSON.stringify({ gameId: "racing" }),
       });
       assert.strictEqual(replay.status, 200);
       await bots[0].waitForSession((payload) => payload.session?.status === "playing");
 
       let finished = false;
-      for (let round = 0; round < 80 && !finished; round++) {
-        const nextState = bots[0].waitForGameState(2000);
+      bots[0].on(MESSAGE_TYPES.GAME_STATE, (msg) => {
+        if (msg.type !== MESSAGE_TYPES.GAME_STATE) return;
+        const screen = msg.payload.screen as { finished?: boolean };
+        if (screen?.finished === true) finished = true;
+      });
+
+      // Tap Race ends on the tick it crosses the line and stops broadcasting
+      // afterwards, so watch a persistent listener instead of racing the last
+      // state. 25 ms between taps stays under the server's 50 msg/s limit.
+      const deadline = Date.now() + 20000;
+      while (!finished && Date.now() < deadline) {
         for (const bot of bots) bot.sendInput({ tap: true });
-        const state = await nextState;
-        finished = (state.screen as { finished?: boolean }).finished === true;
+        await new Promise((r) => setTimeout(r, 25));
       }
-      assert.strictEqual(finished, true, "knife throw should report a finished screen");
+      assert.strictEqual(finished, true, "tap race should report a finished screen");
 
       const scored = await bots[0].waitForSession(
         (payload) => payload.session?.round === 2 && payload.session?.status === "voting",
@@ -163,9 +172,9 @@ describe("Royal Rumble server flow", () => {
       );
       const points = scored.session?.standings.map((s) => s.points) ?? [];
       assert.deepStrictEqual(points, [10, 6, 3]);
-      assert.strictEqual(scored.session?.played[0], "knifethrow");
+      assert.strictEqual(scored.session?.played[0], "racing");
       assert.strictEqual(
-        scored.session?.candidates.some((g) => g.id === "knifethrow"),
+        scored.session?.candidates.some((g) => g.id === "racing"),
         false,
         "played games drop out of the candidate list",
       );

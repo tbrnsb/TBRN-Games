@@ -1,49 +1,34 @@
 # HANDOFF
 
 ## Current state
-Game-feel rebuild + GAMES-SPEC-2 build in progress. **27 games**, all passing.
-Nothing is committed; the whole working tree is uncommitted.
+Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
+Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
+21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 139/139 · typecheck 0 errors · lint 0 errors (123 warnings)
-· `npm run probe` 0 issues across 27 games × 1-4 players.
+Last gate: `npm test` 211/211 · typecheck clean · lint 0 errors (228 warnings)
+· `npm run probe` 0 issues.
 
-## Done in this session
-1. **Seat/reconnect bug fixed.** Phones that dropped in the lobby were deleted after
-   `PLAYER_TIMEOUT_MS`, then could never rejoin (`INVALID_TOKEN`). That was why every game
-   started one player short and Bluff would not start. Seats now survive while anyone else
-   is in the room; a dead token into a lobby room takes a fresh seat.
-   Tests: `tests/reconnect.test.ts`.
-2. **Removed** seabattle, trafficjam, slotcar, gravityrun.
-3. **9 new controller layouts**: slider, dual-slider, pad, aim, tap-race, board, numpad,
-   canvas, chat, rank. Plus a per-game `maxLength` on `text`.
-4. **Rewired**: darts (real two-slider aiming, was a random dice roll), golf (joystick +
-   power + SHOOT), racing (pure mash), guesswho (fixed opponent, manual flips, shared board).
-5. **New games (9)**: percentile, splitroom, dictionarium, drawful, fakin, trivia,
-   wordspud, survive, blather.
-6. **GAMES-SPEC-2**: mindmeld (61-item pack, pure scoring, 6 tests), mindreader (`rank`
-   controller, footrule scoring, 4 tests), stowaway (`role` controller, 5 tests), bdate
-   (chat wiring confirmed, 3 tests).
+## Done
+- Phase 1 audit.
+- Phase 2.1: `shared/game-catalog.ts` (display names, enabled, kind, ideal
+  range, minutes, dropout policy, content packs, `scale()`), catalog merged
+  into plugin manifests, `/api/games` + game start + Rumble filter by
+  `enabled`, TV lobby greys out games with a fit reason.
+
+## In progress
+Phase 2 platform foundation: room cap 8 and seats, scoring utility, voting
+layouts, spectators/reactions, results/awards + interlude.
 
 ## Next three actions
-1. **Frankenanswers** (spec item 3) - `rank` + text now exist; needs a per-player chip pool.
-2. Content packs + `screen.ts` for the 9 games added from GAMES-SPEC-2 whose content is
-   still inline (dictionarium needs the 80-word pack; blather needs 80 words + templates).
+1. Raise the room cap to 8 and add colour+shape seat identity.
+2. Add `f(N)`, `rankPoints` and the standings/stats schema.
+3. Voting layouts and phone scroll/tap-target rules.
 
-## Remaining from GAMES-SPEC-2
-Dumb Inventions, Slide Roulette, Bracket Brawl, Frankenanswers, Word Chain,
-Stowaway, Last Seat, Blind Date Chat, Slogan Shirts, Mash-Up Monsters, Slingshot Arena.
-
-Already covered by existing games: Word Fraud=dictionarium, Fence Sitters=splitroom,
-Gut Check=percentile, Fact or Fiction=trivia, Clue Crafters=blather, Twist It=survive,
-The Fake Out=fakin, Sketch & Lie=drawful, Mind Meld + Mind Reader built to spec.
-
-## Known gaps / deviations
-- No `screen.ts` for the 9 new games; they use the fallback renderer.
-- Content is inline in most games, not in `content/*.json` (only mindmeld uses the pack).
-- No host announcer (`S6`) and no per-game `theme.json`.
-- Poker still lacks host stack config, numpad bets and a round limit.
-- Tutorials (`howTo`) not added.
-- Drawful canvas has no colour picker or undo (spec S5 asks for 6 colours, 3 sizes, undo).
+## Known issues
+- `tests/wordchain.test.ts` can flake: it picks a random starting letter and
+  the dictionary has gaps. Pre-existing, needs a deterministic fixture.
+- `server/session.ts` still uses `Math.random` for its existing selection;
+  Phase 5 replaces only the selection step with presets.
 
 ## How to run
 ```bash
@@ -53,37 +38,5 @@ npm run typecheck
 npm run lint
 npm run probe
 ```
-ufw already allows 3000 and 3100/tcp on this machine, so phones can connect.
-Do not commit or push without the human asking.
 
-## Commit log
-- fix(engine): keep disconnected seats and recover stale rejoin tokens
-- feat(controllers): add motion, value and role layouts
-- feat(games): real dart aiming, golf joystick, tap race, guess who board
-- chore: drop seabattle, trafficjam, slotcar and gravityrun
-- feat(games): add percentile, splitroom, dictionarium and drawful
-- feat(games): add fakin, trivia, wordspud, survive and blather
-- feat(games): add mind meld with a 61-item category pack
-- feat(games): add mind reader with footrule scoring
-- feat(games): add stowaway with a private role card
-- feat(games): add blind date chat with private threads
-- docs: record the game-feel rebuild and the new commit policy
-- refactor(games): extend ControllerType union with new layouts
-- feat(games): add frankenanswers with per-player chip pools
-- feat(games): add bracket brawl with a knockout bracket
-- feat(games): add dumb inventions with problem and word cards
-- feat(games): add word chain with an offline dictionary
-- feat(games): add slogan shirts with deranged slogan pairing
-- docs: correct the inherited file headers on newer games
-- feat(games): add mash-up monsters with passing sheets
-- feat(games): add slingshot arena with server physics
-- feat(games): add slide roulette with a written slide deck
-- feat(games): add last seat with trivia, minigames and a finale
-- feat(meta): per-game theme.json and howTo tutorials on every game
-- feat(controllers): colour and brush size pickers on the draw layout
-- feat(poker): host-chosen starting stack and hand cap
-- feat(poker): size raises on the phone instead of a fixed increment
-- docs: designer handoff covering theme contract and remaining visual work
-- fix(client): guard process.env so shared/constants.js loads in the browser
-- docs: full game catalogue with rules for all 36 games
-- docs: phase 1 expansion audit (8-player, rumble, imposter)
+Do not push, merge or tag without being asked.

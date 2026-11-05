@@ -8,3 +8,4 @@ coverage/
 Thumbs.db
 .playwright-mcp/
 .screenshots/
+.orchestrator/

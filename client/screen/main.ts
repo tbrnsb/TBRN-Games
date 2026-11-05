@@ -10,6 +10,7 @@
 
 import type { ServerMessage, RoomState, SessionView } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
+import { GAME_CATALOG, gameAvailability } from "../../shared/game-catalog.ts";
 import { stageScale } from "./layout.ts";
 
 console.log("[Screen] Module loaded");
@@ -33,9 +34,22 @@ let endConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 interface GameManifestLite {
   id: string;
   name: string;
+  displayName?: string;
   minPlayers: number;
   maxPlayers: number;
   description: string;
+}
+
+/** User-facing name for a game: catalog display name, then manifest name. */
+function gameName(game: GameManifestLite): string {
+  return GAME_CATALOG[game.id]?.displayName ?? game.displayName ?? game.name;
+}
+
+/** Why this game cannot be played right now, or null when it fits. */
+function unavailableReason(game: GameManifestLite): string | null {
+  const entry = GAME_CATALOG[game.id];
+  if (entry) return gameAvailability(entry, playerCount);
+  return gameAvailability(game, playerCount);
 }
 
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
@@ -108,27 +122,28 @@ function renderPicker(): void {
   picker.innerHTML = "";
 
   for (const g of manifests) {
-    const enough = playerCount >= g.minPlayers;
+    const reason = unavailableReason(g);
+    const available = reason === null;
     const selected = selectedGameId === g.id;
 
     const tile = document.createElement("button");
     tile.type = "button";
     tile.className = `game-tile${selected ? " selected" : ""}`;
-    tile.disabled = !enough;
+    tile.disabled = !available;
     tile.dataset.game = g.id;
-    if (!enough) tile.title = `Needs ${g.minPlayers} players — ${playerCount} at the table`;
+    if (reason) tile.title = `${capitalise(reason)} — ${playerCount} at the table`;
 
     const dots = Array.from(
       { length: g.maxPlayers },
       (_, i) => `<i class="${i < g.minPlayers ? "on" : ""}"></i>`,
     ).join("");
 
-    const meta = enough
+    const meta = available
       ? `<span class="dots" aria-hidden="true">${dots}</span><span>${g.minPlayers}–${g.maxPlayers}</span>`
-      : `<span>Needs ${g.minPlayers}</span>`;
+      : `<span>${capitalise(reason)}</span>`;
 
     tile.innerHTML = `
-      <span class="name">${escapeHtml(g.name)}</span>
+      <span class="name">${escapeHtml(gameName(g))}</span>
       <span class="meta">${meta}</span>
       <span class="desc">${escapeHtml(g.description)}</span>
     `;
@@ -142,11 +157,15 @@ function renderPicker(): void {
   }
 }
 
+function capitalise(text: string): string {
+  return text.length > 0 ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
 function updateLaunchBar(): void {
   const game = manifests.find((m) => m.id === selectedGameId) ?? null;
   const reachable = selectedGameReachable();
 
-  selectedGameEl.textContent = game ? game.name : "No game picked";
+  selectedGameEl.textContent = game ? gameName(game) : "No game picked";
   // Poker is the only game with host-tunable settings so far.
   document.getElementById("stackField")?.classList.toggle("hidden", game?.id !== "poker");
 
@@ -157,12 +176,12 @@ function updateLaunchBar(): void {
   }
 
   if (!reachable) {
-    startBtn.textContent = `Needs ${game.minPlayers} players`;
+    startBtn.textContent = capitalise(unavailableReason(game) ?? "not playable");
     startBtn.disabled = true;
     return;
   }
 
-  startBtn.textContent = `Start ${game.name}`;
+  startBtn.textContent = `Start ${gameName(game)}`;
   startBtn.disabled = false;
 }
 
@@ -584,7 +603,7 @@ function updatePlayers(
 function selectedGameReachable(): boolean {
   if (!selectedGameId) return false;
   const g = manifests.find((m) => m.id === selectedGameId);
-  return !!g && playerCount >= g.minPlayers;
+  return !!g && unavailableReason(g) === null;
 }
 
 function showLobby() {
