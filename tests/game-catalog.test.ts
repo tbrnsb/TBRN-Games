@@ -170,6 +170,17 @@ describe("game catalog", () => {
     assert.strictEqual(GAME_CATALOG.slideroulette.scale(3, "standalone").rounds, 3);
     assert.strictEqual(GAME_CATALOG.drawful.scale(8, "standalone").rounds, 3);
   });
+
+  test("bracket plays two brackets at 3-4 and one full bracket at 5-6", () => {
+    for (const count of [3, 4]) {
+      assert.strictEqual(GAME_CATALOG.bracket.scale(count, "standalone").rounds, 2, `${count}: standalone`);
+      assert.strictEqual(GAME_CATALOG.bracket.scale(count, "rumble").rounds, 2, `${count}: rumble`);
+    }
+    for (const count of [5, 6]) {
+      assert.strictEqual(GAME_CATALOG.bracket.scale(count, "standalone").rounds, 1, `${count}: standalone`);
+      assert.strictEqual(GAME_CATALOG.bracket.scale(count, "rumble").rounds, 1, `${count}: rumble`);
+    }
+  });
 });
 
 describe("gameAvailability", () => {
@@ -239,6 +250,15 @@ describe("gameAvailability", () => {
     assert.strictEqual(gameAvailability(frankenanswers, 4), null);
     assert.strictEqual(gameAvailability(frankenanswers, 6), null);
     assert.strictEqual(gameAvailability(frankenanswers, 7), "max 6");
+  });
+
+  test("bracket moved from 3-4 to 3-6", () => {
+    const bracket = GAME_CATALOG.bracket;
+    assert.strictEqual(gameAvailability(bracket, 2), "needs 3-6");
+    assert.strictEqual(gameAvailability(bracket, 3), null);
+    assert.strictEqual(gameAvailability(bracket, 4), null);
+    assert.strictEqual(gameAvailability(bracket, 6), null);
+    assert.strictEqual(gameAvailability(bracket, 7), "max 6");
   });
 
   test("solo and fixed-seat games stay sane", () => {

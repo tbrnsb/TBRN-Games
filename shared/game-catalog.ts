@@ -174,13 +174,18 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "writing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 6,
     idealMin: 4,
     idealMax: 6,
     minutes: { standalone: 5, rumble: 4 },
     dropoutPolicy: "forfeit",
     contentPacks: [],
-    scale: fixedScale(2, { write: 60, vote: 20, reveal: 9 }, { options: 2 }),
+    scale: (playerCount) => ({
+      // 3-4 keep the old two brackets; 5-6 play one full power-of-two bracket.
+      rounds: playerCount <= 4 ? 2 : 1,
+      timers: { write: 60, vote: 20, reveal: 9 },
+      optionCaps: { options: 2 },
+    }),
   },
   dumbinventions: {
     id: "dumbinventions",
