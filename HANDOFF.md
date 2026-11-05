@@ -61,3 +61,4 @@ Do not commit or push without the human asking.
 - feat(controllers): add motion, value and role layouts
 - feat(games): real dart aiming, golf joystick, tap race, guess who board
 - chore: drop seabattle, trafficjam, slotcar and gravityrun
+- feat(games): add percentile, splitroom, dictionarium and drawful

@@ -1,0 +1,8 @@
+{
+  "id": "dictionarium",
+  "name": "Dictionarium",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "text",
+  "description": "Invent a definition for an obsolete word and beat the real one."
+}

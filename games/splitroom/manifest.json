@@ -1,0 +1,8 @@
+{
+  "id": "splitroom",
+  "name": "Split the Room",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "text",
+  "description": "Fill a blank to split the room down the middle. The closer the yes/no vote, the more you score."
+}
