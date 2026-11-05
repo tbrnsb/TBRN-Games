@@ -4,6 +4,9 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import { scalePayout, standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 
 interface GameManifest {
   id: string;
@@ -66,9 +69,8 @@ interface GamePlugin {
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
-
-
 
 interface StowCategory { id: string; text: string }
 
@@ -95,9 +97,16 @@ interface StowState {
   scores: number[];
   timerMs: number;
   reveal: { caught: boolean; accused: number | null; categoryGuess: string | null } | null;
+  /** Flat `<playerId>:<statKey>` counters for the finale awards. */
+  stats: Record<string, number>;
 }
 
 interface StowInstance extends GameInstance { state: StowState }
+
+const MIN_PLAYERS = 3;
+const MAX_PLAYERS = 8;
+/** Standalone rounds; the catalog's `scale()` reports 3 standalone / 2 rumble. */
+const ROUNDS = 3;
 
 const BRIEF_MS = 6000;
 const CLUE_MS = 45000;
@@ -106,14 +115,74 @@ const VOTE_MS = 20000;
 const CATCH_MS = 20000;
 const REVEAL_MS = 8000;
 
+/** A clue is at most three words (brief 4). */
+export const MAX_CLUE_WORDS = 3;
+/** Defensive per-word cap so one absurd token cannot flood the TV or ballot. */
+const MAX_CLUE_WORD_CHARS = 20;
+
+/** Per-correct-voter payout, before `f(N)`: exactly 500 at 3-4 players. */
+const CORRECT_VOTE_POINTS = 500;
+/** An uncaught Stowaway takes this fixed amount; never scaled. */
+const UNCAUGHT_POINTS = 1000;
+/** A caught Stowaway who names the category still takes this fixed bonus. */
+const CATEGORY_GUESS_POINTS = 500;
+/** Category multiple-choice list: the real answer plus five decoys. */
+export const CATEGORY_OPTIONS = 6;
+
 const manifest: GameManifest = {
   id: "stowaway",
   name: "Stowaway",
-  minPlayers: 3,
-  maxPlayers: 4,
+  minPlayers: MIN_PLAYERS,
+  maxPlayers: MAX_PLAYERS,
   controllerType: "role",
   description: "Everyone shares a secret category except one Stowaway, who has to bluff. Write a clue, talk it out, then vote.",
 };
+
+/** Replace C0/DEL control characters (newlines, tabs, escape codes) with spaces. */
+function stripControlCharacters(text: string): string {
+  let out = "";
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0;
+    out += code < 0x20 || code === 0x7f ? " " : char;
+  }
+  return out;
+}
+
+/** True when a token has at least one letter or digit (not just punctuation). */
+function hasWordCharacter(word: string): boolean {
+  return /[\p{L}\p{N}]/u.test(word);
+}
+
+/**
+ * Server-side clue sanitiser: strip control characters, collapse whitespace,
+ * drop punctuation-only tokens and keep at most three words.
+ *
+ * Returns null when nothing usable remains, so a punctuation-only or blank
+ * guess is not accepted as a submission.
+ */
+export function cleanClue(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const text = stripControlCharacters(raw).replace(/\s+/g, " ").trim();
+  if (text.length === 0) return null;
+  const words = text
+    .split(" ")
+    .filter(hasWordCharacter)
+    .slice(0, MAX_CLUE_WORDS)
+    .map((word) => word.slice(0, MAX_CLUE_WORD_CHARS));
+  if (words.length === 0) return null;
+  return words.join(" ");
+}
+
+/**
+ * Stowaway seat for a round: `round % N`, so the role never repeats until
+ * every seat has held it once. Deterministic by design (no `Math.random`).
+ */
+export function stowawayFor(round: number, playerCount: number): number {
+  const count = Number.isFinite(playerCount) ? Math.floor(playerCount) : 0;
+  if (count <= 0) return 0;
+  const safeRound = Number.isFinite(round) ? Math.max(0, Math.floor(round)) : 0;
+  return safeRound % count;
+}
 
 /** Strict-majority accusation: a tie or a split never catches the Stowaway. */
 export function tallyAccusation(votes: Array<number | null>, stowaway: number): { accused: number | null; caught: boolean } {
@@ -140,13 +209,18 @@ function stowLeader(instance: StowInstance): string | null {
   return idx >= 0 ? instance.players[idx].name : null;
 }
 
+function bumpStat(state: StowState, playerId: string, stat: "correctAccusations" | "roundsUndetected"): void {
+  const key = playerStatKey(playerId, stat);
+  state.stats[key] = (state.stats[key] ?? 0) + 1;
+}
+
 function stowBegin(instance: StowInstance, round: number): void {
   const s = instance.state;
   s.round = round;
-  s.stowaway = round % instance.players.length;
+  s.stowaway = stowawayFor(round, instance.players.length);
   const chosen = s.categories[round % s.categories.length];
   s.category = chosen.text;
-  s.decoys = s.categories.filter((c) => c.text !== chosen.text).slice(0, 5).map((c) => c.text);
+  s.decoys = s.categories.filter((c) => c.text !== chosen.text).slice(0, CATEGORY_OPTIONS - 1).map((c) => c.text);
   s.clues = instance.players.map(() => null);
   s.votes = instance.players.map(() => null);
   s.catchChoice = null;
@@ -158,16 +232,25 @@ function stowBegin(instance: StowInstance, round: number): void {
 function stowResolveVote(instance: StowInstance): void {
   const s = instance.state;
   const { accused, caught } = tallyAccusation(s.votes, s.stowaway);
+
+  // Every vote that named the real Stowaway is a correct accusation, whether
+  // or not it reached the strict majority needed to catch them.
+  instance.players.forEach((player, i) => {
+    if (s.votes[i] === s.stowaway) bumpStat(s, player.id, "correctAccusations");
+  });
+
   if (caught) {
+    const payout = scalePayout(CORRECT_VOTE_POINTS, instance.players.length);
     for (let i = 0; i < instance.players.length; i++) {
-      if (s.votes[i] === s.stowaway) s.scores[i] += 500;
+      if (s.votes[i] === s.stowaway) s.scores[i] += payout;
     }
     s.reveal = { caught: true, accused, categoryGuess: null };
     s.phase = "catchguess";
     s.timerMs = CATCH_MS;
     return;
   }
-  s.scores[s.stowaway] += 1000;
+  s.scores[s.stowaway] += UNCAUGHT_POINTS;
+  bumpStat(s, instance.players[s.stowaway].id, "roundsUndetected");
   s.reveal = { caught: false, accused, categoryGuess: null };
   s.phase = "reveal";
   s.timerMs = REVEAL_MS;
@@ -176,23 +259,63 @@ function stowResolveVote(instance: StowInstance): void {
 function stowFinishReveal(instance: StowInstance): void {
   const s = instance.state;
   const guessedRight = s.catchChoice !== null && s.catchChoice === s.category;
-  if (guessedRight) s.scores[s.stowaway] += 500;
+  if (guessedRight) s.scores[s.stowaway] += CATEGORY_GUESS_POINTS;
   s.reveal = { caught: true, accused: s.reveal?.accused ?? null, categoryGuess: s.catchChoice };
   s.phase = "reveal";
   s.timerMs = REVEAL_MS;
+}
+
+/** Who the TV is waiting on. The catch guess deliberately names nobody. */
+function waitingNames(instance: StowInstance): string[] {
+  const s = instance.state;
+  if (s.phase === "clue") {
+    return instance.players.filter((_, i) => s.clues[i] === null).map((p) => p.name);
+  }
+  if (s.phase === "vote") {
+    return instance.players
+      .filter((_, i) => i !== s.stowaway && s.votes[i] === null)
+      .map((p) => p.name);
+  }
+  return [];
+}
+
+/** Public reveal line from the fixed caption bank; never carries private text. */
+function revealCaption(instance: StowInstance): string | null {
+  const s = instance.state;
+  if (s.phase !== "reveal" || !s.reveal) return null;
+  if (!s.reveal.caught) {
+    const fooled = s.votes.filter((vote) => vote !== null && vote !== s.stowaway).length;
+    return captionFor({
+      kind: "fooled",
+      name: instance.players[s.stowaway]?.name,
+      count: fooled,
+      seed: s.round,
+    });
+  }
+  return captionFor({ kind: "reveal", seed: s.round });
+}
+
+/** True once the round has reached the public reveal. */
+function isRevealed(phase: StowState["phase"]): boolean {
+  return phase === "reveal" || phase === "finished";
+}
+
+/** Clue text is public once discussion starts, never during the clue phase. */
+function cluesArePublic(phase: StowState["phase"]): boolean {
+  return phase === "discussion" || phase === "vote" || isRevealed(phase);
 }
 
 const plugin: GamePlugin = {
   manifest,
 
   onStart(room: RoomState, players: Player[]): GameInstance {
-    return {
+    const instance: StowInstance = {
       roomId: room.id,
       players,
       state: {
         categories: secureShuffle(CATEGORIES),
         round: 0,
-        maxRounds: 4,
+        maxRounds: ROUNDS,
         phase: "brief",
         stowaway: 0,
         category: "",
@@ -203,8 +326,18 @@ const plugin: GamePlugin = {
         scores: players.map(() => 0),
         timerMs: BRIEF_MS,
         reveal: null,
+        stats: Object.fromEntries(
+          players.flatMap((p): Array<[string, number]> => [
+            [playerStatKey(p.id, "correctAccusations"), 0],
+            [playerStatKey(p.id, "roundsUndetected"), 0],
+          ]),
+        ),
       } satisfies StowState,
     };
+    // Round 1 needs its category, decoys and rotating seat just like later
+    // rounds; previously only the between-round path called `stowBegin`.
+    stowBegin(instance, 0);
+    return instance;
   },
 
   onInput(instance: GameInstance, playerId: string, input: unknown): void {
@@ -216,9 +349,12 @@ const plugin: GamePlugin = {
     const raw = input as { text?: unknown; choice?: unknown } | null;
 
     if (s.phase === "clue") {
-      if (typeof raw?.text === "string" && raw.text.trim().length > 0 && s.clues[index] === null) {
-        s.clues[index] = raw.text.trim().slice(0, 20);
-        if (s.clues.every((c) => c !== null)) { s.phase = "discussion"; s.timerMs = TALK_MS; }
+      if (s.clues[index] === null) {
+        const clue = cleanClue(raw?.text);
+        if (clue !== null) {
+          s.clues[index] = clue;
+          if (s.clues.every((c) => c !== null)) { s.phase = "discussion"; s.timerMs = TALK_MS; }
+        }
       }
       return;
     }
@@ -267,17 +403,41 @@ const plugin: GamePlugin = {
   screenState(instance: GameInstance): unknown {
     const inst = instance as StowInstance;
     const s = inst.state;
-    const revealed = s.phase === "reveal" || s.phase === "finished";
+    const revealed = isRevealed(s.phase);
+    const publicClues = cluesArePublic(s.phase);
+    const clues = publicClues
+      ? inst.players.map((p, i) => ({ name: p.name, clue: s.clues[i] ?? "" }))
+      : [];
+    // The clue list doubles as the TV ballot so the shared vote layout can
+    // draw all eight seats (two columns with letter badges at 7+). Every entry
+    // keeps the same shape in every phase: `votes` is 0 until the reveal.
+    const options = publicClues
+      ? inst.players.map((p, i) => ({
+          id: `p:${i}`,
+          label: s.clues[i] ? `${p.name}: ${s.clues[i]}` : p.name,
+          text: s.clues[i] ?? "",
+          votes: revealed && s.reveal ? s.votes.filter((vote) => vote === i).length : 0,
+          selected: false,
+        }))
+      : [];
     return {
       phase: s.phase,
       round: s.round + 1,
       maxRounds: s.maxRounds,
+      playerCount: inst.players.length,
+      // The role and the category are only public at the reveal.
       stowawayName: revealed ? inst.players[s.stowaway]?.name : null,
       category: revealed ? s.category : null,
-      clues: s.phase === "discussion" || s.phase === "vote" || revealed
-        ? inst.players.map((p, i) => ({ name: p.name, clue: s.clues[i] ?? "" }))
-        : [],
-      reveal: s.reveal,
+      clues,
+      options,
+      optionColumns: options.length >= 7 ? 2 : 1,
+      showVoteCounts: revealed && s.reveal !== null,
+      waitingOn: waitingNames(inst),
+      caption: revealCaption(inst),
+      sound: s.phase === "reveal" ? "reveal" : null,
+      // `reveal` carries the accused seat, so it stays off the TV until the
+      // public reveal; the catch guess must not leak who was caught.
+      reveal: revealed ? s.reveal : null,
       timerMs: Math.max(0, s.timerMs),
       scores: inst.players.map((p, i) => ({ name: p.name, score: s.scores[i] })),
       finished: s.phase === "finished",
@@ -318,10 +478,12 @@ const plugin: GamePlugin = {
         ...base,
         mode: "text",
         controllerType: "text",
-        placeholder: "One short clue",
-        maxLength: 20,
+        placeholder: "Three words max",
+        maxLength: MAX_CLUE_WORDS * (MAX_CLUE_WORD_CHARS + 1),
         hasSubmitted: s.clues[index] !== null,
-        info: isStow ? "You do not know the category - bluff carefully" : `Category: ${s.category}`,
+        info: isStow
+          ? "You do not know the category - bluff in three words max"
+          : `Category: ${s.category} · three words max`,
       };
     }
 
@@ -348,6 +510,17 @@ const plugin: GamePlugin = {
       controllerType: "choice",
       options: [],
       info: s.reveal ? (s.reveal.caught ? "The Stowaway was caught." : "The Stowaway got away.") : "",
+    };
+  },
+
+  results(instance: GameInstance): GameResult {
+    const inst = instance as StowInstance;
+    const s = inst.state;
+    return {
+      standings: standingsFromScores(
+        inst.players.map((p, i) => ({ id: p.id, raw: s.scores[i] })),
+      ),
+      stats: { ...s.stats },
     };
   },
 };

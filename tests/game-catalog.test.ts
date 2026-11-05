@@ -149,7 +149,7 @@ describe("game catalog", () => {
       bracket: 2,
       dumbinventions: 3,
       mostlikely: 8,
-      stowaway: 4,
+      stowaway: 3,
       fakin: 3,
       blather: 3,
       slideroulette: 4,

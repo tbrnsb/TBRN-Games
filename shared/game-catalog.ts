@@ -231,13 +231,20 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "deduction",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 7, rumble: 4 },
     dropoutPolicy: "void-round",
     contentPacks: [],
-    scale: fixedScale(4, { brief: 6, clue: 45, discuss: 30, vote: 20, catch: 20, reveal: 8 }, { options: 6 }),
+    scale: (playerCount, mode) => ({
+      // Three standalone rounds; the Rumble runs two. The brief/clue/discuss/
+      // vote/catch/reveal timers stay unchanged at every count.
+      rounds: mode === "rumble" ? 2 : 3,
+      timers: { brief: 6, clue: 45, discuss: 30, vote: 20, catch: 20, reveal: 8 },
+      // One ballot slot per seat and six category choices.
+      optionCaps: { options: playerCount, categories: 6 },
+    }),
   },
   fakin: {
     id: "fakin",

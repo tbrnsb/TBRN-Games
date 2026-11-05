@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 467/467 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 481/481 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -51,15 +51,17 @@ Last gate: `npm test` 467/467 · typecheck clean · lint 0 errors (236 warnings)
   1000/vote, pre-reveal TV privacy fixed, two-column reveal.
 - Phase 3 (b) Bracket Brawl: 3-6, general power-of-two bracket with secure
   byes, 2 brackets at 3-4 / one at 5-6, new TV bracket renderer, stats.
+- Phase 3 (c) Stowaway: 3-8, three-word clue cap, 500 x f(N) correct voters,
+  round-1 setup bug fixed, pre-reveal secrecy, stats.
 
 ## In progress
 Phase 3: widen each existing game on its own task, in shared-system groups.
 Room cap is 8; a game stays at its old max until its own task.
 
 ## Next three actions
-1. Stowaway (3-8, scaled detective payouts).
-2. Fakin' It (3-8), then Blather Round (3-8), then Most Likely To (3-8).
-3. Then drawing games.
+1. Fakin' It (3-8, faker rotation without repeats).
+2. Blather Round (3-8, speed-decayed guesses).
+3. Most Likely To (3-8, new top-vote scoring).
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and
