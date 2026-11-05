@@ -112,13 +112,22 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "writing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 5, rumble: 4 },
     dropoutPolicy: "void-round",
     contentPacks: [],
-    scale: fixedScale(4, { write: 45, vote: 25, reveal: 8 }),
+    scale: (playerCount, mode) => ({
+      // One write per player, but standalone never drops below four rounds, so
+      // the 3-4 player game and its totals stay exactly as they were. Rumble
+      // caps at four rounds.
+      rounds: mode === "rumble"
+        ? Math.min(playerCount, 4)
+        : Math.max(4, Math.min(playerCount, 8)),
+      timers: { write: 45, vote: 25, reveal: 8 },
+      optionCaps: { options: 2 },
+    }),
   },
   survive: {
     id: "survive",
