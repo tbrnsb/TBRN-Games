@@ -23,7 +23,12 @@ export const REJOIN_TOKEN_BYTES = 16;
 export const PING_INTERVAL_MS = 10000;
 // How long a disconnected seat stays reserved before it is reaped. Overridable
 // so tests can exercise the reap path without waiting half a minute.
-export const PLAYER_TIMEOUT_MS = Number(process.env.PLAYER_TIMEOUT_MS ?? 30000);
+// This module is also served to browsers, where `process` does not exist.
+const envPlayerTimeout =
+  typeof process !== "undefined" && process.env
+    ? Number(process.env.PLAYER_TIMEOUT_MS)
+    : NaN;
+export const PLAYER_TIMEOUT_MS = Number.isFinite(envPlayerTimeout) ? envPlayerTimeout : 30000;
 
 // --- LAN Utilities ---
 export async function getLanUrls(port, scheme = "http") {
