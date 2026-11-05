@@ -64,3 +64,4 @@ Do not commit or push without the human asking.
 - feat(games): add percentile, splitroom, dictionarium and drawful
 - feat(games): add fakin, trivia, wordspud, survive and blather
 - feat(games): add mind meld with a 61-item category pack
+- feat(games): add mind reader with footrule scoring

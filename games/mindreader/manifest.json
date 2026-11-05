@@ -1,0 +1,8 @@
+{
+  "id": "mindreader",
+  "name": "Mind Reader",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "rank",
+  "description": "Everyone ranks four things, then you guess how one chosen player ranked them. Closer = more points."
+}
