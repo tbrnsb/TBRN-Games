@@ -6,7 +6,23 @@
 import { secureShuffle } from "../../shared/secure-random.ts";
 
 interface GameManifest { id: string; name: string; minPlayers: number; maxPlayers: number; controllerType: ControllerType; description: string; }
-type ControllerType = "one-button" | "left-right" | "dpad" | "text" | "choice" | "private-grid" | "card-hand";
+type ControllerType =
+  | "one-button"
+  | "left-right"
+  | "dpad"
+  | "text"
+  | "choice"
+  | "private-grid"
+  | "card-hand"
+  | "slider"
+  | "dual-slider"
+  | "pad"
+  | "aim"
+  | "tap-race"
+  | "board"
+  | "numpad"
+  | "canvas"
+  | "chat";
 interface Player { id: string; name: string; joinedAt: number; rejoinToken: string; connected: boolean; controllerType?: string; }
 interface RoomState { id: string; code: string; hostPlayerId: string | null; players: Player[]; gameId: string | null; gameState: unknown | null; createdAt: number; status: "lobby" | "playing" | "finished"; }
 interface GameInstance { roomId: string; players: Player[]; state: unknown; }

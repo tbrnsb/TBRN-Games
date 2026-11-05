@@ -68,3 +68,4 @@ Do not commit or push without the human asking.
 - feat(games): add stowaway with a private role card
 - feat(games): add blind date chat with private threads
 - docs: record the game-feel rebuild and the new commit policy
+- refactor(games): extend ControllerType union with new layouts

@@ -23,7 +23,16 @@ type ControllerType =
   | "text"
   | "choice"
   | "private-grid"
-  | "card-hand";
+  | "card-hand"
+  | "slider"
+  | "dual-slider"
+  | "pad"
+  | "aim"
+  | "tap-race"
+  | "board"
+  | "numpad"
+  | "canvas"
+  | "chat";
 
 interface Player {
   id: string;
