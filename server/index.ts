@@ -26,6 +26,8 @@ import type {
 } from "../shared/types.ts";
 import type { PluginLoader } from "./plugins.ts";
 import { catalogEntry, isGameEnabled } from "../shared/game-catalog.ts";
+import { seatForIndex, type SeatIdentity } from "../shared/seat-identity.ts";
+import { sanitisePlayerName, uniquePlayerName } from "../shared/player-name.ts";
 import {
   createSession,
   sessionView,
@@ -39,7 +41,7 @@ import {
 
 const PORT = Number(process.env.PORT ?? 3000);
 const MAX_ROOMS = 100; // Prevent unbounded room creation
-const MAX_PLAYERS_PER_ROOM = 4; // Hard ceiling used only when no manifest exists
+const MAX_PLAYERS_PER_ROOM = 8; // Platform seat ceiling; games keep their own maxPlayers
 
 // --- In-memory stores ---
 const rooms = new Map<string, RoomState<any>>();
@@ -127,7 +129,7 @@ function sendScreenGameState(room: RoomState, plugin: GamePlugin, screen: unknow
         type: MESSAGE_TYPES.GAME_STATE,
         roomId: room.id,
         timestamp: Date.now(),
-        payload: { screen, controller: null, gameId: room.gameId, gameName: gameDisplayName(plugin.manifest) },
+        payload: { screen: withSeatIdentity(room, screen), controller: null, gameId: room.gameId, gameName: gameDisplayName(plugin.manifest) },
       });
     }
   }
@@ -218,6 +220,57 @@ function send(ws: WebSocket, message: ServerMessage): void {
 }
 
 /**
+ * Attach seat identity to the player-shaped arrays inside a game payload.
+ *
+ * Games build their own screen/controller states, and most copy just a name or
+ * id per player. Rather than editing every game, enrich the platform-owned
+ * collections at the socket boundary. Unknown entries are left untouched, so
+ * the existing payload shape keeps working.
+ */
+function withSeatIdentity(room: RoomState, payload: unknown): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+
+  const byId = new Map<string, SeatIdentity>();
+  const byName = new Map<string, SeatIdentity>();
+  for (const player of room.players) {
+    const seat = player.seat ?? seatForIndex(room.players.indexOf(player));
+    byId.set(player.id, seat);
+    byName.set(player.name, seat);
+  }
+
+  const source = payload as Record<string, unknown>;
+  let result: Record<string, unknown> | null = null;
+
+  for (const key of ["players", "scores", "racers", "standings"]) {
+    const collection = source[key];
+    if (!Array.isArray(collection)) continue;
+
+    let changed = false;
+    const enriched = collection.map((entry) => {
+      if (!entry || typeof entry !== "object") return entry;
+      const record = entry as Record<string, unknown>;
+      if (record.seat) return entry;
+
+      const seat =
+        (typeof record.playerId === "string" ? byId.get(record.playerId) : undefined) ??
+        (typeof record.id === "string" ? byId.get(record.id) : undefined) ??
+        (typeof record.name === "string" ? byName.get(record.name) : undefined);
+      if (!seat) return entry;
+
+      changed = true;
+      return { ...record, seat };
+    });
+
+    if (changed) {
+      result ??= { ...source };
+      result[key] = enriched;
+    }
+  }
+
+  return result ?? payload;
+}
+
+/**
  * Per-player game state message, including the public game identity.
  * A game may set its own `controllerType` in the controller state to switch
  * layouts mid-game (e.g. text input while writing, choice while voting);
@@ -246,8 +299,8 @@ function gameStateMessage(
     playerId,
     timestamp: Date.now(),
     payload: {
-      screen,
-      controller: payloadController,
+      screen: withSeatIdentity(room, screen),
+      controller: withSeatIdentity(room, payloadController),
       gameId: room.gameId,
       gameName: gameDisplayName(plugin.manifest),
       howTo: (plugin.manifest as { howTo?: string }).howTo,
@@ -634,45 +687,44 @@ wss.on("connection", (ws) => {
 });
 
 /**
- * Keep names unique inside a room so name-keyed winner/ranking lookups cannot
- * pick the wrong seat. "Ana" joins twice → "Ana", "Ana 2".
+ * Lowest free seat index. Seats are assigned on join and stay with the player
+ * until they are reaped, so a player's colour and shape never swap mid-game.
  */
-function uniquePlayerName(room: RoomState, name: string): string {
-  const taken = new Set(room.players.map((p) => p.name.toLowerCase()));
-  if (!taken.has(name.toLowerCase())) return name;
-  for (let i = 2; i < 100; i++) {
-    const candidate = `${name} ${i}`;
-    if (!taken.has(candidate.toLowerCase())) return candidate;
+function nextSeatIndex(room: RoomState): number {
+  const taken = new Set<number>();
+  for (const player of room.players) {
+    if (typeof player.seat?.index === "number") taken.add(player.seat.index);
   }
-  return `${name} ${randomInt(1000, 9999)}`;
+  for (let index = 0; index < MAX_PLAYERS_PER_ROOM; index++) {
+    if (!taken.has(index)) return index;
+  }
+  return 0;
 }
 
-function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void {  const { roomId: initialRoomId, payload } = msg;
+function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void {
+  const { roomId: initialRoomId, payload } = msg;
   let roomId = initialRoomId;
   const { name, rejoinToken } = payload;
 
-  // Validate name
-  if (!name || typeof name !== "string" || name.trim().length === 0) {
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: roomId ?? "", timestamp: Date.now(), payload: { code: "INVALID_NAME", message: "Name is required" } });
-    return;
-  }
-  if (name.length > 32) {
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: roomId ?? "", timestamp: Date.now(), payload: { code: "NAME_TOO_LONG", message: "Name must be 32 characters or less" } });
-    return;
-  }
-  // Sanitize name - remove control characters
-  const sanitizedName = name
-    .split("")
-    .filter((ch) => ch.charCodeAt(0) >= 0x20 && ch.charCodeAt(0) !== 0x7f)
-    .join("")
-    .trim();
-  if (sanitizedName !== name) {
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: roomId ?? "", timestamp: Date.now(), payload: { code: "INVALID_NAME", message: "Name contains invalid characters" } });
+  // Trim, then cap at 12 characters. Empty names and control characters take
+  // the existing INVALID_NAME path; long names are truncated, not rejected.
+  const rawName = typeof name === "string" ? name : "";
+  const cleanedName = sanitisePlayerName(rawName);
+  if (cleanedName === null) {
+    send(ws, {
+      type: MESSAGE_TYPES.ERROR,
+      roomId: roomId ?? "",
+      timestamp: Date.now(),
+      payload: {
+        code: "INVALID_NAME",
+        message: rawName.trim().length === 0 ? "Name is required" : "Name contains invalid characters",
+      },
+    });
     return;
   }
 
   // The laptop screen joins as a spectator: it owns the room but does not
-  // occupy one of the four player seats and never receives controller state.
+  // occupy one of the player seats and never receives controller state.
   if (payload.role === "screen") {
     let screenRoom: RoomState | undefined;
     if (roomId && typeof roomId === "string") {
@@ -758,6 +810,8 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
       if (player) {
         room = r;
         player.connected = true;
+        // Old seats and fixtures may predate seat identity; backfill once.
+        if (!player.seat) player.seat = seatForIndex(nextSeatIndex(room));
         playerSockets.set(player.id, ws);
         socketPlayers.set(ws, player.id);
         playerRooms.set(player.id, room.id);
@@ -831,13 +885,10 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
     return;
   }
 
-  // Seat cap comes from the game manifest when a game is selected, otherwise
-  // the platform ceiling.
-  const maxPlayers = room.gameId
-    ? (plugins.get(room.gameId)?.manifest.maxPlayers ?? MAX_PLAYERS_PER_ROOM)
-    : MAX_PLAYERS_PER_ROOM;
-  if (room.players.length >= maxPlayers) {
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "ROOM_FULL", message: `Room is full (max ${maxPlayers} players)` } });
+  // The lobby has eight seats. Game manifests keep their own maxPlayers and
+  // are checked at game start, so a small game can still be picked here.
+  if (room.players.length >= MAX_PLAYERS_PER_ROOM) {
+    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "ROOM_FULL", message: `Room is full (max ${MAX_PLAYERS_PER_ROOM} players)` } });
     return;
   }
 
@@ -845,10 +896,11 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   const token = generateRejoinToken();
   const player: Player = {
     id: playerId,
-    name: uniquePlayerName(room, name),
+    name: uniquePlayerName(room.players.map((p) => p.name), cleanedName),
     joinedAt: Date.now(),
     rejoinToken: token,
     connected: true,
+    seat: seatForIndex(nextSeatIndex(room)),
   };
 
   room.players.push(player);

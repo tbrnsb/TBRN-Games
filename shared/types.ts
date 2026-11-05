@@ -4,6 +4,7 @@
  */
 
 import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "./game-catalog.ts";
+import type { SeatIdentity } from "./seat-identity.ts";
 
 // --- Base message envelope ---
 export interface BaseMessage {
@@ -134,6 +135,8 @@ export interface Player {
   rejoinToken: string;
   connected: boolean;
   controllerType?: string;
+  /** Stable seat identity, assigned on join and kept for the room's lifetime. */
+  seat?: SeatIdentity;
 }
 
 // Type-safe room state with generic game state

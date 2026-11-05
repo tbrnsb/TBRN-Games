@@ -122,6 +122,17 @@
       white-space: nowrap;
       text-overflow: ellipsis;
     }
+    .seat-badge {
+      width: 20px; height: 20px;
+      border-radius: 5px;
+      display: inline-grid;
+      place-items: center;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--ink);
+      flex: 0 0 auto;
+    }
     .dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--muted);
@@ -1029,7 +1040,7 @@
 <body>
   <header class="appbar">
     <div class="brand"><span>TBRN</span><b>GAMES</b></div>
-    <div class="who"><span class="dot" id="connDot"></span><span id="playerName">Not joined</span></div>
+    <div class="who"><span class="dot" id="connDot"></span><span class="seat-badge hidden" id="seatBadge" aria-hidden="true"></span><span id="playerName">Not joined</span></div>
   </header>
   <main>
     <section class="join" id="joinForm">
@@ -1041,7 +1052,7 @@
       <div class="linked hidden" id="roomLinked"><span class="dot on"></span>Room linked from the QR code</div>
       <label class="name-field">
         <span>Your name</span>
-        <input id="nameInput" placeholder="Your name" maxlength="20" autocomplete="off" autocapitalize="words">
+        <input id="nameInput" placeholder="Your name" maxlength="12" autocomplete="off" autocapitalize="words">
       </label>
       <button class="primary" id="joinBtn">Join room</button>
       <p class="hint" id="joinError" role="alert"></p>

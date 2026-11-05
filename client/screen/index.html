@@ -220,13 +220,18 @@
       color: var(--color-text-muted);
       margin-bottom: 9px;
     }
-    .seats { display: flex; flex-direction: column; gap: 6px; }
+    .seats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 10px;
+    }
     .seat {
       display: flex;
       align-items: center;
-      gap: 10px;
-      min-height: 38px;
-      padding: 6px 9px;
+      gap: 8px;
+      min-width: 0;
+      min-height: 36px;
+      padding: 5px 8px;
       border-radius: 8px;
       border: 1px solid transparent;
     }
@@ -235,27 +240,29 @@
       border-color: rgba(255, 255, 255, 0.07);
     }
     .seat .swatch {
-      width: 26px; height: 26px;
+      width: 24px; height: 24px;
       border-radius: 6px;
       display: grid;
       place-items: center;
       font-family: var(--font-display);
       font-weight: 700;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--ink);
       flex: 0 0 auto;
     }
     .seat .nm {
       font-family: var(--font-display);
       font-weight: 500;
-      font-size: 15px;
+      font-size: 14px;
+      min-width: 0;
+      flex: 1 1 auto;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .seat .st {
       margin-left: auto;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--color-text-muted);
       white-space: nowrap;
     }
@@ -397,8 +404,19 @@
     .candidate .bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
     .candidate .bar i { display: block; height: 100%; background: var(--color-magenta); }
     .session-standings { border-left: 1px solid var(--color-border); padding-left: 14px; overflow-y: auto; }
-    .standing { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-    .standing .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .standing { display: flex; align-items: center; gap: 7px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .standing .badge {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      display: inline-grid;
+      place-items: center;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--ink);
+      flex: 0 0 auto;
+    }
+    .standing .nm { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .standing .pts { font-family: var(--font-display); font-weight: 700; color: var(--color-amber); }
     .session-launch { display: flex; align-items: center; gap: 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
     .session-launch .hint { flex: 1; }

@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 211/211 · typecheck clean · lint 0 errors (228 warnings)
+Last gate: `npm test` 217/217 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -14,15 +14,17 @@ Last gate: `npm test` 211/211 · typecheck clean · lint 0 errors (228 warnings)
   range, minutes, dropout policy, content packs, `scale()`), catalog merged
   into plugin manifests, `/api/games` + game start + Rumble filter by
   `enabled`, TV lobby greys out games with a fit reason.
+- Phase 2.2: room ceiling 8, stable 8-seat identity (colour + shape/glyph),
+  12-character deduplicated names, TV roster + phone header badges.
 
 ## In progress
-Phase 2 platform foundation: room cap 8 and seats, scoring utility, voting
-layouts, spectators/reactions, results/awards + interlude.
+Phase 2 platform foundation: scoring utility, voting layouts,
+spectators/reactions, results/awards + interlude.
 
 ## Next three actions
-1. Raise the room cap to 8 and add colour+shape seat identity.
-2. Add `f(N)`, `rankPoints` and the standings/stats schema.
-3. Voting layouts and phone scroll/tap-target rules.
+1. Add `f(N)`, `rankPoints` and the standings/stats schema.
+2. Voting layouts and phone scroll/tap-target rules.
+3. Spectator/reaction/disconnect handling.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and

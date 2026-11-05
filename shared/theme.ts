@@ -40,12 +40,17 @@ export const theme = {
     textMuted: "#64748B",    // Slate 500
     textInverse: "#0F172A",  // On primary/secondary
 
-    // Player colors (max 4)
+    // Player colors (8 seats, one per seat identity). These match the TV kit
+    // palette so a seat keeps the same colour from the lobby into a game.
     player: [
-      "#2E7DFF",  // Blue
-      "#FF6B35",  // Orange
-      "#10B981",  // Green
-      "#F59E0B",  // Yellow
+      "#FF2E97",  // Magenta (seat 1)
+      "#00E5FF",  // Cyan (seat 2)
+      "#FFE45E",  // Yellow (seat 3)
+      "#3DFFA2",  // Green (seat 4)
+      "#FF8A3D",  // Orange (seat 5)
+      "#B084FF",  // Violet (seat 6)
+      "#6EA8FE",  // Sky (seat 7)
+      "#F5F3FF",  // Off-white (seat 8)
     ],
   },
 

@@ -11,6 +11,7 @@ import type { ClientMessage, ServerMessage, ControllerType, SessionView } from "
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { getLayout } from "../../shared/controllers.ts";
 import type { ControllerLayout } from "../../shared/controllers.ts";
+import type { SeatIdentity } from "../../shared/seat-identity.ts";
 
 const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
 const wsUrl = `${wsProtocol}://${location.host}`;
@@ -41,6 +42,7 @@ const joinError = document.getElementById("joinError")!;
 const joinHint = document.getElementById("joinHint")!;
 const joinBtn = document.getElementById("joinBtn") as HTMLButtonElement;
 const playerNameEl = document.getElementById("playerName")!;
+const seatBadgeEl = document.getElementById("seatBadge")!;
 const connDot = document.getElementById("connDot")!;
 const gameLabel = document.getElementById("gameLabel")!;
 const coach = document.getElementById("coach")!;
@@ -80,10 +82,8 @@ function handleMessage(msg: ServerMessage) {
       playerId = msg.payload.playerId;
       rejoinToken = msg.payload.rejoinToken;
       // The server may suffix a duplicate name; show the seat's real name.
-      const seatName =
-        msg.payload.roomState.players.find((p) => p.id === playerId)?.name ??
-        nameInput.value.trim() ??
-        "Player";
+      const me = msg.payload.roomState.players.find((p) => p.id === playerId);
+      const seatName = me?.name ?? nameInput.value.trim() ?? "Player";
       // Persist so a refresh or network drop can rejoin this room.
       try {
         localStorage.setItem("tbrn_rejoin_token", rejoinToken);
@@ -93,6 +93,7 @@ function handleMessage(msg: ServerMessage) {
         console.warn("[Controller] Could not persist rejoin token", e);
       }
       playerNameEl.textContent = seatName;
+      applySeatBadge(me?.seat);
       connDot.className = "dot on";
       inGame = false;
       sessionPayload = null;
@@ -105,6 +106,7 @@ function handleMessage(msg: ServerMessage) {
     }
     case MESSAGE_TYPES.ROOM_STATE:
       roomStatus = msg.payload.status;
+      applySeatBadge(msg.payload.players.find((p) => p.id === playerId)?.seat);
       if (msg.payload.status !== "playing") {
         document.getElementById("howTo")?.classList.add("hidden");
       }
@@ -219,6 +221,21 @@ function handleMessage(msg: ServerMessage) {
       break;
     }
   }
+}
+
+/** Show this phone's seat colour and shape next to its name. */
+function applySeatBadge(seat: SeatIdentity | undefined | null): void {
+  if (!seat) {
+    seatBadgeEl.classList.add("hidden");
+    seatBadgeEl.textContent = "";
+    seatBadgeEl.removeAttribute("style");
+    seatBadgeEl.removeAttribute("title");
+    return;
+  }
+  seatBadgeEl.classList.remove("hidden");
+  seatBadgeEl.textContent = seat.emoji;
+  seatBadgeEl.style.background = seat.color;
+  seatBadgeEl.title = `Seat ${seat.index + 1}: ${seat.shape}`;
 }
 
 /** Royal Rumble card: voting, live points, or the final trophy board. */

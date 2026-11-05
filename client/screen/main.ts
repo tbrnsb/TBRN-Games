@@ -11,6 +11,7 @@
 import type { ServerMessage, RoomState, SessionView } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { GAME_CATALOG, gameAvailability } from "../../shared/game-catalog.ts";
+import { SEATS, seatForIndex, type SeatIdentity } from "../../shared/seat-identity.ts";
 import { stageScale } from "./layout.ts";
 
 console.log("[Screen] Module loaded");
@@ -30,6 +31,10 @@ let sessionView: SessionView | null = null;
 let rumbleLength = 5;
 let rumbleMode: "vote" | "random" = "vote";
 let endConfirmTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Seat lookup for scoreboards, refreshed from every room state. */
+const seatByPlayerId = new Map<string, SeatIdentity>();
+const seatByPlayerName = new Map<string, SeatIdentity>();
 
 interface GameManifestLite {
   id: string;
@@ -250,7 +255,12 @@ function renderSession(view: SessionView): void {
   for (const standing of view.standings) {
     const row = document.createElement("div");
     row.className = "standing";
+    const seat = seatByPlayerId.get(standing.playerId) ?? seatByPlayerName.get(standing.name);
+    const badge = seat
+      ? `<span class="badge" style="background:${seat.color}" title="${escapeHtml(seat.shape)}" aria-hidden="true">${seat.emoji}</span>`
+      : "";
     row.innerHTML = `
+      ${badge}
       <span class="nm">${escapeHtml(standing.name)}</span>
       <span class="pts">${standing.points}</span>
     `;
@@ -553,26 +563,37 @@ function handleMessage(msg: ServerMessage) {
 }
 
 function updatePlayers(
-  players: Array<{ id: string; name: string; connected: boolean }>,
+  players: Array<{ id: string; name: string; connected: boolean; seat?: SeatIdentity }>,
   status: string,
   gameId: string | null,
 ): void {
   playerCount = players.length;
   playerCountEl.textContent = String(playerCount);
 
+  seatByPlayerId.clear();
+  seatByPlayerName.clear();
+  const bySeat = new Map<number, (typeof players)[number]>();
+  players.forEach((player, index) => {
+    const seat = player.seat ?? seatForIndex(index);
+    seatByPlayerId.set(player.id, seat);
+    seatByPlayerName.set(player.name, seat);
+    bySeat.set(seat.index, player);
+  });
+
   const list = getPlayersList();
   list.innerHTML = "";
-  const seatCount = Math.max(4, players.length);
-  for (let i = 0; i < seatCount; i++) {
-    const p = players[i];
+  // Always show all eight seats so the table layout does not jump as phones
+  // join. Seats are addressed by their stable index, not array position.
+  for (let i = 0; i < SEATS.length; i++) {
+    const p = bySeat.get(i);
     const el = document.createElement("div");
     if (p) {
-      const color = getPlayerColor(i);
+      const seat = p.seat ?? seatForIndex(i);
       el.className = "seat filled";
       el.innerHTML = `
-        <span class="swatch" style="background:${color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
-        <span class="nm">${escapeHtml(p.name)}</span>
-        <span class="st">${p.connected ? "connected" : "away"}</span>
+        <span class="swatch" style="background:${seat.color}" title="${escapeHtml(seat.shape)}" aria-label="Seat ${seat.index + 1}: ${escapeHtml(seat.shape)}">${seat.emoji}</span>
+        <span class="nm" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+        <span class="st">${p.connected ? "" : "away"}</span>
       `;
     } else {
       el.className = "seat empty";
@@ -841,10 +862,10 @@ function renderGeneric(width: number, height: number): void {
   // Scores / players table.
   const players = Array.isArray(state.players) ? (state.players as Array<Record<string, unknown>>) : [];
   if (players.length) {
-    ctx.font = "400 22px Inter, sans-serif";
     for (let i = 0; i < players.length && y < height - 120; i++) {
       const p = players[i];
-      const name = String(p.name ?? `Player ${i + 1}`);
+      const seat = (p.seat as SeatIdentity | undefined) ?? seatForIndex(i);
+      const rawName = String(p.name ?? `Player ${i + 1}`);
       const bits: string[] = [];
       for (const key of ["score", "chips", "totalStrokes", "taps", "shipsLeft", "remaining", "lives", "speed"]) {
         if (typeof p[key] === "number") bits.push(`${key === "score" ? "score" : key}: ${p[key]}`);
@@ -852,9 +873,17 @@ function renderGeneric(width: number, height: number): void {
       if (p.out === true || p.eliminated === true) bits.push("OUT");
       if (p.folded === true) bits.push("folded");
       if (p.alive === false) bits.push("out");
-      ctx.fillStyle = getPlayerColor(i);
-      ctx.fillRect(32, y + 4, 14, 14);
+
+      // Colour + shape badge: never colour alone.
+      ctx.fillStyle = seat.color;
+      ctx.fillRect(32, y + 2, 18, 18);
+      ctx.fillStyle = "#0F172A";
+      ctx.font = "700 12px Inter, sans-serif";
+      ctx.fillText(seat.emoji, 36, y + 3);
+
       ctx.fillStyle = "#F8FAFC";
+      ctx.font = "400 22px Inter, sans-serif";
+      const name = ellipsize(ctx, rawName, Math.max(120, width - 360));
       ctx.fillText(`${name}  ${bits.join("  ")}`, 56, y);
       y += 30;
     }
@@ -871,6 +900,16 @@ function renderGeneric(width: number, height: number): void {
     ctx.fillText(winner?.name ? `${winner.name} wins!` : "Game over!", width / 2, height / 2 - 50);
     ctx.textAlign = "left";
   }
+}
+
+/** Clip a canvas label to maxWidth, ending with an ellipsis. */
+function ellipsize(c: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (c.measureText(text).width <= maxWidth) return text;
+  let clipped = text;
+  while (clipped.length > 1 && c.measureText(`${clipped}…`).width > maxWidth) {
+    clipped = clipped.slice(0, -1);
+  }
+  return `${clipped}…`;
 }
 
 function drawWrapped(
@@ -950,13 +989,6 @@ function resizeCanvas() {
   canvas.height = Math.max(1, Math.floor(cssH * dpr));
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (currentScreen !== null) renderGame();
-}
-
-function getPlayerColor(index: number): string {
-  // Same palette the game renderers use, so a player keeps their colour from
-  // the lobby into the game.
-  const colors = ["#FF2E97", "#00E5FF", "#FFE45E", "#3DFFA2"];
-  return colors[index % colors.length];
 }
 
 window.addEventListener("resize", () => {
