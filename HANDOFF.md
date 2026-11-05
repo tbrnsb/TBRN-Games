@@ -86,3 +86,4 @@ Do not commit or push without the human asking.
 - docs: designer handoff covering theme contract and remaining visual work
 - fix(client): guard process.env so shared/constants.js loads in the browser
 - docs: full game catalogue with rules for all 36 games
+- docs: phase 1 expansion audit (8-player, rumble, imposter)
