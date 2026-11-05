@@ -73,14 +73,16 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "writing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 6, rumble: 4 },
     dropoutPolicy: "continue",
-    contentPacks: [],
-    scale: (playerCount) => ({
-      rounds: 6,
+    contentPacks: ["Facts", "Dictionary"],
+    scale: (playerCount, mode) => ({
+      // Standalone is always six rounds. Rumble drops to four, and to three
+      // in a full 7-8 player room, per brief 4.
+      rounds: mode === "rumble" ? (playerCount >= 7 ? 3 : 4) : 6,
       timers: { write: 30, vote: 20, reveal: 6 },
       optionCaps: { options: playerCount + 1 },
     }),

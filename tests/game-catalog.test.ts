@@ -199,10 +199,10 @@ describe("gameAvailability", () => {
 
   test("current hard caps are reported honestly", () => {
     const bluff = GAME_CATALOG.bluff;
-    assert.strictEqual(gameAvailability(bluff, 2), "needs 3-4");
+    assert.strictEqual(gameAvailability(bluff, 2), "needs 3+");
     assert.strictEqual(gameAvailability(bluff, 3), null);
-    assert.strictEqual(gameAvailability(bluff, 4), null);
-    assert.strictEqual(gameAvailability(bluff, 5), "max 4");
+    assert.strictEqual(gameAvailability(bluff, 8), null);
+    assert.strictEqual(gameAvailability(bluff, 9), "max 8");
   });
 
   test("solo and fixed-seat games stay sane", () => {

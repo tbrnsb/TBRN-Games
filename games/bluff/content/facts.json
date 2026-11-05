@@ -1,0 +1,12 @@
+[
+  { "text": "The world's largest _____ weighs as much as 33 elephants.", "answer": "blue whale", "category": "Nature" },
+  { "text": "A group of flamingos is called a _____.", "answer": "flamboyance", "category": "Animals" },
+  { "text": "_____ was originally marketed as a wallpaper cleaner.", "answer": "Play-Doh", "category": "Toys" },
+  { "text": "The shortest war in history lasted _____ minutes.", "answer": "38", "category": "History" },
+  { "text": "Bananas are technically _____.", "answer": "berries", "category": "Food" },
+  { "text": "Octopuses have _____ hearts.", "answer": "three", "category": "Animals" },
+  { "text": "The dot over the letter i is called a _____.", "answer": "tittle", "category": "Words" },
+  { "text": "Honey never _____.", "answer": "spoils", "category": "Food" },
+  { "text": "A group of crows is called a _____.", "answer": "murder", "category": "Animals" },
+  { "text": "The national sport of Japan is _____.", "answer": "sumo", "category": "World" }
+]
