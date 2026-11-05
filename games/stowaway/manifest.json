@@ -1,0 +1,8 @@
+{
+  "id": "stowaway",
+  "name": "Stowaway",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "role",
+  "description": "Everyone shares a secret category except one Stowaway. Write a clue, talk it out, then vote."
+}
