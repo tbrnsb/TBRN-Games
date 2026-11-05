@@ -83,3 +83,4 @@ Do not commit or push without the human asking.
 - feat(controllers): colour and brush size pickers on the draw layout
 - feat(poker): host-chosen starting stack and hand cap
 - feat(poker): size raises on the phone instead of a fixed increment
+- docs: designer handoff covering theme contract and remaining visual work
