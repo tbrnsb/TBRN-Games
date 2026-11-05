@@ -145,7 +145,7 @@ describe("game catalog", () => {
       writevote: 5,
       splitroom: 4,
       survive: 3,
-      frankenanswers: 2,
+      frankenanswers: 3,
       bracket: 2,
       dumbinventions: 2,
       mostlikely: 8,
@@ -230,6 +230,15 @@ describe("gameAvailability", () => {
     assert.strictEqual(gameAvailability(survive, 4), null);
     assert.strictEqual(gameAvailability(survive, 6), null);
     assert.strictEqual(gameAvailability(survive, 7), "max 6");
+  });
+
+  test("frankenanswers moved from 3-4 to 3-6", () => {
+    const frankenanswers = GAME_CATALOG.frankenanswers;
+    assert.strictEqual(gameAvailability(frankenanswers, 2), "needs 3-6");
+    assert.strictEqual(gameAvailability(frankenanswers, 3), null);
+    assert.strictEqual(gameAvailability(frankenanswers, 4), null);
+    assert.strictEqual(gameAvailability(frankenanswers, 6), null);
+    assert.strictEqual(gameAvailability(frankenanswers, 7), "max 6");
   });
 
   test("solo and fixed-seat games stay sane", () => {

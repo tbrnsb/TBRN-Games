@@ -1429,6 +1429,8 @@ function renderGeneric(width: number, height: number): void {
       scale: scaleForViewport(width, height),
       selectedId: typeof state.selectedId === "string" ? state.selectedId : null,
       showVoteCounts: state.showVoteCounts === true,
+      // A composed-text game may split six long answers into two columns.
+      minColumns: state.optionColumns === 2 ? 2 : 1,
     });
     y = rect.y + rect.height;
   }

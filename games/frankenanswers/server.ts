@@ -65,6 +65,7 @@ interface GamePlugin {
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
 
 
@@ -73,6 +74,15 @@ interface GamePlugin {
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import {
+  MAX_ROUND_SCORE,
+  scalePayout,
+  standingsFromScores,
+  type GameResult,
+} from "../../shared/scoring.ts";
 
 /** author: >= 0 is a player seat, -1 is the content pack, -2 is a connector. */
 export interface FaTile { id: string; text: string; author: number }
@@ -88,6 +98,9 @@ const PROMPTS = ["a place", "an excuse", "something sticky", "a job title", "a s
 
 interface FaAnswer { author: number; text: string; chipIds: string[] }
 
+/** Flat `<playerId>:<statKey>` counters for the finale awards. */
+type FaStat = "votesReceived" | "chipsBorrowed";
+
 interface FaState {
   round: number;
   maxRounds: number;
@@ -102,6 +115,7 @@ interface FaState {
   scores: number[];
   timerMs: number;
   reveal: { winners: number[]; rows: Array<{ text: string; author: number; votes: number }> } | null;
+  stats: Record<string, number>;
 }
 
 interface FaInstance extends GameInstance { state: FaState }
@@ -112,11 +126,18 @@ const VOTE_MS = 25000;
 const REVEAL_MS = 9000;
 const MAX_CHIP = 18;
 
+/** Standalone rounds; the catalog's `scale()` reports 3 standalone / 2 rumble. */
+const ROUNDS = 3;
+
+/** Per-vote and per-borrowed-chip payouts, before `scalePayout` applies `f(N)`. */
+const VOTE_POINTS = 1000;
+const CHIP_POINTS = 100;
+
 const manifest: GameManifest = {
   id: "frankenanswers",
   name: "Frankenanswers",
   minPlayers: 3,
-  maxPlayers: 4,
+  maxPlayers: 6,
   controllerType: "rank",
   description: "Everyone writes three word chips, then builds the best answer out of other people's words.",
 };
@@ -148,7 +169,9 @@ export function dealPools(tiles: FaTile[], playerCount: number): string[][] {
 export function composeAnswer(order: string[], pool: string[], tiles: FaTile[]): { ok: boolean; text: string; chipIds: string[] } {
   const fail = { ok: false, text: "", chipIds: [] as string[] };
   if (order.length === 0) return fail;
-  const byId = new Map(tiles.map((t) => [t.id, t]));
+  // Connectors are shared by every pool and never dealt as chips, so the
+  // lookup falls back to the fixed connector list.
+  const byId = new Map([...CONNECTORS, ...tiles].map((t) => [t.id, t]));
   const seen = new Set<string>();
   const words: string[] = [];
   const chipIds: string[] = [];
@@ -177,6 +200,47 @@ function faLeader(instance: FaInstance): string | null {
   let idx = -1;
   s.scores.forEach((v, i) => { if (v > best) { best = v; idx = i; } });
   return idx >= 0 ? instance.players[idx].name : null;
+}
+
+function bumpStat(state: FaState, playerId: string, stat: FaStat, amount = 1): void {
+  const key = playerStatKey(playerId, stat);
+  state.stats[key] = (state.stats[key] ?? 0) + amount;
+}
+
+/** Who the TV is waiting on during each timed phase. */
+function waitingNames(instance: FaInstance): string[] {
+  const s = instance.state;
+  if (s.phase === "chips") {
+    return instance.players.filter((_, i) => s.submitted[i] < 3).map((p) => p.name);
+  }
+  if (s.phase === "build") {
+    return instance.players.filter((_, i) => s.answers[i] === null).map((p) => p.name);
+  }
+  if (s.phase === "vote") {
+    return instance.players.filter((_, i) => s.votes[i] === null).map((p) => p.name);
+  }
+  return [];
+}
+
+/** Reveal line: the most-voted answer's author. Never carries answer text. */
+function revealCaption(instance: FaInstance): string | null {
+  const s = instance.state;
+  if (s.phase !== "reveal" || !s.reveal) return null;
+
+  let top: { author: number; votes: number } | null = null;
+  for (const row of s.reveal.rows) {
+    if (row.votes <= 0 || row.author < 0) continue;
+    if (!top || row.votes > top.votes) top = { author: row.author, votes: row.votes };
+  }
+  if (top) {
+    return captionFor({
+      kind: "favourite",
+      name: instance.players[top.author]?.name,
+      count: top.votes,
+      seed: s.round,
+    });
+  }
+  return captionFor({ kind: "reveal", seed: s.round });
 }
 
 function faPackTiles(): FaTile[] {
@@ -213,6 +277,7 @@ function faEnterVote(instance: FaInstance): void {
 
 function faSettle(instance: FaInstance): void {
   const s = instance.state;
+  const count = instance.players.length;
   const tally = s.answers.map(() => 0);
   for (const vote of s.votes) {
     if (typeof vote !== "string" || !vote.startsWith("a")) continue;
@@ -222,19 +287,35 @@ function faSettle(instance: FaInstance): void {
   const max = tally.length ? Math.max(...tally) : 0;
   const winners = max > 0 ? tally.map((c, i) => (c === max ? i : -1)).filter((i) => i >= 0) : [];
 
-  tally.forEach((count, i) => {
+  const votePayout = scalePayout(VOTE_POINTS, count);
+  const chipPayout = scalePayout(CHIP_POINTS, count);
+  const roundGain = new Array<number>(count).fill(0);
+
+  // Every vote pays the answer's author; brief 3.3 scales per-vote payouts.
+  tally.forEach((votes, i) => {
     const answer = s.answers[i];
-    if (answer && count > 0) s.scores[answer.author] += 1000 * count;
+    if (!answer || votes <= 0) return;
+    roundGain[answer.author] += votes * votePayout;
+    bumpStat(s, instance.players[answer.author].id, "votesReceived", votes);
   });
 
+  // Winning answers pay each borrowed chip's author once per chip used.
   for (const wi of winners) {
     const answer = s.answers[wi];
     if (!answer) continue;
     for (const chipId of answer.chipIds) {
       const tile = s.tiles.find((t) => t.id === chipId);
-      if (tile && tile.author >= 0) s.scores[tile.author] += 100;
+      if (!tile || tile.author < 0) continue;
+      roundGain[tile.author] += chipPayout;
+      bumpStat(s, instance.players[tile.author].id, "chipsBorrowed", 1);
     }
   }
+
+  // The human's hard rule keeps 3- and 4-player totals identical to the old
+  // uncapped formula, so the platform round bound only binds from five up.
+  roundGain.forEach((gain, index) => {
+    s.scores[index] += count >= 5 ? Math.min(gain, MAX_ROUND_SCORE) : gain;
+  });
 
   s.reveal = {
     winners,
@@ -253,7 +334,7 @@ const plugin: GamePlugin = {
       players,
       state: {
         round: 0,
-        maxRounds: 2,
+        maxRounds: ROUNDS,
         phase: "chips",
         prompt: PROMPTS[0],
         tiles: faPackTiles(),
@@ -265,6 +346,12 @@ const plugin: GamePlugin = {
         scores: players.map(() => 0),
         timerMs: CHIPS_MS,
         reveal: null,
+        stats: Object.fromEntries(
+          players.flatMap((p): Array<[string, number]> => [
+            [playerStatKey(p.id, "votesReceived"), 0],
+            [playerStatKey(p.id, "chipsBorrowed"), 0],
+          ]),
+        ),
       } satisfies FaState,
     };
   },
@@ -353,17 +440,25 @@ const plugin: GamePlugin = {
     const inst = instance as FaInstance;
     const s = inst.state;
     const revealed = s.phase === "reveal" || s.phase === "finished";
+    const answersPublic = s.phase === "vote" || revealed;
+    const options = answersPublic
+      ? s.answers.map((a, i) => ({ id: `a${i}`, text: a?.text ?? "", author: revealed ? (a?.author ?? -1) : -1, votes: revealed ? (s.reveal?.rows[i]?.votes ?? 0) : 0 }))
+      : [];
     return {
       phase: s.phase,
       round: s.round + 1,
       maxRounds: s.maxRounds,
+      playerCount: inst.players.length,
       prompt: s.prompt,
       chipCounts: inst.players.map((p, i) => ({ name: p.name, chips: s.submitted[i] })),
       // Anonymous composed answers, no authors until the reveal.
-      options: s.phase === "vote" || revealed
-        ? s.answers.map((a, i) => ({ id: `a${i}`, text: a?.text ?? "", author: revealed ? (a?.author ?? -1) : -1, votes: revealed ? (s.reveal?.rows[i]?.votes ?? 0) : 0 }))
-        : [],
+      options,
+      // Six long composed answers switch the TV to the two-column grid.
+      optionColumns: options.length >= 6 ? 2 : 1,
       reveal: s.reveal,
+      waitingOn: waitingNames(inst),
+      caption: revealCaption(inst),
+      sound: s.phase === "reveal" ? "reveal" : null,
       timerMs: Math.max(0, s.timerMs),
       scores: inst.players.map((p, i) => ({ name: p.name, score: s.scores[i] })),
       finished: s.phase === "finished",
@@ -418,6 +513,16 @@ const plugin: GamePlugin = {
     }
 
     return { ...base, mode: "wait", controllerType: "choice", options: [], info: s.reveal ? "Round complete" : "" };
+  },
+
+  results(instance: GameInstance): GameResult {
+    const inst = instance as FaInstance;
+    return {
+      standings: standingsFromScores(
+        inst.players.map((p, i) => ({ id: p.id, raw: inst.state.scores[i] })),
+      ),
+      stats: { ...inst.state.stats },
+    };
   },
 };
 

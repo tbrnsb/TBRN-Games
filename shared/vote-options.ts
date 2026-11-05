@@ -14,7 +14,7 @@ export const LARGE_TYPE_MIN_PX = 48;
 export const VOTE_FONT_CEILING_PX = 72;
 
 export interface VoteLayout {
-  /** 1 for 1-6 options, 2 for 7+. */
+  /** 1 for 1-6 options, 2 for 7+ or when `minColumns: 2` asks for a grid. */
   columns: 1 | 2;
   /** One letter badge per option: A, B, C ... Z, AA, AB ... */
   letters: string[];
@@ -22,6 +22,14 @@ export interface VoteLayout {
   maxFontPx: number;
   /** Floor for the computed type size at 1080p. */
   minFontPx: number;
+}
+
+export interface VoteLayoutOptions {
+  /**
+   * Force at least this many columns. Composed-text games use it to split six
+   * long answers earlier than the default seven-option threshold (brief 4).
+   */
+  minColumns?: 1 | 2;
 }
 
 /**
@@ -49,10 +57,13 @@ export function optionLetter(index: number): string {
  * - 7-9 options: two columns with letter badges (56px ceiling, 36px floor).
  * - 10+ options: still two columns and a letter for every option; the game
  *   may page the list without re-computing letters.
+ *
+ * `minColumns: 2` lets a game opt into the two-column layout below seven
+ * options; the six-option case then keeps the readable two-column type floor.
  */
-export function voteLayout(optionCount: number): VoteLayout {
+export function voteLayout(optionCount: number, options: VoteLayoutOptions = {}): VoteLayout {
   const count = Number.isFinite(optionCount) ? Math.max(0, Math.floor(optionCount)) : 0;
-  const columns: 1 | 2 = count <= 6 ? 1 : 2;
+  const columns: 1 | 2 = count >= 7 || options.minColumns === 2 ? 2 : 1;
   const letters = Array.from({ length: count }, (_, index) => optionLetter(index));
 
   if (columns === 1) {

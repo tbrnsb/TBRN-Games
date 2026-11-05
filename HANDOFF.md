@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 413/413 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 433/433 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -45,15 +45,17 @@ Last gate: `npm test` 413/413 · typecheck clean · lint 0 errors (236 warnings)
   (4 kept at 3-4 for parity), rumble min(N,4), 12 scenarios, result stats.
 - Phase 3 (a) Survive the Internet: 3-6, derangement pairings, scaled
   700/300 per vote, 1500 round cap, result stats.
+- Phase 3 (b) Frankenanswers: 3-6, server-composed answers, scaled
+  1000/100, fixed the connector lookup, two-column six-answer reveal.
 
 ## In progress
 Phase 3: widen each existing game on its own task, in shared-system groups.
 Room cap is 8; a game stays at its old max until its own task.
 
 ## Next three actions
-1. Frankenanswers (3-6, server-composed chips).
-2. Dumb Inventions (3-6, remove the chip penalty).
-3. Bracket Brawl (3-6, power-of-two bracket).
+1. Dumb Inventions (3-6, remove the chip penalty).
+2. Bracket Brawl (3-6, power-of-two bracket).
+3. Then hidden-role games (Stowaway, Fakin' It, Blather, Most Likely To).
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and

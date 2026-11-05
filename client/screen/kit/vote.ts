@@ -35,6 +35,8 @@ export interface VoteDrawOptions {
   accent?: string;
   /** Draw the numeric tally on the right of each option. */
   showVoteCounts?: boolean;
+  /** Force at least this many columns (composed-text reveals split at six). */
+  minColumns?: 1 | 2;
   emptyLabel?: string;
 }
 
@@ -54,6 +56,7 @@ export function drawVoteOptions(
     scale = 1,
     accent = colors.magenta,
     showVoteCounts = false,
+    minColumns,
     emptyLabel = "No options yet",
   } = opts;
 
@@ -68,7 +71,7 @@ export function drawVoteOptions(
       return;
     }
 
-    const layout = voteLayout(options.length);
+    const layout = voteLayout(options.length, { minColumns });
     const gap = scaledSize(14, scale);
     const columns = layout.columns;
     const rows = Math.max(1, Math.ceil(options.length / columns));

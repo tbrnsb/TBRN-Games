@@ -154,13 +154,19 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "writing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 6,
     idealMin: 4,
     idealMax: 6,
-    minutes: { standalone: 6, rumble: 6 },
+    minutes: { standalone: 6, rumble: 4 },
     dropoutPolicy: "continue",
     contentPacks: ["chips"],
-    scale: fixedScale(2, { chips: 60, build: 90, vote: 25, reveal: 9 }),
+    scale: (playerCount, mode) => ({
+      // Three standalone rounds; the Rumble runs two. Every player is dealt
+      // six foreign chips plus four connectors at any count.
+      rounds: mode === "rumble" ? 2 : 3,
+      timers: { chips: 60, build: 90, vote: 25, reveal: 9 },
+      optionCaps: { chips: 6, connectors: 4, options: playerCount },
+    }),
   },
   bracket: {
     id: "bracket",
