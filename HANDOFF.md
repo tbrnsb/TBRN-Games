@@ -77,3 +77,4 @@ Do not commit or push without the human asking.
 - docs: correct the inherited file headers on newer games
 - feat(games): add mash-up monsters with passing sheets
 - feat(games): add slingshot arena with server physics
+- feat(games): add slide roulette with a written slide deck

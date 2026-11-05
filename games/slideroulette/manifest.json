@@ -1,0 +1,8 @@
+{
+  "id": "slideroulette",
+  "name": "Slide Roulette",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "text",
+  "description": "Write one slide caption for a topic you did not choose. The presenter has to improvise around it."
+}
