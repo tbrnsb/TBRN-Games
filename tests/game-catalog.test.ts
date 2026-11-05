@@ -181,6 +181,26 @@ describe("game catalog", () => {
       assert.strictEqual(GAME_CATALOG.bracket.scale(count, "rumble").rounds, 1, `${count}: rumble`);
     }
   });
+
+  test("sloganshirts plays two rounds at 3-4 and one cycle from five", () => {
+    for (const count of [3, 4]) {
+      assert.strictEqual(GAME_CATALOG.sloganshirts.scale(count, "standalone").rounds, 2, `${count}: standalone`);
+      assert.strictEqual(GAME_CATALOG.sloganshirts.scale(count, "rumble").rounds, 2, `${count}: rumble`);
+      assert.strictEqual(
+        GAME_CATALOG.sloganshirts.scale(count, "rumble").optionCaps?.options,
+        count,
+        `${count}: every shirt fits`,
+      );
+    }
+    for (const count of [5, 6, 7, 8]) {
+      const standalone = GAME_CATALOG.sloganshirts.scale(count, "standalone");
+      assert.strictEqual(standalone.rounds, 1, `${count}: one full cycle`);
+      assert.strictEqual(standalone.optionCaps?.options, count, `${count}: one shirt per player`);
+      const rumble = GAME_CATALOG.sloganshirts.scale(count, "rumble");
+      assert.strictEqual(rumble.rounds, 1, `${count}: one rumble round`);
+      assert.strictEqual(rumble.optionCaps?.options, 4, `${count}: four rumble shirts`);
+    }
+  });
 });
 
 describe("gameAvailability", () => {
@@ -232,6 +252,15 @@ describe("gameAvailability", () => {
     assert.strictEqual(gameAvailability(splitroom, 4), null);
     assert.strictEqual(gameAvailability(splitroom, 8), null);
     assert.strictEqual(gameAvailability(splitroom, 9), "max 8");
+  });
+
+  test("sloganshirts moved from 3-4 to 3-8", () => {
+    const sloganshirts = GAME_CATALOG.sloganshirts;
+    assert.strictEqual(gameAvailability(sloganshirts, 2), "needs 3+");
+    assert.strictEqual(gameAvailability(sloganshirts, 3), null);
+    assert.strictEqual(gameAvailability(sloganshirts, 4), null);
+    assert.strictEqual(gameAvailability(sloganshirts, 8), null);
+    assert.strictEqual(gameAvailability(sloganshirts, 9), "max 8");
   });
 
   test("mostlikely moved from 3-4 to 3-8", () => {

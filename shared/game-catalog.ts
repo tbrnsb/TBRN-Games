@@ -336,16 +336,22 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "drawing",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 4, rumble: 4 },
     dropoutPolicy: "continue",
     contentPacks: [],
-    scale: (playerCount) => ({
-      rounds: 2,
+    scale: (playerCount, mode) => ({
+      // 3-4 keep the original two rounds for parity. From five players the
+      // game is one full cycle: one round with one shirt per player, or four
+      // shirts in a Rumble, which is also one round.
+      rounds: playerCount <= 4 ? Math.max(1, Math.min(2, playerCount)) : 1,
       timers: { draw: 60, slogan: 30, vote: 25, reveal: 9 },
-      optionCaps: { options: playerCount },
+      // One ballot slot per shirt; a 5-8 Rumble caps the TV at four shirts.
+      optionCaps: {
+        options: mode === "rumble" ? Math.max(1, Math.min(playerCount, 4)) : Math.max(1, playerCount),
+      },
     }),
   },
   quiz: {
