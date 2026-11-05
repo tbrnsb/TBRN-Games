@@ -432,6 +432,8 @@ export interface PokerActions {
   canRaise: boolean;
   callAmount: number;
   minRaiseTo: number;
+  maxRaiseTo: number;
+  raiseStep: number;
 }
 
 /**
@@ -455,6 +457,8 @@ export function pokerActions(state: unknown): PokerActions {
     canRaise: s.canRaise === true,
     callAmount: typeof s.callAmount === "number" ? s.callAmount : 0,
     minRaiseTo: typeof s.minRaiseTo === "number" ? s.minRaiseTo : 0,
+    maxRaiseTo: typeof s.maxRaiseTo === "number" ? s.maxRaiseTo : 0,
+    raiseStep: typeof s.raiseStep === "number" && s.raiseStep > 0 ? s.raiseStep : 1,
   };
 }
 
@@ -466,8 +470,10 @@ export function createCardHandLayout(): ControllerLayout {
       const cards = Array.isArray(s.cards)
         ? (s.cards as Array<{ suit: string; rank: string; faceDown?: boolean }>)
         : [];
-      const { show: hasActions, yourTurn, locked, canCheck, canCall, canRaise, callAmount, minRaiseTo } =
+      const { show: hasActions, yourTurn, locked, canCheck, canCall, canRaise, callAmount, minRaiseTo, maxRaiseTo, raiseStep } =
         pokerActions(state);
+      // Raise sizing lives on the phone: start at the minimum and step up.
+      let raiseTo = minRaiseTo;
       const pot = typeof s.pot === "number" ? s.pot : null;
       const bet = typeof s.bet === "number" ? s.bet : null;
       const timeLeft = typeof s.timeLeft === "number" ? Math.max(0, Math.ceil(s.timeLeft / 1000)) : null;
@@ -491,7 +497,13 @@ export function createCardHandLayout(): ControllerLayout {
             <button class="action-btn fold" data-act="fold" ${locked ? "disabled" : ""}>Fold</button>
             ${canCheck ? `<button class="action-btn" data-act="check" ${locked ? "disabled" : ""}>Check</button>` : ""}
             ${canCall ? `<button class="action-btn call" data-act="call" ${locked ? "disabled" : ""}>Call ${callAmount}</button>` : ""}
-            ${canRaise ? `<button class="action-btn raise" data-act="raise" data-amount="${minRaiseTo}" ${locked ? "disabled" : ""}>Raise ${minRaiseTo}</button>` : ""}
+            ${canRaise ? `
+              <div class="raise-row">
+                <button class="raise-step" data-step="-1" ${locked ? "disabled" : ""}>-</button>
+                <span class="raise-amount" id="raiseAmount">${minRaiseTo}</span>
+                <button class="raise-step" data-step="1" ${locked ? "disabled" : ""}>+</button>
+                <button class="action-btn raise" data-act="raise" ${locked ? "disabled" : ""}>Raise</button>
+              </div>` : ""}
           </div>
           ${!yourTurn && typeof s.turnName === "string" && s.turnName ? `<p class="action-hint">Waiting for ${escapeHtml(s.turnName)}…</p>` : ""}
         ` : ""}
@@ -507,12 +519,22 @@ export function createCardHandLayout(): ControllerLayout {
         });
       }
 
+      container.querySelectorAll<HTMLButtonElement>(".raise-step").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const dir = Number(btn.dataset.step);
+          const next = raiseTo + dir * raiseStep;
+          raiseTo = Math.min(maxRaiseTo, Math.max(minRaiseTo, next));
+          const label = container.querySelector("#raiseAmount");
+          if (label) label.textContent = String(raiseTo);
+        });
+      });
+
       container.querySelectorAll<HTMLButtonElement>(".action-btn").forEach(btn => {
         btn.addEventListener("click", () => {
           if (btn.disabled) return;
           const action = btn.dataset.act;
           if (action === "raise") {
-            onInput({ action: "raise", amount: Number(btn.dataset.amount) });
+            onInput({ action: "raise", amount: raiseTo });
           } else {
             onInput({ action });
           }
@@ -542,6 +564,7 @@ export function createCardHandLayout(): ControllerLayout {
         call: s.canCall ?? null,
         raise: s.canRaise ?? null,
         amount: s.minRaiseTo ?? null,
+        maxRaiseTo: s.maxRaiseTo ?? null,
         callAmount: s.callAmount ?? null,
       });
     },

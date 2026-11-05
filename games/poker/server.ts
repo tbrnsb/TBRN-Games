@@ -836,6 +836,7 @@ const plugin: GamePlugin = {
       canRaise: yourTurn && seat.chips > toCall && maxRaiseTo > s.currentBet,
       minRaiseTo: Math.min(minRaiseTo, maxRaiseTo),
       maxRaiseTo,
+      raiseStep: Math.max(1, s.lastRaiseSize),
       yourTurn,
       timeLeft: Math.max(0, s.actionTimerMs),
       folded: seat.folded,

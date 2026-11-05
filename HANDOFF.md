@@ -82,3 +82,4 @@ Do not commit or push without the human asking.
 - feat(meta): per-game theme.json and howTo tutorials on every game
 - feat(controllers): colour and brush size pickers on the draw layout
 - feat(poker): host-chosen starting stack and hand cap
+- feat(poker): size raises on the phone instead of a fixed increment
