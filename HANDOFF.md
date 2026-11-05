@@ -76,3 +76,4 @@ Do not commit or push without the human asking.
 - feat(games): add slogan shirts with deranged slogan pairing
 - docs: correct the inherited file headers on newer games
 - feat(games): add mash-up monsters with passing sheets
+- feat(games): add slingshot arena with server physics

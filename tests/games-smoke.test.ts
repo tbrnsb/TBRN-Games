@@ -140,7 +140,8 @@ function chooseInput(gameId: string, cs: Record<string, unknown>, playerId: stri
     case "dumbinventions":
     case "wordchain":
     case "sloganshirts":
-    case "mashup": {
+    case "mashup":
+    case "arena": {
       // These games switch controller UI per phase and report it as `mode`.
       if (cs.mode === "slider") {
         return Math.random() < 0.5 ? { slider: { axis: "x", value: Math.random() } } : { action: "action" };
@@ -151,6 +152,13 @@ function chooseInput(gameId: string, cs: Record<string, unknown>, playerId: stri
           : { action: "action" };
       }
       if (cs.mode === "text") return { text: `${gameId} answer by ${playerId}` };
+      if (cs.mode === "aim") {
+        return Math.random() < 0.4
+          ? { pad: { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } }
+          : Math.random() < 0.5
+            ? { slider: { axis: "y", value: Math.random() } }
+            : { action: "action" };
+      }
       if (cs.mode === "chat") {
         const contacts = ((cs.chat as { contacts?: Array<{ id: string }> } | undefined)?.contacts ?? []);
         if (contacts.length) return { chat: { to: contacts[0].id, text: "hello there" } };
