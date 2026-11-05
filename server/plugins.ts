@@ -1,6 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "../shared/game-catalog.ts";
+import type { GameResult } from "../shared/scoring.ts";
 
 // Plugin types defined locally to avoid import issues with Node type stripping
 export interface GameManifest {
@@ -72,6 +73,8 @@ export interface GamePlugin<
   onTick(instance: GameInstance<TState>, deltaMs: number): void;
   screenState(instance: GameInstance<TState>): TScreenState;
   controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
+  /** Optional per-game standings and stats; the platform extracts a fallback. */
+  results?(instance: GameInstance<TState>): GameResult;
 }
 
 export interface PluginLoader {

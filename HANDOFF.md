@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 265/265 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 297/297 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -28,10 +28,12 @@ Last gate: `npm test` 265/265 · typecheck clean · lint 0 errors (236 warnings)
 - Phase 2.5b: auto-pause when connected players fall below a game's minimum,
   60 s host offer (Wait / Resume / End game), frozen game clock, host token on
   the host phone, pause overlay on TV.
+- Phase 2.6a: optional `results()` game hook, fallback result extraction from
+  screen scores, raw scores and per-player stats per Rumble round, and the
+  seven briefed awards (max 6 on the finale). Placement points unchanged.
 
 ## In progress
-Phase 2 platform foundation: result/award schema and the between-game
-interlude plus TV watchability.
+Phase 2 platform foundation: between-game interlude and TV watchability.
 
 ## Next three actions
 1. Result/award schema from game stats.

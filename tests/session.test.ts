@@ -13,6 +13,8 @@ import {
   sessionView,
   type SessionGame,
 } from "../server/session.ts";
+import { playerStatKey } from "../shared/results.ts";
+import type { GameResult } from "../shared/scoring.ts";
 
 const players = [
   { id: "p0", name: "Ana" },
@@ -167,6 +169,114 @@ describe("session: scoring", () => {
     const accuracy = s.trophies.find((t) => t.id === "accuracy");
     assert.strictEqual(accuracy?.playerName, "Ben");
     assert.strictEqual(accuracy?.detail, "3/3 correct");
+  });
+
+  test("a round records raw scores and stats without changing placement points", () => {
+    const s = createSession(players, games, 5, "vote");
+    startRound(s, "quiz");
+    const result: GameResult = {
+      standings: [
+        { playerId: "p0", rank: 1, raw: 120 },
+        { playerId: "p1", rank: 2, raw: 60 },
+        { playerId: "p2", rank: 3, raw: 10 },
+      ],
+      stats: { [playerStatKey("p0", "votesFooled")]: 4, [playerStatKey("p1", "votesFooled")]: 1 },
+    };
+    completeRound(s, "quiz", "Quiz", {
+      scores: [
+        { name: "Ana", score: 100 },
+        { name: "Ben", score: 50 },
+        { name: "Cleo", score: 10 },
+      ],
+      winner: { name: "Ana" },
+    }, players, undefined, result);
+
+    const round = s.rounds[0];
+    assert.ok(round);
+    assert.deepStrictEqual(round.raw, { p0: 120, p1: 60, p2: 10 });
+    assert.strictEqual(round.stats?.p0.votesFooled, 4);
+    assert.strictEqual(round.stats?.p1.votesFooled, 1);
+    assert.strictEqual(s.awardStats.p0.votesFooled, 4);
+
+    // Placement points still come from the screen order, not the result ranks.
+    assert.strictEqual(s.stats.p0.points, 10);
+    assert.strictEqual(s.stats.p1.points, 6);
+    assert.strictEqual(s.stats.p2.points, 3);
+  });
+
+  test("four players still earn 10/6/3/1 and every raw score is recorded", () => {
+    const four = [...players, { id: "p3", name: "Dee" }];
+    const s = createSession(four, games, 5, "vote");
+    startRound(s, "quiz");
+    completeRound(s, "quiz", "Quiz", {
+      scores: [
+        { name: "Ana", score: 100 },
+        { name: "Ben", score: 50 },
+        { name: "Cleo", score: 10 },
+        { name: "Dee", score: 1 },
+      ],
+      winner: { name: "Ana" },
+    }, four);
+
+    assert.deepStrictEqual(
+      ["p0", "p1", "p2", "p3"].map((id) => s.stats[id].points),
+      [10, 6, 3, 1],
+    );
+    assert.deepStrictEqual(s.rounds[0]?.raw, { p0: 100, p1: 50, p2: 10, p3: 1 });
+  });
+
+  test("a ranked result cannot move another game's placement points", () => {
+    const s = createSession(players, games, 5, "vote");
+    startRound(s, "quiz");
+    const result: GameResult = {
+      standings: [
+        { playerId: "p2", rank: 1, raw: 999 },
+        { playerId: "p0", rank: 2, raw: 1 },
+        { playerId: "p1", rank: 3, raw: 0 },
+      ],
+      stats: {},
+    };
+    completeRound(s, "quiz", "Quiz", {
+      scores: [
+        { name: "Ana", score: 100 },
+        { name: "Ben", score: 50 },
+        { name: "Cleo", score: 10 },
+      ],
+    }, players, undefined, result);
+
+    assert.strictEqual(s.stats.p0.points, 10);
+    assert.strictEqual(s.stats.p1.points, 6);
+    assert.strictEqual(s.stats.p2.points, 3);
+  });
+
+  test("the finale exposes awards and aggregated stats beside the trophies", () => {
+    const s = createSession(players, games, 1, "vote");
+    startRound(s, "quiz");
+    const result: GameResult = {
+      standings: [
+        { playerId: "p0", rank: 1, raw: 100 },
+        { playerId: "p1", rank: 2, raw: 50 },
+        { playerId: "p2", rank: 3, raw: 10 },
+      ],
+      stats: { [playerStatKey("p0", "votesFooled")]: 4, [playerStatKey("p1", "votesFooled")]: 1 },
+    };
+    completeRound(s, "quiz", "Quiz", {
+      scores: [
+        { name: "Ana", score: 100 },
+        { name: "Ben", score: 50 },
+        { name: "Cleo", score: 10 },
+      ],
+    }, players, undefined, result);
+
+    assert.strictEqual(s.status, "finished");
+    const liar = s.awards.find((award) => award.id === "best-liar");
+    assert.strictEqual(liar?.playerName, "Ana");
+    assert.strictEqual(liar?.detail, "4 votes fooled");
+
+    const view = sessionView(s);
+    assert.deepStrictEqual(view.awards, s.awards);
+    assert.strictEqual(view.awardStats.p0.votesFooled, 4);
+    assert.ok(view.trophies.length > 0);
   });
 });
 

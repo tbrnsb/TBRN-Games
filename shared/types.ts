@@ -4,6 +4,7 @@
  */
 
 import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "./game-catalog.ts";
+import type { GameResult } from "./scoring.ts";
 import type { ReactionId } from "./reactions.ts";
 import type { SeatIdentity } from "./seat-identity.ts";
 
@@ -122,6 +123,14 @@ export interface SessionTrophyView {
   detail: string;
 }
 
+export interface SessionAwardView {
+  id: string;
+  name: string;
+  playerId: string;
+  playerName: string;
+  detail: string;
+}
+
 export interface SessionView {
   length: number;
   selection: "vote" | "random";
@@ -136,6 +145,10 @@ export interface SessionView {
   standings: SessionStanding[];
   champion: { name: string; points: number } | null;
   trophies: SessionTrophyView[];
+  /** Aggregated per-player stat totals that feed the finale awards. */
+  awardStats: Record<string, Record<string, number>>;
+  /** Awards computed when the session finishes; empty before the finale. */
+  awards: SessionAwardView[];
 }
 
 export interface SessionMessage extends BaseMessage {
@@ -259,6 +272,11 @@ export interface GamePlugin<
   onTick(instance: GameInstance<TState>, deltaMs: number): void;
   screenState(instance: GameInstance<TState>): TScreenState;
   controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
+  /**
+   * Optional per-game standings and stats. Games that do not implement it fall
+   * back to the platform's screen-state extraction.
+   */
+  results?(instance: GameInstance<TState>): GameResult;
 }
 
 export interface GameInstance<TState extends object = object> {

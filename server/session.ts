@@ -10,6 +10,9 @@ export type SessionSelection = "vote" | "random";
 export type SessionStatus = "voting" | "playing" | "finished";
 
 import type { SessionView } from "../shared/types.ts";
+import { computeAwards, type AwardWinner } from "../shared/awards.ts";
+import { normaliseGameResult, perPlayerStats, resultFromScreen } from "../shared/results.ts";
+import type { GameResult } from "../shared/scoring.ts";
 
 export interface SessionGame {
   id: string;
@@ -33,6 +36,10 @@ export interface SessionRoundResult {
   gameId: string;
   gameName: string;
   results: Array<{ playerId: string; name: string; place: number; points: number }>;
+  /** The game's own raw score per player, shown beside placement points. */
+  raw: Record<string, number>;
+  /** Per-player stat totals for this round, when the game supplied them. */
+  stats?: Record<string, Record<string, number>>;
 }
 
 export interface SessionTrophy {
@@ -54,7 +61,10 @@ export interface SessionState {
   stats: Record<string, SessionPlayerStat>; // playerId
   rounds: SessionRoundResult[];
   accuracy: Record<string, { correct: number; answered: number; fastestMs: number | null }>;
+  /** All per-player stats merged across rounds; powers the finale awards. */
+  awardStats: Record<string, Record<string, number>>;
   trophies: SessionTrophy[];
+  awards: AwardWinner[];
   champion: { playerId: string; name: string; points: number } | null;
 }
 
@@ -98,7 +108,9 @@ export function createSession(
     stats,
     rounds: [],
     accuracy: {},
+    awardStats: {},
     trophies: [],
+    awards: [],
     champion: null,
   };
   if (selection === "random") session.currentGameId = pickRandom(candidates)?.id ?? null;
@@ -268,9 +280,19 @@ export function completeRound(
   screen: unknown,
   players: PlayerLike[],
   accuracy?: Record<string, { correct: number; answered: number; fastestMs: number | null }>,
+  gameResult?: GameResult,
 ): void {
   const placements = computePlacements(gameId, screen, players);
   const results = placements.map((p) => ({ ...p, points: pointsForPlace(p.place) }));
+
+  // Raw scores and stats sit beside the unchanged placement points. A game
+  // result is preferred; otherwise derive it from the screen it already shows.
+  const result = gameResult
+    ? normaliseGameResult(gameResult, players)
+    : resultFromScreen(screen, players, gameId);
+  const raw: Record<string, number> = {};
+  for (const standing of result.standings) raw[standing.playerId] = standing.raw;
+  const roundStats = perPlayerStats(result.stats, players);
 
   for (const r of results) {
     const stat = session.stats[r.playerId];
@@ -292,7 +314,18 @@ export function completeRound(
     }
   }
 
-  session.rounds.push({ gameId, gameName, results });
+  const round: SessionRoundResult = { gameId, gameName, results, raw };
+  if (Object.keys(roundStats).length > 0) {
+    round.stats = roundStats;
+    for (const [playerId, values] of Object.entries(roundStats)) {
+      const aggregate = session.awardStats[playerId] ?? {};
+      for (const [statKey, value] of Object.entries(values)) {
+        aggregate[statKey] = (aggregate[statKey] ?? 0) + value;
+      }
+      session.awardStats[playerId] = aggregate;
+    }
+  }
+  session.rounds.push(round);
   session.played.push(gameId);
 
   const remaining = eligibleGames(session.candidates, players.length, session.played);
@@ -364,6 +397,7 @@ function finalise(session: SessionState): void {
   }
 
   session.trophies = trophies;
+  session.awards = computeAwards(session.rounds, session.awardStats);
 }
 
 function pickRandom<T>(items: T[]): T | null {
@@ -393,5 +427,7 @@ export function sessionView(session: SessionState): SessionView {
     standings,
     champion: session.champion ? { name: session.champion.name, points: session.champion.points } : null,
     trophies: session.trophies,
+    awardStats: session.awardStats,
+    awards: session.awards,
   };
 }

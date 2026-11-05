@@ -30,6 +30,7 @@ import type {
 } from "../shared/types.ts";
 import type { PluginLoader } from "./plugins.ts";
 import { catalogEntry, isGameEnabled } from "../shared/game-catalog.ts";
+import { extractGameResult } from "../shared/results.ts";
 import { seatForIndex, type SeatIdentity } from "../shared/seat-identity.ts";
 import { sanitisePlayerName, uniquePlayerName } from "../shared/player-name.ts";
 import { isReaction, reactionById, REACTION_COOLDOWN_MS } from "../shared/reactions.ts";
@@ -1448,6 +1449,7 @@ function startGameLoop(roomId: string): void {
           screen,
           currentRoom.players,
           currentPlugin.manifest.id === "quiz" ? quizAccuracy(currentInstance) : undefined,
+          extractGameResult(currentPlugin, currentInstance, currentRoom.players, currentPlugin.manifest.id),
         );
         broadcastSession(currentRoom);
       }
