@@ -4,5 +4,6 @@
   "minPlayers": 2,
   "maxPlayers": 4,
   "controllerType": "slider",
-  "description": "One player estimates a real statistic on a slider. Everyone else bets higher or lower. Close guess, big score."
+  "description": "One player estimates a real statistic on a slider. Everyone else bets higher or lower. Close guess, big score.",
+  "howTo": "One player estimates a percentage. Everyone else bets higher or lower."
 }

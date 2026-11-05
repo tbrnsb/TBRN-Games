@@ -4,5 +4,6 @@
   "minPlayers": 3,
   "maxPlayers": 4,
   "controllerType": "text",
-  "description": "Fill a blank to split the room down the middle. The closer the yes/no vote, the more you score."
+  "description": "Fill a blank to split the room down the middle. The closer the yes/no vote, the more you score.",
+  "howTo": "Fill a blank to split the room down the middle. A perfect split scores best."
 }

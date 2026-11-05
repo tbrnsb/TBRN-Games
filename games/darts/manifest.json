@@ -4,5 +4,6 @@
   "minPlayers": 1,
   "maxPlayers": 4,
   "controllerType": "dual-slider",
-  "description": "Aim with a horizontal and a vertical slider, then throw. Real darts scoring, 3 darts a turn, 501 down to zero."
+  "description": "Aim with a horizontal and a vertical slider, then throw. Real darts scoring, 3 darts a turn, 501 down to zero.",
+  "howTo": "Aim with the two sliders, then throw. Three darts a turn, 501 down to zero."
 }

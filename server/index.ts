@@ -236,7 +236,13 @@ function gameStateMessage(
     roomId: room.id,
     playerId,
     timestamp: Date.now(),
-    payload: { screen, controller: payloadController, gameId: room.gameId, gameName: plugin.manifest.name },
+    payload: {
+      screen,
+      controller: payloadController,
+      gameId: room.gameId,
+      gameName: plugin.manifest.name,
+      howTo: (plugin.manifest as { howTo?: string }).howTo,
+    },
   };
 }
 
@@ -257,8 +263,16 @@ async function loadPlugins(): Promise<void> {
   pluginLoader = await createPluginLoader(join(process.cwd(), "games"));
   const loaded = pluginLoader.loadAll();
 
-  // Copy to plugins map for compatibility
+  // manifest.json is the source of truth for metadata (howTo, copy, limits).
+  // Merge it over the module's inline manifest so the two cannot drift.
   for (const [id, plugin] of loaded) {
+    try {
+      const raw = readFileSync(join(process.cwd(), "games", id, "manifest.json"), "utf8");
+      const meta = JSON.parse(raw) as Partial<GameManifest>;
+      plugin.manifest = { ...plugin.manifest, ...meta, id: plugin.manifest.id };
+    } catch {
+      /* manifest.json is optional; the inline manifest still works */
+    }
     plugins.set(id, plugin);
   }
 

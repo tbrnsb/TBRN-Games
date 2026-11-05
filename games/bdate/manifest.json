@@ -4,5 +4,6 @@
   "minPlayers": 3,
   "maxPlayers": 4,
   "controllerType": "chat",
-  "description": "One Dater, everyone else a Candidate with a secret persona. Chat privately, then get picked."
+  "description": "One Dater, everyone else a Candidate with a secret persona. Chat privately, then get picked.",
+  "howTo": "Chat privately with the Dater. They cannot see your name, only your charm."
 }

@@ -4,5 +4,6 @@
   "minPlayers": 1,
   "maxPlayers": 4,
   "controllerType": "aim",
-  "description": "Point the joystick where you want the ball to go, set power on the slider, hit SHOOT. Lowest strokes wins."
+  "description": "Point the joystick where you want the ball to go, set power on the slider, hit SHOOT. Lowest strokes wins.",
+  "howTo": "Point the joystick where the ball should go, set power, hit SHOOT. Lowest strokes wins."
 }

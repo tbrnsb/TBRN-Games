@@ -4,5 +4,6 @@
   "minPlayers": 2,
   "maxPlayers": 4,
   "controllerType": "text",
-  "description": "Everyone answers the same category with one word. Matching answers score. Match the whole table for a jackpot."
+  "description": "Everyone answers the same category with one word. Matching answers score. Match the whole table for a jackpot.",
+  "howTo": "Everyone answers the same category with one word. Matching answers score."
 }

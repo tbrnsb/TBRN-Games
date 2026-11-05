@@ -1,0 +1,16 @@
+{
+  "gameId": "drawful",
+  "displayName": "Drawful",
+  "artStyle": "ink",
+  "palette": {
+    "background": "#FFFDF8",
+    "primary": "#222222",
+    "accent": "#2F6FED",
+    "surface": "#F2EFE6",
+    "text": "#111111"
+  },
+  "animationProfile": {
+    "style": "hand_drawn",
+    "easings": "cubic-bezier(0.34,1.56,0.64,1)"
+  }
+}

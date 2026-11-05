@@ -4,5 +4,6 @@
   "minPlayers": 1,
   "maxPlayers": 4,
   "controllerType": "tap-race",
-  "description": "Mash the button. Every tap shoves your racer forward and speed bleeds off fast. First across the line wins."
+  "description": "Mash the button. Every tap shoves your racer forward and speed bleeds off fast. First across the line wins.",
+  "howTo": "Mash the button. Every tap shoves your racer forward. First across the line wins."
 }

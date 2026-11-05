@@ -4,5 +4,6 @@
   "minPlayers": 2,
   "maxPlayers": 4,
   "controllerType": "text",
-  "description": "Chain words by association. Everyone votes accept or reject."
+  "description": "Chain words by association. Everyone votes accept or reject.",
+  "howTo": "Chain words by association. Everyone else votes accept or reject."
 }

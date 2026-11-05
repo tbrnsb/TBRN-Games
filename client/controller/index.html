@@ -997,6 +997,13 @@
     .role-body { font-size: 16px; font-weight: 600; }
     .role-hold { padding: 22px; font-size: 18px; font-weight: 800; border-radius: 16px; border: 3px solid #111; background: var(--surface, rgba(255,255,255,.08)); color: inherit; }
     .role-hint { font-size: 12px; color: var(--muted); text-align: center; }
+    .howto {
+      margin: 8px 0 0; padding: 10px 12px; border-radius: 12px;
+      font-size: 13px; line-height: 1.35; color: var(--muted, #aab4d4);
+      background: var(--surface, rgba(255,255,255,.06));
+      border: 1px solid var(--border, rgba(255,255,255,.12));
+    }
+    .howto.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -1024,6 +1031,7 @@
     <section class="play hidden" id="controllerArea">
       <div class="game-label" id="gameLabel"></div>
       <div class="coach" id="coach"><span class="dot"></span><span id="status">Waiting for the host…</span></div>
+      <div class="howto hidden" id="howTo"></div>
       <section class="session-card hidden" id="sessionCard" aria-live="polite"></section>
       <div class="idle" id="idle">
         <div class="idle-mark"><span></span></div>

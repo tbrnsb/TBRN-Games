@@ -1,0 +1,16 @@
+{
+  "gameId": "snakes",
+  "displayName": "Snakes",
+  "artStyle": "sport",
+  "palette": {
+    "background": "#0E2A3A",
+    "primary": "#F2F7FA",
+    "accent": "#FF7A00",
+    "surface": "#14384C",
+    "text": "#FFFFFF"
+  },
+  "animationProfile": {
+    "style": "fast_slide",
+    "easings": "cubic-bezier(0.1,0.9,0.2,1)"
+  }
+}

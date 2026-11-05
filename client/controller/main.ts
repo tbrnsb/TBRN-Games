@@ -105,6 +105,9 @@ function handleMessage(msg: ServerMessage) {
     }
     case MESSAGE_TYPES.ROOM_STATE:
       roomStatus = msg.payload.status;
+      if (msg.payload.status !== "playing") {
+        document.getElementById("howTo")?.classList.add("hidden");
+      }
       inGame = msg.payload.status === "playing" && !!msg.payload.gameId;
       if (msg.payload.status === "playing" && msg.payload.gameId) {
         statusEl.textContent = gameName ? `Playing ${gameName}` : "Game in progress";
@@ -128,7 +131,13 @@ function handleMessage(msg: ServerMessage) {
         screen: unknown;
         controller: Record<string, unknown> | null;
         gameName?: string;
+        howTo?: string;
       };
+      const howToEl = document.getElementById("howTo");
+      if (howToEl && typeof payload.howTo === "string" && payload.howTo) {
+        howToEl.textContent = payload.howTo;
+        howToEl.classList.remove("hidden");
+      }
       const controller = payload.controller ?? {};
       // The server returns the room to the lobby before it sends the final
       // frame of a finished game. Do not re-enter the game view on that frame.

@@ -51,6 +51,7 @@ export interface GameStateMessage extends BaseMessage {
     controller: unknown;
     gameId?: string | null;
     gameName?: string;
+    howTo?: string;
   };
 }
 

@@ -4,5 +4,6 @@
   "minPlayers": 3,
   "maxPlayers": 4,
   "controllerType": "canvas",
-  "description": "Draw a design, write a slogan, then everyone gets someone else's slogan on their shirt and you vote for the best."
+  "description": "Draw a design, write a slogan, then everyone gets someone else's slogan on their shirt and you vote for the best.",
+  "howTo": "Draw a design and write a slogan, then vote on everyone else's shirt."
 }

@@ -1,0 +1,16 @@
+{
+  "gameId": "lastseat",
+  "displayName": "Last Seat",
+  "artStyle": "gameshow",
+  "palette": {
+    "background": "#F4ECD8",
+    "primary": "#2C3E50",
+    "accent": "#E74C3C",
+    "surface": "#FFFDF5",
+    "text": "#1A1A1A"
+  },
+  "animationProfile": {
+    "style": "snappy_pop",
+    "easings": "cubic-bezier(0.68,-0.55,0.265,1.55)"
+  }
+}

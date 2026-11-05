@@ -79,3 +79,4 @@ Do not commit or push without the human asking.
 - feat(games): add slingshot arena with server physics
 - feat(games): add slide roulette with a written slide deck
 - feat(games): add last seat with trivia, minigames and a finale
+- feat(meta): per-game theme.json and howTo tutorials on every game

@@ -9,6 +9,7 @@ export interface GameManifest {
   maxPlayers: number;
   controllerType: ControllerType;
   description: string;
+  howTo?: string;
 }
 
 export type ControllerType =

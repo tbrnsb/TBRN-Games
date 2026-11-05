@@ -4,5 +4,6 @@
   "minPlayers": 1,
   "maxPlayers": 4,
   "controllerType": "choice",
-  "description": "Trivia quiz - pick the right answer. Fastest correct answer gets most points. Content packs included."
+  "description": "Trivia quiz - pick the right answer. Fastest correct answer gets most points. Content packs included.",
+  "howTo": "Answer fast. The quicker you lock in, the more points you get."
 }

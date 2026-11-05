@@ -4,5 +4,6 @@
   "minPlayers": 3,
   "maxPlayers": 4,
   "controllerType": "canvas",
-  "description": "Draw a ridiculous prompt on your phone, then lie about everyone else's drawings."
+  "description": "Draw a ridiculous prompt on your phone, then lie about everyone else's drawings.",
+  "howTo": "Draw the prompt. Everyone else invents a fake title, then you vote for the truth."
 }

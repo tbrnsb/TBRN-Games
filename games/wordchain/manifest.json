@@ -4,5 +4,6 @@
   "minPlayers": 2,
   "maxPlayers": 4,
   "controllerType": "text",
-  "description": "Chain words: each one must start with the last letter of the one before. Miss and lose a life."
+  "description": "Chain words: each one must start with the last letter of the one before. Miss and lose a life.",
+  "howTo": "Each word must start with the last letter of the one before. Miss and lose a life."
 }

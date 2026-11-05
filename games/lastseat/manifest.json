@@ -4,5 +4,6 @@
   "minPlayers": 3,
   "maxPlayers": 4,
   "controllerType": "choice",
-  "description": "Answer trivia. Get it wrong and you play a minigame for your seat. The last two settle it."
+  "description": "Answer trivia. Get it wrong and you play a minigame for your seat. The last two settle it.",
+  "howTo": "Answer trivia. Get it wrong and you play a minigame for your seat. Last two settle it."
 }

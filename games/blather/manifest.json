@@ -4,5 +4,6 @@
   "minPlayers": 3,
   "maxPlayers": 4,
   "controllerType": "text",
-  "description": "Describe a secret thing in one sentence without naming it. Everyone else races to guess."
+  "description": "Describe a secret thing in one sentence without naming it. Everyone else races to guess.",
+  "howTo": "Describe your secret word without saying it. Everyone else races to guess."
 }

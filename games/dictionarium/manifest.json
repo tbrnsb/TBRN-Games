@@ -4,5 +4,6 @@
   "minPlayers": 3,
   "maxPlayers": 4,
   "controllerType": "text",
-  "description": "Invent a definition for an obsolete word and beat the real one."
+  "description": "Invent a definition for an obsolete word and beat the real one.",
+  "howTo": "Invent a definition for an obscure word, then vote for the real one."
 }
