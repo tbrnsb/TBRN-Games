@@ -8,7 +8,7 @@
  * otherwise a generic renderer draws the standard screen-state fields.
  */
 
-import type { ServerMessage, RoomState, SessionView, PlayerPresence } from "../../shared/types.ts";
+import type { ServerMessage, RoomState, RoomPause, SessionView, PlayerPresence } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { GAME_CATALOG, gameAvailability } from "../../shared/game-catalog.ts";
 import { SEATS, seatForIndex, type SeatIdentity } from "../../shared/seat-identity.ts";
@@ -33,6 +33,8 @@ let sessionView: SessionView | null = null;
 let rumbleLength = 5;
 let rumbleMode: "vote" | "random" = "vote";
 let endConfirmTimer: ReturnType<typeof setTimeout> | null = null;
+let roomPause: RoomPause | null = null;
+let pauseTicker: ReturnType<typeof setInterval> | null = null;
 
 /** Seat lookup for scoreboards, refreshed from every room state. */
 const seatByPlayerId = new Map<string, SeatIdentity>();
@@ -98,6 +100,11 @@ const championPoints = document.getElementById("championPoints")!;
 const sessionTrophiesEl = document.getElementById("sessionTrophies")!;
 const sessionCloseBtn = document.getElementById("sessionClose") as HTMLButtonElement;
 const sessionNewBtn = document.getElementById("sessionNew") as HTMLButtonElement;
+const pauseOverlay = document.getElementById("pauseOverlay")!;
+const pauseTitle = document.getElementById("pauseTitle")!;
+const pauseCountdown = document.getElementById("pauseCountdown")!;
+const pauseWaitBtn = document.getElementById("pauseWait") as HTMLButtonElement;
+const pauseEndBtn = document.getElementById("pauseEnd") as HTMLButtonElement;
 
 function getPlayersList(): HTMLElement {
   return _playersList;
@@ -197,6 +204,8 @@ function updateLaunchBar(): void {
 /** Show the session panel, the final trophy board, or the normal game shelf. */
 function applySession(view: SessionView | null): void {
   sessionView = view;
+  // Ending a paused Rumble round skips to the next game instead of ending it.
+  pauseEndBtn.textContent = view?.status === "playing" ? "Skip to next game" : "End game";
   const inSession = view !== null;
   picker.classList.toggle("hidden", inSession);
   launchBar.classList.toggle("hidden", inSession);
@@ -494,6 +503,7 @@ function handleMessage(msg: ServerMessage) {
     const codeEl = getRoomCodeEl();
     codeEl.textContent = roomState.code ?? "----";
     updatePlayers(roomState.players ?? [], roomState.status ?? "lobby", roomState.gameId ?? null);
+    updatePauseOverlay(roomState);
     // Generate the QR once. `img.src` is already the page URL for src="", so
     // use an explicit flag instead of checking the property.
     if (!qrGenerated) {
@@ -517,6 +527,7 @@ function handleMessage(msg: ServerMessage) {
     const codeEl = getRoomCodeEl();
     codeEl.textContent = roomState.code ?? "----";
     updatePlayers(roomState.players ?? [], roomState.status ?? "lobby", roomState.gameId ?? null);
+    updatePauseOverlay(roomState);
     // A finished game immediately reports a lobby room state; keep the result
     // up until the hold expires instead of flashing back to the lobby.
     if (roomState.status === "lobby" && performance.now() < resultsHoldUntil) {
@@ -593,6 +604,47 @@ function showReaction(payload: { name: string; seat: SeatIdentity | null; emoji:
   `;
   reactionLayer.appendChild(el);
   setTimeout(() => el.remove(), 2600);
+}
+
+// --- Below-minimum pause overlay ---
+
+/**
+ * Show the host offer while a running game waits for players. Names are the
+ * seats that are away or left, so the table can see who it is waiting on.
+ */
+function updatePauseOverlay(roomState: RoomState): void {
+  const pause = roomState.pause ?? null;
+  roomPause = pause;
+  if (!pause || roomState.status !== "playing") {
+    hidePauseOverlay();
+    return;
+  }
+
+  const names = roomState.players
+    .filter((p) => !p.spectator && (p.presence ?? (p.connected ? "active" : "away")) !== "active")
+    .map((p) => p.name);
+
+  pauseTitle.textContent = names.length
+    ? `Waiting for players — ${names.join(", ")}`
+    : "Waiting for players";
+  pauseEndBtn.textContent = sessionView?.status === "playing" ? "Skip to next game" : "End game";
+  pauseOverlay.classList.remove("hidden");
+  updatePauseCountdown();
+  if (!pauseTicker) pauseTicker = setInterval(updatePauseCountdown, 250);
+}
+
+function hidePauseOverlay(): void {
+  pauseOverlay.classList.add("hidden");
+  if (pauseTicker) {
+    clearInterval(pauseTicker);
+    pauseTicker = null;
+  }
+}
+
+function updatePauseCountdown(): void {
+  if (!roomPause) return;
+  const remaining = Math.max(0, Math.ceil((roomPause.until - Date.now()) / 1000));
+  pauseCountdown.textContent = remaining > 0 ? `${remaining}s` : "Paused";
 }
 
 function updatePlayers(
@@ -752,6 +804,28 @@ endGameBtn.addEventListener("click", () => {
   }
   void endGame();
 });
+
+// --- Pause overlay controls ---
+pauseWaitBtn.addEventListener("click", async () => {
+  if (!roomId) return;
+  pauseWaitBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/pause`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-host-token": hostToken },
+      body: JSON.stringify({ action: "wait" }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      console.error("[Screen] Wait failed:", body.message ?? res.status);
+    }
+  } catch (e) {
+    console.error("[Screen] Wait request failed", e);
+  } finally {
+    pauseWaitBtn.disabled = false;
+  }
+});
+pauseEndBtn.addEventListener("click", () => void endGame());
 
 // --- Rendering ---
 type ScreenRenderer = (ctx: CanvasRenderingContext2D, width: number, height: number, state: unknown) => void;

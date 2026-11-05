@@ -281,6 +281,46 @@
       box-shadow: 0 0 10px var(--magenta);
       animation: breathe 1.6s ease-in-out infinite;
     }
+    /* ---- Host controls (first phone) ---- */
+    .host-controls {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,179,71,0.28);
+      background: rgba(255,179,71,0.06);
+    }
+    .host-row { display: flex; gap: 8px; }
+    .host-btn {
+      flex: 1;
+      min-height: 44px;
+      padding: 0 10px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .host-btn:active { background: rgba(255,255,255,0.1); }
+    .host-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .host-btn.danger {
+      border-color: rgba(255,77,109,0.45);
+      background: rgba(255,77,109,0.08);
+      color: var(--danger);
+    }
+    .host-btn.danger.confirm { background: var(--danger); color: var(--ink); }
+    .host-hint {
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--muted);
+      min-height: 14px;
+    }
+    .host-hint.error { color: var(--danger); }
     .game-label {
       flex: 0 0 auto;
       font-family: var(--display);
@@ -1155,6 +1195,15 @@
       <div class="game-label" id="gameLabel"></div>
       <div class="coach" id="coach"><span class="dot"></span><span id="status">Waiting for the host…</span></div>
       <div class="howto hidden" id="howTo"></div>
+      <div class="host-controls hidden" id="hostControls" aria-label="Host controls">
+        <div class="host-row">
+          <button class="host-btn" id="hostPauseBtn" type="button">Pause</button>
+          <button class="host-btn" id="hostWaitBtn" type="button">Wait</button>
+          <button class="host-btn" id="hostResumeBtn" type="button">Resume</button>
+          <button class="host-btn danger" id="hostEndBtn" type="button">End game</button>
+        </div>
+        <p class="host-hint" id="hostHint"></p>
+      </div>
       <div class="table-note hidden" id="tableNote" aria-live="polite">
         <p class="idle-title" id="tableNoteTitle"></p>
         <p class="idle-copy" id="tableNoteCopy"></p>

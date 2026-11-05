@@ -32,6 +32,15 @@ const envPlayerTimeout =
     : NaN;
 export const PLAYER_TIMEOUT_MS = Number.isFinite(envPlayerTimeout) ? envPlayerTimeout : 30000;
 
+// How long a running game waits below its minimum before the host is offered
+// Wait / End game. The game stays paused after this passes. Overridable so
+// tests do not have to sit through a whole minute.
+const envDropoutPause =
+  typeof process !== "undefined" && process.env
+    ? Number(process.env.DROPOUT_PAUSE_MS)
+    : NaN;
+export const DROPOUT_PAUSE_MS = Number.isFinite(envDropoutPause) ? envDropoutPause : 60000;
+
 // --- LAN Utilities ---
 export async function getLanUrls(port, scheme = "http") {
   const os = await import("node:os");

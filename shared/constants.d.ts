@@ -24,5 +24,6 @@ export declare const ROOM_CODE_LENGTH: number;
 export declare const REJOIN_TOKEN_BYTES: number;
 export declare const PING_INTERVAL_MS: number;
 export declare const PLAYER_TIMEOUT_MS: number;
+export declare const DROPOUT_PAUSE_MS: number;
 
 export declare function getLanUrls(port: number, scheme?: string): Promise<string[]>;

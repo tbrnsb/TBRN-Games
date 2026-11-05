@@ -7,7 +7,7 @@
  * on JOINED so a refresh or dropped connection can rejoin the same room.
  */
 
-import type { ClientMessage, ServerMessage, ControllerType, PlayerPresence, SessionView } from "../../shared/types.ts";
+import type { ClientMessage, ServerMessage, ControllerType, PlayerPresence, RoomState, RoomPause, SessionView } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { getLayout } from "../../shared/controllers.ts";
 import type { ControllerLayout } from "../../shared/controllers.ts";
@@ -36,6 +36,15 @@ let myPresence: PlayerPresence = "active";
 let mySpectator = false;
 let reactionReadyAt = 0;
 let reactionTicker: ReturnType<typeof setInterval> | null = null;
+let hostToken = "";
+let isHost = false;
+let roomPause: RoomPause | null = null;
+let hostGameId: string | null = null;
+let hostMinPlayers = 0;
+let hostConnected = 0;
+let hostEndArmed = false;
+let hostEndTimer: ReturnType<typeof setTimeout> | null = null;
+const gameMinimums = new Map<string, number>();
 
 const joinForm = document.getElementById("joinForm")!;
 const controllerArea = document.getElementById("controllerArea")!;
@@ -61,6 +70,12 @@ const tableNoteCopy = document.getElementById("tableNoteCopy")!;
 const reactionBar = document.getElementById("reactionBar")!;
 const reactionHint = document.getElementById("reactionHint")!;
 const leaveBtn = document.getElementById("leaveBtn") as HTMLButtonElement;
+const hostControls = document.getElementById("hostControls")!;
+const hostPauseBtn = document.getElementById("hostPauseBtn") as HTMLButtonElement;
+const hostWaitBtn = document.getElementById("hostWaitBtn") as HTMLButtonElement;
+const hostResumeBtn = document.getElementById("hostResumeBtn") as HTMLButtonElement;
+const hostEndBtn = document.getElementById("hostEndBtn") as HTMLButtonElement;
+const hostHint = document.getElementById("hostHint")!;
 
 function connect() {
   ws = new WebSocket(wsUrl);
@@ -92,11 +107,18 @@ function handleMessage(msg: ServerMessage) {
       roomId = msg.roomId;
       playerId = msg.payload.playerId;
       rejoinToken = msg.payload.rejoinToken;
+      // The first phone is the host and gets the same host token as the screen.
+      hostToken = typeof msg.payload.hostToken === "string" ? msg.payload.hostToken : "";
       // The server may suffix a duplicate name; show the seat's real name.
       const me = msg.payload.roomState.players.find((p) => p.id === playerId);
       const seatName = me?.name ?? nameInput.value.trim() ?? "Player";
       myPresence = me?.presence ?? "active";
       mySpectator = me?.spectator === true;
+      isHost = !!hostToken && msg.payload.roomState.hostPlayerId === playerId;
+      roomStatus = msg.payload.roomState.status;
+      roomPause = msg.payload.roomState.pause ?? null;
+      hostGameId = msg.payload.roomState.gameId;
+      hostConnected = connectedParticipants(msg.payload.roomState);
       // Persist so a refresh or network drop can rejoin this room.
       try {
         localStorage.setItem("tbrn_rejoin_token", rejoinToken);
@@ -116,6 +138,7 @@ function handleMessage(msg: ServerMessage) {
       statusEl.textContent = "Waiting for the host to start…";
       coach.classList.remove("your-turn");
       renderSeatState(false);
+      renderHostControls();
       break;
     }
     case MESSAGE_TYPES.ROOM_STATE:
@@ -126,6 +149,10 @@ function handleMessage(msg: ServerMessage) {
         myPresence = me?.presence ?? (me?.connected === false ? "away" : "active");
         mySpectator = me?.spectator === true;
       }
+      isHost = !!hostToken && msg.payload.hostPlayerId === playerId;
+      roomPause = msg.payload.pause ?? null;
+      hostGameId = msg.payload.gameId;
+      hostConnected = connectedParticipants(msg.payload);
       if (msg.payload.status !== "playing") {
         document.getElementById("howTo")?.classList.add("hidden");
       }
@@ -147,11 +174,13 @@ function handleMessage(msg: ServerMessage) {
         renderSessionCard();
       }
       renderSeatState(inGame);
+      renderHostControls();
       break;
     case MESSAGE_TYPES.GAME_STATE: {
       const payload = msg.payload as {
         screen: unknown;
         controller: Record<string, unknown> | null;
+        gameId?: string | null;
         gameName?: string;
         howTo?: string;
       };
@@ -169,6 +198,11 @@ function handleMessage(msg: ServerMessage) {
       if (roomStatus === "lobby" && (controller.finished === true || screenFinished)) {
         break;
       }
+      // A game starts without a room-state broadcast; the first game frame is
+      // what tells the host phone a game is now running.
+      if (typeof payload.gameId === "string") hostGameId = payload.gameId;
+      roomStatus = "playing";
+      renderHostControls();
       if (payload.gameName) {
         gameName = payload.gameName;
       }
@@ -328,6 +362,120 @@ function renderSeatState(playing: boolean): void {
   leaveBtn.classList.toggle("hidden", !playerId || left);
   if (canReact) renderReactionBar();
 }
+
+// --- Host controls (first phone) ---
+
+function connectedParticipants(state: RoomState): number {
+  return state.players.filter((p) => p.connected && !p.spectator).length;
+}
+
+/** Minimum for the running game; the catalog endpoint is loaded once. */
+function minimumFor(gameId: string | null): number {
+  if (!gameId) return 0;
+  return gameMinimums.get(gameId) ?? 0;
+}
+
+/**
+ * Show the host-only bar while a game runs. Not paused: Pause + End game.
+ * Paused: Wait, Resume (locked below the game minimum) + End game.
+ */
+function renderHostControls(): void {
+  const playing = roomStatus === "playing" && !!hostGameId;
+  const show = isHost && playing && myPresence !== "left";
+  hostControls.classList.toggle("hidden", !show);
+  if (!show) return;
+
+  hostMinPlayers = minimumFor(hostGameId);
+  const paused = roomPause !== null;
+  hostPauseBtn.classList.toggle("hidden", paused);
+  hostWaitBtn.classList.toggle("hidden", !paused);
+  hostResumeBtn.classList.toggle("hidden", !paused);
+  const belowMinimum = hostMinPlayers > 0 && hostConnected < hostMinPlayers;
+  hostResumeBtn.disabled = belowMinimum;
+  hostHint.classList.toggle("error", belowMinimum);
+  updateHostHint();
+}
+
+function updateHostHint(): void {
+  if (hostControls.classList.contains("hidden")) return;
+  if (!roomPause) {
+    hostHint.textContent = "Host controls — the game pauses itself if a phone drops.";
+    return;
+  }
+  const bits: string[] = [];
+  if (hostMinPlayers > 0) bits.push(`${hostConnected} of ${hostMinPlayers} connected.`);
+  const remaining = Math.max(0, Math.ceil((roomPause.until - Date.now()) / 1000));
+  bits.push(remaining > 0 ? `Waiting ${remaining}s.` : "Still paused.");
+  if (hostMinPlayers > 0 && hostConnected < hostMinPlayers) {
+    bits.push("Resume unlocks when enough players reconnect.");
+  }
+  hostHint.textContent = bits.join(" ");
+}
+
+function resetHostEnd(): void {
+  hostEndArmed = false;
+  if (hostEndTimer) {
+    clearTimeout(hostEndTimer);
+    hostEndTimer = null;
+  }
+  hostEndBtn.textContent = "End game";
+  hostEndBtn.classList.remove("confirm");
+}
+
+async function hostRequest(action: "pause" | "resume" | "end-game"): Promise<void> {
+  if (!roomId || !hostToken) return;
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-host-token": hostToken },
+      body: action === "pause" ? JSON.stringify({ action: "wait" }) : undefined,
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      hostHint.textContent = body.message ?? "That did not work.";
+      hostHint.classList.add("error");
+    }
+  } catch (e) {
+    console.warn("[Controller] Host action failed", e);
+    hostHint.textContent = "Could not reach the server.";
+    hostHint.classList.add("error");
+  }
+}
+
+/** Load game limits once so the host hint can explain a locked Resume. */
+async function loadGameMinimums(): Promise<void> {
+  try {
+    const res = await fetch("/api/games");
+    const data = (await res.json()) as { games?: Array<{ id?: string; minPlayers?: number }> };
+    for (const game of data.games ?? []) {
+      if (typeof game.id === "string" && typeof game.minPlayers === "number") {
+        gameMinimums.set(game.id, game.minPlayers);
+      }
+    }
+    renderHostControls();
+  } catch (e) {
+    console.warn("[Controller] Could not load game limits", e);
+  }
+}
+
+hostPauseBtn.addEventListener("click", () => void hostRequest("pause"));
+hostWaitBtn.addEventListener("click", () => void hostRequest("pause"));
+hostResumeBtn.addEventListener("click", () => void hostRequest("resume"));
+hostEndBtn.addEventListener("click", () => {
+  if (!hostEndArmed) {
+    hostEndArmed = true;
+    hostEndBtn.textContent = "Tap again to end";
+    hostEndBtn.classList.add("confirm");
+    hostEndTimer = setTimeout(resetHostEnd, 4000);
+    return;
+  }
+  resetHostEnd();
+  void hostRequest("end-game");
+});
+
+setInterval(() => {
+  if (roomPause) updateHostHint();
+}, 500);
 
 function setupReactions(): void {
   reactionBar.innerHTML = REACTIONS.map(
@@ -647,6 +795,7 @@ try {
 }
 
 setupReactions();
+void loadGameMinimums();
 
 if (!roomId) {
   codeInput.focus();

@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 262/262 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 265/265 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -25,14 +25,17 @@ Last gate: `npm test` 262/262 · typecheck clean · lint 0 errors (236 warnings)
 - Phase 2.5a: presence (`active`/`away`/`left`), 30 s rejoin grace, mid-game
   spectators promoted next game, leave control, 8 emoji reactions with a
   2-second server-side limit and a floating TV animation.
+- Phase 2.5b: auto-pause when connected players fall below a game's minimum,
+  60 s host offer (Wait / Resume / End game), frozen game clock, host token on
+  the host phone, pause overlay on TV.
 
 ## In progress
-Phase 2 platform foundation: below-minimum pause flow, results/awards and
-the between-game interlude.
+Phase 2 platform foundation: result/award schema and the between-game
+interlude plus TV watchability.
 
 ## Next three actions
-1. Below-minimum pause flow with host wait/end/continue choices.
-2. Results/awards and the between-game interlude.
+1. Result/award schema from game stats.
+2. Between-game interlude, waiting-on card, sound/TTS hooks.
 3. Then widen the games one at a time (Phase 3).
 
 ## Known issues

@@ -169,6 +169,22 @@ export type ServerMessage =
  */
 export type PlayerPresence = "active" | "away" | "left";
 
+/**
+ * Why a running game is paused. Only "players" exists today: connected
+ * non-spectator players fell below the running game's minimum.
+ */
+export type PauseReason = "players";
+
+/**
+ * A below-minimum pause, on the server clock. `until` is the point where the
+ * host is offered Wait / End game; the game stays paused after it passes.
+ */
+export interface RoomPause {
+  reason: PauseReason;
+  startedAt: number;
+  until: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -193,6 +209,8 @@ export interface RoomState<TGameState extends object = object> {
   gameState: TGameState | null;
   createdAt: number;
   status: "lobby" | "playing" | "finished";
+  /** Set while a running game waits for players to come back. */
+  pause: RoomPause | null;
 }
 
 // Non-generic alias for backward compatibility

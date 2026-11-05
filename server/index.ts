@@ -13,6 +13,7 @@ import {
   REJOIN_TOKEN_BYTES,
   PING_INTERVAL_MS,
   PLAYER_TIMEOUT_MS,
+  DROPOUT_PAUSE_MS,
   MESSAGE_TYPES,
 } from "../shared/constants.js";
 import type {
@@ -182,7 +183,7 @@ function broadcastSession(room: RoomState): void {
   }
 }
 
-/** True when the request carries the host screen's token for this room. */
+/** True when the request carries the host token for this room (screen or first phone). */
 function requireHost(req: IncomingMessage, res: ServerResponse, room: RoomState): boolean {
   const screens = roomScreens.get(room.id);
   if (!screens || screens.size === 0) {
@@ -194,7 +195,7 @@ function requireHost(req: IncomingMessage, res: ServerResponse, room: RoomState)
   const expected = roomHostTokens.get(room.id) ?? "";
   if (!expected || provided !== expected) {
     res.writeHead(403, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ code: "HOST_AUTH_REQUIRED", message: "Request must come from the host screen" }));
+    res.end(JSON.stringify({ code: "HOST_AUTH_REQUIRED", message: "Request must come from the host screen or host phone" }));
     return false;
   }
   return true;
@@ -393,6 +394,41 @@ function promoteSpectators(room: RoomState): void {
   }
 }
 
+/** Broadcast the public room state (pause included) to phones and the TV. */
+function broadcastRoomState(room: RoomState): void {
+  broadcast(room, {
+    type: MESSAGE_TYPES.ROOM_STATE,
+    roomId: room.id,
+    timestamp: Date.now(),
+    payload: publicRoom(room),
+  });
+}
+
+/** Connected players who actually hold a playable seat in the running game. */
+function connectedParticipantCount(room: RoomState): number {
+  return room.players.filter((p) => p.connected && !p.spectator).length;
+}
+
+/**
+ * Start or clear the below-minimum pause for a running game.
+ *
+ * The pause starts once and is never extended here: only the host's Wait
+ * button moves the deadline. Enough players reconnecting clear it at once.
+ * After the deadline the pause stays put, so the host offer also stays up.
+ */
+function updatePause(room: RoomState, minPlayers: number, now: number): void {
+  const belowMinimum = connectedParticipantCount(room) < minPlayers;
+  if (belowMinimum && !room.pause) {
+    room.pause = { reason: "players", startedAt: now, until: now + DROPOUT_PAUSE_MS };
+    broadcastRoomState(room);
+    return;
+  }
+  if (!belowMinimum && room.pause) {
+    room.pause = null;
+    broadcastRoomState(room);
+  }
+}
+
 // --- Plugin loader ---
 let pluginLoader: PluginLoader;
 
@@ -544,6 +580,12 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
     return;
   }
   if (handleSessionEnd(req, res, url)) {
+    return;
+  }
+  if (handlePause(req, res, url)) {
+    return;
+  }
+  if (handleResume(req, res, url)) {
     return;
   }
   if (handleEndGame(req, res, url)) {
@@ -833,6 +875,7 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
         gameState: null,
         createdAt: Date.now(),
         status: "lobby",
+        pause: null,
       };
       rooms.set(screenRoom.id, screenRoom);
     }
@@ -904,7 +947,12 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
           roomId: room.id,
           playerId: player.id,
           timestamp: Date.now(),
-          payload: { playerId: player.id, rejoinToken: player.rejoinToken, roomState: publicRoom(room) },
+          payload: {
+            playerId: player.id,
+            rejoinToken: player.rejoinToken,
+            roomState: publicRoom(room),
+            ...(room.hostPlayerId === player.id ? { hostToken: hostTokenFor(room.id) } : {}),
+          },
         });
         // Also send ROOM_STATE to the reconnecting player
         send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
@@ -952,6 +1000,7 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
       gameState: null,
       createdAt: Date.now(),
       status: "lobby",
+      pause: null,
     };
     rooms.set(id, room);
   }
@@ -993,7 +1042,8 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   };
 
   room.players.push(player);
-  if (!room.hostPlayerId) room.hostPlayerId = playerId;
+  const isHostPlayer = !room.hostPlayerId;
+  if (isHostPlayer) room.hostPlayerId = playerId;
 
   playerSockets.set(playerId, ws);
   socketPlayers.set(ws, playerId);
@@ -1004,7 +1054,14 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
     roomId: room.id,
     playerId,
     timestamp: Date.now(),
-    payload: { playerId, rejoinToken: token, roomState: publicRoom(room) },
+    payload: {
+      playerId,
+      rejoinToken: token,
+      roomState: publicRoom(room),
+      // The first phone is the host: it may drive the same host endpoints as
+      // the laptop screen.
+      ...(isHostPlayer ? { hostToken: hostTokenFor(room.id) } : {}),
+    },
   });
   // Also send ROOM_STATE to the joining player so they have full room state
   send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
@@ -1257,6 +1314,7 @@ function scheduleSeatReap(room: RoomState, playerId: string): void {
       }
       currentRoom.status = "lobby";
       promoteSpectators(currentRoom);
+      currentRoom.pause = null;
       currentRoom.gameId = null;
       currentRoom.gameState = null;
     }
@@ -1310,8 +1368,6 @@ function startGameLoop(roomId: string): void {
 
   const interval = setInterval(() => {
     const now = Date.now();
-    const deltaMs = Math.min(now - lastTick, 2000); // Cap delta
-    lastTick = now;
 
     const currentRoom = rooms.get(roomId);
     if (!currentRoom || currentRoom.status !== "playing" || !currentRoom.gameId) {
@@ -1328,6 +1384,18 @@ function startGameLoop(roomId: string): void {
       return;
     }
     const currentInstance = currentGameState as { roomId: string; players: Player[]; state: unknown };
+
+    // Below its minimum the game freezes: no tick, no timer advance and no new
+    // frames. The room state (pause included) is broadcast when it changes.
+    updatePause(currentRoom, currentPlugin.manifest.minPlayers, now);
+    if (currentRoom.pause) {
+      // Drop the paused wall time so resuming cannot feed it into the game.
+      lastTick = now;
+      return;
+    }
+
+    const deltaMs = Math.min(now - lastTick, 2000); // Cap delta
+    lastTick = now;
 
     try {
       currentPlugin.onTick(currentInstance, deltaMs);
@@ -1353,6 +1421,7 @@ function startGameLoop(roomId: string): void {
       (screen as { finished?: unknown }).finished === true &&
       currentRoom.status === "playing"
     ) {
+      currentRoom.pause = null;
       currentRoom.status = "lobby";
       promoteSpectators(currentRoom);
       broadcast(currentRoom, {
@@ -1498,6 +1567,78 @@ function handleSessionEnd(req: IncomingMessage, res: ServerResponse, url: URL): 
   return true;
 }
 
+function handlePause(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/pause$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+  if (room.status !== "playing" || !room.gameId) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_ACTIVE_GAME", message: "No game is running" }));
+    return true;
+  }
+  if (!room.pause) {
+    // Nothing to extend. A running game that is not paused stays as it is; the
+    // spec only requires 409 when no game is running.
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ success: true, pause: null }));
+    return true;
+  }
+
+  // Wait: give the table another full grace window from now.
+  room.pause.until = Date.now() + DROPOUT_PAUSE_MS;
+  broadcastRoomState(room);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: true, pause: room.pause }));
+  return true;
+}
+
+function handleResume(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/resume$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+  if (room.status !== "playing" || !room.gameId) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_ACTIVE_GAME", message: "No game is running" }));
+    return true;
+  }
+
+  const plugin = plugins.get(room.gameId);
+  const minPlayers = plugin?.manifest.minPlayers ?? 0;
+  const connected = connectedParticipantCount(room);
+  if (connected < minPlayers) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      code: "BELOW_MINIMUM",
+      message: `Need ${minPlayers} players; ${connected} connected`,
+      minPlayers,
+      connected,
+    }));
+    return true;
+  }
+
+  if (room.pause) {
+    room.pause = null;
+    broadcastRoomState(room);
+  }
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: true }));
+  return true;
+}
+
 function handleEndGame(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
   if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/end-game$/.test(url.pathname)) {
     return false;
@@ -1518,6 +1659,7 @@ function handleEndGame(req: IncomingMessage, res: ServerResponse, url: URL): boo
   _stopGameLoop(room.id);
   room.status = "lobby";
   promoteSpectators(room);
+  room.pause = null;
   room.gameId = null;
   room.gameState = null;
   const session = roomSessions.get(room.id);
@@ -1627,6 +1769,7 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
 
       room.gameId = gameId;
       room.status = "playing";
+      room.pause = null;
       room.gameState = plugin.onStart(room, participants, options);
       if (session) {
         startRound(session, gameId);
