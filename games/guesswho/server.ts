@@ -26,7 +26,16 @@ type ControllerType =
   | "text"
   | "choice"
   | "private-grid"
-  | "card-hand";
+  | "card-hand"
+  | "slider"
+  | "dual-slider"
+  | "pad"
+  | "aim"
+  | "tap-race"
+  | "board"
+  | "numpad"
+  | "canvas"
+  | "chat";
 
 interface Player {
   id: string;
@@ -82,6 +91,7 @@ interface GuessWhoState {
   characters: Character[];
   questions: QuestionDef[];
   secrets: number[]; // character index per player
+  opponents: number[]; // fixed opponent seat per player
   eliminated: boolean[][]; // [playerIndex][characterIndex]
   lives: number[];
   out: boolean[];
@@ -122,9 +132,9 @@ const manifest: GameManifest = {
   name: "Guess Who",
   minPlayers: 2,
   maxPlayers: 4,
-  controllerType: "choice",
+  controllerType: "board",
   description:
-    "Secret characters! Ask yes/no questions to narrow the board, then guess. Wrong guesses cost lives.",
+    "Secret characters. Same board on the TV and every phone: flip down the faces that do not fit, ask yes/no questions, then guess. Wrong guesses cost lives.",
 };
 
 // --- Helpers ---
@@ -252,6 +262,41 @@ function advanceTurn(instance: GuessWhoInstance): void {
   state.turnTimerMs = TURN_TIME_MS;
 }
 
+/** The player this seat is interrogating. Fixed for the whole match so a
+ *  deduction keeps its value; falls back to the next living player only if the
+ *  fixed opponent has been knocked out. */
+function targetFor(instance: GuessWhoInstance, playerIndex: number): number {
+  const state = instance.state;
+  const fixed = state.opponents[playerIndex];
+  if (fixed !== undefined && fixed >= 0 && !state.out[fixed]) return fixed;
+  return nextLiving(state, playerIndex, instance.players.length);
+}
+
+function guessCharacter(instance: GuessWhoInstance, playerIndex: number, charId: number): void {
+  const state = instance.state;
+  const targetIndex = targetFor(instance, playerIndex);
+  const guessed = state.characters[charId];
+  if (!guessed || targetIndex < 0) return;
+  const askerName = instance.players[playerIndex].name;
+  const secret = state.characters[state.secrets[targetIndex]];
+
+  if (guessed.id === secret.id) {
+    state.lastEvent = `${askerName} guessed ${guessed.name} — CORRECT!`;
+    finishGame(instance, playerIndex);
+    return;
+  }
+
+  state.lives[playerIndex]--;
+  if (state.lives[playerIndex] <= 0) {
+    state.out[playerIndex] = true;
+    state.lastEvent = `${askerName} guessed wrong (${guessed.name}) and is out!`;
+  } else {
+    state.lastEvent = `${askerName} guessed wrong (${guessed.name}) — ${state.lives[playerIndex]} lives left`;
+  }
+  maybeAutoEnd(instance);
+  if (state.phase === "playing") advanceTurn(instance);
+}
+
 // --- Plugin ---
 const plugin: GamePlugin = {
   manifest,
@@ -267,6 +312,7 @@ const plugin: GamePlugin = {
         characters,
         questions: buildQuestions(),
         secrets,
+        opponents: players.map((_, i) => (i + 1) % players.length),
         eliminated: players.map(() => characters.map(() => false)),
         lives: players.map(() => START_LIVES),
         out: players.map(() => false),
@@ -286,13 +332,33 @@ const plugin: GamePlugin = {
     const state = instance.state;
     if (state.phase !== "playing") return;
     const playerIndex = instance.players.findIndex((p) => p.id === playerId);
-    if (playerIndex === -1 || playerIndex !== state.currentPlayer || state.out[playerIndex]) return;
+    if (playerIndex === -1 || state.out[playerIndex]) return;
 
-    const choice = (input as { choice?: string } | null)?.choice;
+    const raw = input as { board?: { id?: unknown; action?: unknown }; choice?: unknown } | null;
+
+    // Flipping a face is private bookkeeping and is allowed on anyone's turn:
+    // the player is maintaining their own board, exactly like the tabletop game.
+    if (raw?.board && raw.board.action !== "pick") {
+      const id = Number(raw.board.id);
+      if (!Number.isInteger(id) || id < 0 || id >= state.characters.length) return;
+      const board = state.eliminated[playerIndex];
+      board[id] = !board[id];
+      return;
+    }
+
+    if (playerIndex !== state.currentPlayer) return;
+
+    // A "pick" on the board is a guess at that character.
+    if (raw?.board && raw.board.action === "pick") {
+      const id = Number(raw.board.id);
+      if (Number.isInteger(id)) guessCharacter(instance, playerIndex, id);
+      return;
+    }
+
+    const choice = raw?.choice;
     if (typeof choice !== "string") return;
 
-    const playerCount = instance.players.length;
-    const targetIndex = nextLiving(state, playerIndex, playerCount);
+    const targetIndex = targetFor(instance, playerIndex);
     if (targetIndex === -1) return;
     const targetName = instance.players[targetIndex].name;
     const askerName = instance.players[playerIndex].name;
@@ -302,11 +368,8 @@ const plugin: GamePlugin = {
       if (!q) return;
       const targetSecret = state.characters[state.secrets[targetIndex]];
       const answer = matchAttr(targetSecret.attrs, q.attr, q.value);
-      // Prune the asker's board from the truthful answer.
-      const board = state.eliminated[playerIndex];
-      for (let i = 0; i < state.characters.length; i++) {
-        if (matchAttr(state.characters[i].attrs, q.attr, q.value) !== answer) board[i] = true;
-      }
+      // The answer is narrated, not applied: the player flips their own board,
+      // which is the whole point of the physical game.
       state.history.push({ asker: askerName, target: targetName, label: q.label, answer });
       state.lastEvent = `${askerName} asked ${targetName}: "${q.label}" — ${answer ? "YES" : "NO"}`;
       advanceTurn(instance);
@@ -314,24 +377,7 @@ const plugin: GamePlugin = {
     }
 
     if (choice.startsWith("g:")) {
-      const charId = Number(choice.slice(2));
-      const guessed = state.characters[charId];
-      if (!guessed) return;
-      const secret = state.characters[state.secrets[targetIndex]];
-      if (guessed.id === secret.id) {
-        state.lastEvent = `${askerName} guessed ${guessed.name} — CORRECT!`;
-        finishGame(instance, playerIndex);
-      } else {
-        state.lives[playerIndex]--;
-        if (state.lives[playerIndex] <= 0) {
-          state.out[playerIndex] = true;
-          state.lastEvent = `${askerName} guessed wrong (${guessed.name}) and is out!`;
-        } else {
-          state.lastEvent = `${askerName} guessed wrong (${guessed.name}) — ${state.lives[playerIndex]} lives left`;
-        }
-        maybeAutoEnd(instance);
-        if (state.phase === "playing") advanceTurn(instance);
-      }
+      guessCharacter(instance, playerIndex, Number(choice.slice(2)));
     }
   },
 
@@ -355,6 +401,15 @@ const plugin: GamePlugin = {
       timeLeft: Math.max(0, state.turnTimerMs),
       history: state.history,
       lastEvent: state.lastEvent,
+      // The host screen narrates the race: "Ana is down to 2 options".
+      notice: (() => {
+        const alive = instance.players
+          .map((p, i) => ({ name: p.name, remaining: state.eliminated[i].filter((e) => !e).length, out: state.out[i] }))
+          .filter((x) => !x.out);
+        if (alive.length === 0) return null;
+        const closest = alive.reduce((a, b) => (b.remaining < a.remaining ? b : a));
+        return `${closest.name} is down to ${closest.remaining} option${closest.remaining === 1 ? "" : "s"}`;
+      })(),
       players: instance.players.map((p, i) => ({
         name: p.name,
         lives: state.lives[i],
@@ -378,35 +433,57 @@ const plugin: GamePlugin = {
 
     const yourTurn =
       state.phase === "playing" && playerIndex === state.currentPlayer && !state.out[playerIndex];
-    const targetIndex = nextLiving(state, playerIndex, instance.players.length);
+    const targetIndex = targetFor(instance, playerIndex);
+
+    // Guessing only appears once the board is small enough to matter; before
+    // that the phone stays a board plus questions.
+    const remaining = state.characters.filter((_, i) => !state.eliminated[playerIndex][i]);
+    const guessChoices = yourTurn && remaining.length <= 6
+      ? remaining.map((c) => ({ id: `g:${c.id}`, label: `Guess ${c.name}` }))
+      : [];
 
     const options = yourTurn
       ? [
           ...state.questions.map((q) => ({ id: q.id, label: q.label })),
-          ...state.characters.map((c) => ({ id: `g:${c.id}`, label: `Guess: ${c.name}` })),
+          ...guessChoices,
         ]
       : [];
 
     const secret = state.characters[state.secrets[playerIndex]];
+    const turnName = state.phase === "playing" ? instance.players[state.currentPlayer].name : null;
 
     return {
       phase: state.phase,
+      // Board layout: the whole shared pool, on the phone, flippable.
+      board: {
+        title: "Your board",
+        subtitle: targetIndex >= 0 ? `Opponent: ${instance.players[targetIndex].name}` : "",
+        hint: state.out[playerIndex]
+          ? "You are out — watch the others play"
+          : yourTurn
+            ? "Flip the faces that do not fit, or ask a question"
+            : `Waiting for ${turnName ?? "the next player"}…`,
+        tiles: state.characters.map((c, i) => ({
+          id: String(c.id),
+          label: c.name,
+          marked: state.eliminated[playerIndex][i],
+        })),
+        choices: options,
+        mode: "flip",
+        disabled: state.out[playerIndex],
+      },
+      // Legacy fields kept for the older choice layout.
       options,
       yourTurn,
-      turnName: state.phase === "playing" ? instance.players[state.currentPlayer].name : null,
+      turnName,
       targetName: targetIndex >= 0 ? instance.players[targetIndex].name : null,
       info: state.out[playerIndex]
         ? "You are out — watch the others play"
         : yourTurn
           ? `Ask a question or guess ${instance.players[targetIndex]?.name ?? ""}'s character`
-          : `Waiting for ${instance.players[state.currentPlayer].name}…`,
+          : `Waiting for ${turnName ?? "the next player"}…`,
       secret: { name: secret.name, desc: secret.desc },
-      board: state.characters.map((c, i) => ({
-        id: c.id,
-        name: c.name,
-        desc: c.desc,
-        eliminated: state.eliminated[playerIndex][i],
-      })),
+      remaining: remaining.length,
       lives: state.lives[playerIndex],
       out: state.out[playerIndex],
       timeLeft: Math.max(0, state.turnTimerMs),

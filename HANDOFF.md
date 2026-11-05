@@ -59,3 +59,4 @@ Do not commit or push without the human asking.
 ## Commit log
 - fix(engine): keep disconnected seats and recover stale rejoin tokens
 - feat(controllers): add motion, value and role layouts
+- feat(games): real dart aiming, golf joystick, tap race, guess who board

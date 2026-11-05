@@ -1,1 +1,8 @@
-{"id": "guesswho", "name": "Guess Who", "minPlayers": 2, "maxPlayers": 4, "controllerType": "choice", "description": "Each player has a secret character. Ask yes/no questions to eliminate. First to guess wins!"}
+{
+  "id": "guesswho",
+  "name": "Guess Who",
+  "minPlayers": 2,
+  "maxPlayers": 4,
+  "controllerType": "board",
+  "description": "Secret characters. The same board on the TV and every phone: flip down the faces that do not fit, ask yes/no questions, then guess. Wrong guesses cost lives."
+}

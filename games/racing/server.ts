@@ -1,9 +1,7 @@
 /**
  * Racing - Server Logic
- * Steer left/right between lanes, dodge obstacles. First across the finish wins.
+ * Pure mash race: every tap shoves your racer forward. First across the line wins.
  */
-
-import { secureShuffle, secureRandomInt } from "../../shared/secure-random.ts";
 
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
@@ -22,7 +20,16 @@ type ControllerType =
   | "text"
   | "choice"
   | "private-grid"
-  | "card-hand";
+  | "card-hand"
+  | "slider"
+  | "dual-slider"
+  | "pad"
+  | "aim"
+  | "tap-race"
+  | "board"
+  | "numpad"
+  | "canvas"
+  | "chat";
 
 interface Player {
   id: string;
@@ -59,24 +66,17 @@ interface GamePlugin {
   controllerState(instance: GameInstance, playerId: string): unknown;
 }
 
+// --- Types ---
 interface RacerState {
   lane: number;
   distance: number;
   speed: number;
+  taps: number;
   finished: boolean;
-  hitStunMs: number; // brief slow-down after a crash
-}
-
-interface Obstacle {
-  lane: number;
-  distance: number; // absolute race distance of the obstacle
-  hit: boolean;
 }
 
 interface RacingState {
   racers: RacerState[];
-  obstacles: Obstacle[];
-  nextObstacleDistance: number;
   phase: "countdown" | "racing" | "finished";
   countdownMs: number;
   elapsedMs: number;
@@ -87,25 +87,29 @@ interface RacingInstance extends GameInstance {
   state: RacingState;
 }
 
-const LANES = 5;
-const FINISH_DISTANCE = 600; // metres
-const MAX_SPEED = 42; // m/s
-const ACCEL = 18; // m/s^2
-const CRASH_SPEED_FACTOR = 0.35;
-const CRASH_STUN_MS = 700;
+// --- Tuning ---
 const COUNTDOWN_MS = 3000;
-const RACE_TIMEOUT_MS = 120000; // safety: race ends after 2 minutes
-const OBSTACLE_SPACING = 60; // metres between obstacle batches
-const FIRST_OBSTACLE_AT = 150;
+const FINISH_DISTANCE = 100;
+const TAP_BOOST = 0.9;        // speed added per tap
+const MAX_SPEED = 16;         // ceiling so mashing cannot teleport
+const FRICTION_PER_SEC = 0.55; // speed multiplier per second when not tapping
+const RACE_TIMEOUT_MS = 60000;
 
 const manifest: GameManifest = {
   id: "racing",
-  name: "Racing",
+  name: "Tap Race",
   minPlayers: 1,
   maxPlayers: 4,
-  controllerType: "left-right",
-  description: "Steer left/right, avoid obstacles, overtake opponents. First to the finish wins!",
+  controllerType: "tap-race",
+  description: "Mash the button. Every tap shoves your racer forward and speed bleeds off fast. First across the line wins.",
 };
+
+function winnerFromProgress(state: RacingState): number {
+  let best = -1;
+  let idx = 0;
+  state.racers.forEach((r, i) => { if (r.distance > best) { best = r.distance; idx = i; } });
+  return idx;
+}
 
 const plugin: GamePlugin = {
   manifest,
@@ -115,9 +119,7 @@ const plugin: GamePlugin = {
       roomId: room.id,
       players,
       state: {
-        racers: players.map(() => ({ lane: 0, distance: 0, speed: 0, finished: false, hitStunMs: 0 })),
-        obstacles: [],
-        nextObstacleDistance: FIRST_OBSTACLE_AT,
+        racers: players.map((_, i) => ({ lane: i, distance: 0, speed: 0, taps: 0, finished: false })),
         phase: "countdown",
         countdownMs: COUNTDOWN_MS,
         elapsedMs: 0,
@@ -129,85 +131,51 @@ const plugin: GamePlugin = {
   onInput(instance: RacingInstance, playerId: string, input: unknown): void {
     const state = instance.state;
     if (state.phase !== "racing") return;
+    const tap = (input as { tap?: unknown } | null)?.tap;
+    if (tap !== true) return;
+
     const playerIndex = instance.players.findIndex((p) => p.id === playerId);
     if (playerIndex === -1) return;
     const racer = state.racers[playerIndex];
-    if (racer.finished) return;
+    if (!racer || racer.finished) return;
 
-    const move = (input as { move?: string } | null)?.move;
-    if (move === "left") {
-      racer.lane = Math.max(0, racer.lane - 1);
-    } else if (move === "right") {
-      racer.lane = Math.min(LANES - 1, racer.lane + 1);
-    }
+    racer.taps++;
+    racer.speed = Math.min(MAX_SPEED, racer.speed + TAP_BOOST);
   },
 
   onTick(instance: RacingInstance, deltaMs: number): void {
     const state = instance.state;
     if (state.phase === "finished") return;
-    const dt = Math.min(Math.max(deltaMs, 0), 2000) / 1000;
 
     if (state.phase === "countdown") {
       state.countdownMs -= deltaMs;
-      if (state.countdownMs <= 0) state.phase = "racing";
+      if (state.countdownMs <= 0) {
+        state.countdownMs = 0;
+        state.phase = "racing";
+      }
       return;
     }
 
+    const dt = Math.min(Math.max(deltaMs, 0), 2000) / 1000;
     state.elapsedMs += deltaMs;
 
-    // Spawn obstacle rows ahead of the leader.
-    const leader = Math.max(0, ...state.racers.map((r) => r.distance));
-    while (state.nextObstacleDistance < leader + FINISH_DISTANCE) {
-      const rows = 1 + secureRandomInt(0, LANES - 1); // leave at least one gap
-      const lanes = secureShuffle([0, 1, 2, 3, 4]).slice(0, rows);
-      for (const lane of lanes) {
-        state.obstacles.push({ lane, distance: state.nextObstacleDistance, hit: false });
-      }
-      state.nextObstacleDistance += OBSTACLE_SPACING;
-      if (state.nextObstacleDistance > FINISH_DISTANCE + 200) break;
-    }
-
-    // Move racers.
     for (const racer of state.racers) {
-      if (racer.hitStunMs > 0) {
-        racer.hitStunMs -= deltaMs;
-      } else if (racer.speed < MAX_SPEED) {
-        racer.speed = Math.min(MAX_SPEED, racer.speed + ACCEL * dt);
-      }
+      if (racer.finished) continue;
       racer.distance += racer.speed * dt;
-    }
-
-    // Collisions: same lane, obstacle at close range, not yet hit.
-    for (const racer of state.racers) {
-      if (racer.hitStunMs > 0) continue;
-      for (const obs of state.obstacles) {
-        if (obs.hit || obs.lane !== racer.lane) continue;
-        if (Math.abs(obs.distance - racer.distance) < 4) {
-          obs.hit = true;
-          racer.speed *= CRASH_SPEED_FACTOR;
-          racer.hitStunMs = CRASH_STUN_MS;
-          break;
+      racer.speed *= Math.pow(FRICTION_PER_SEC, dt);
+      if (racer.distance >= FINISH_DISTANCE) {
+        racer.distance = FINISH_DISTANCE;
+        racer.finished = true;
+        if (state.winnerIndex === null) {
+          state.winnerIndex = state.racers.indexOf(racer);
+          state.phase = "finished";
         }
       }
     }
 
-    // Finish check: first across wins.
-    for (let i = 0; i < state.racers.length; i++) {
-      if (state.racers[i].distance >= FINISH_DISTANCE) {
-        state.racers[i].finished = true;
-        state.winnerIndex = i;
-        state.phase = "finished";
-        return;
-      }
-    }
-
-    // Safety timeout: furthest along wins.
-    if (state.elapsedMs >= RACE_TIMEOUT_MS) {
-      let best = 0;
-      for (let i = 1; i < state.racers.length; i++) {
-        if (state.racers[i].distance > state.racers[best].distance) best = i;
-      }
-      state.winnerIndex = best;
+    // Nobody mashed enough: whoever is furthest along takes it at the buzzer.
+    if (state.phase !== "finished" && state.elapsedMs >= RACE_TIMEOUT_MS) {
+      state.winnerIndex = winnerFromProgress(state);
       state.phase = "finished";
     }
   },
@@ -216,21 +184,26 @@ const plugin: GamePlugin = {
     const state = instance.state;
     return {
       phase: state.phase,
-      countdown: state.phase === "countdown" ? Math.ceil(state.countdownMs / 1000) : null,
-      lanes: LANES,
-      finishDistance: FINISH_DISTANCE,
-      racers: state.racers.map((r, i) => ({
-        name: instance.players[i].name,
-        lane: r.lane,
-        progress: Math.min(1, r.distance / FINISH_DISTANCE),
-        speed: Math.round(r.speed),
-        crashed: r.hitStunMs > 0,
+      countdown: state.phase === "countdown" ? Math.max(1, Math.ceil(state.countdownMs / 1000)) : null,
+      lanes: instance.players.length,
+      racers: instance.players.map((p, i) => ({
+        name: p.name,
+        lane: state.racers[i].lane,
+        progress: Math.min(1, state.racers[i].distance / FINISH_DISTANCE),
+        taps: state.racers[i].taps,
+        speed: state.racers[i].speed,
+        finished: state.racers[i].finished,
       })),
-      obstacles: state.obstacles.filter((o) => !o.hit),
+      obstacles: [],
+      finishDistance: FINISH_DISTANCE,
+      elapsedMs: state.elapsedMs,
       finished: state.phase === "finished",
       winner:
         state.phase === "finished" && state.winnerIndex !== null
-          ? { name: instance.players[state.winnerIndex].name, progress: Math.min(1, state.racers[state.winnerIndex].distance / FINISH_DISTANCE) }
+          ? {
+              name: instance.players[state.winnerIndex].name,
+              progress: Math.min(1, state.racers[state.winnerIndex].distance / FINISH_DISTANCE),
+            }
           : null,
     };
   },
@@ -239,21 +212,35 @@ const plugin: GamePlugin = {
     const state = instance.state;
     const playerIndex = instance.players.findIndex((p) => p.id === playerId);
     const racer = state.racers[playerIndex];
+    if (!racer) return { race: { disabled: true, label: "TAP!" } };
+
+    // Show the closest rival by tap count so the phone has someone to beat.
+    let rivalIndex = -1;
+    let rivalTaps = -1;
+    state.racers.forEach((r, i) => {
+      if (i !== playerIndex && r.taps > rivalTaps) {
+        rivalTaps = r.taps;
+        rivalIndex = i;
+      }
+    });
+
     return {
-      phase: state.phase,
-      lane: racer.lane,
-      lanes: LANES,
-      progress: Math.min(1, racer.distance / FINISH_DISTANCE),
-      speed: Math.round(racer.speed),
-      crashed: racer.hitStunMs > 0,
+      race: {
+        taps: racer.taps,
+        progress: Math.min(1, racer.distance / FINISH_DISTANCE),
+        label: state.phase === "countdown" ? "READY" : "TAP!",
+        opponentName: rivalIndex >= 0 ? instance.players[rivalIndex].name : "",
+        opponentTaps: rivalIndex >= 0 ? state.racers[rivalIndex].taps : 0,
+        finished: state.phase === "finished",
+        disabled: state.phase !== "racing",
+      },
       distance: Math.round(racer.distance),
-      finishDistance: FINISH_DISTANCE,
+      taps: racer.taps,
+      phase: state.phase,
       finished: state.phase === "finished",
       youWon: state.phase === "finished" && state.winnerIndex === playerIndex,
     };
   },
 };
-
-// Use secureShuffle from shared/secure-random.ts
 
 export default plugin;

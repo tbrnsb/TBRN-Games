@@ -1,1 +1,8 @@
-{ "id": "racing", "name": "Racing", "minPlayers": 1, "maxPlayers": 4, "controllerType": "left-right", "description": "Steer left/right, avoid obstacles, overtake opponents. First to finish wins!" }
+{
+  "id": "racing",
+  "name": "Tap Race",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "controllerType": "tap-race",
+  "description": "Mash the button. Every tap shoves your racer forward and speed bleeds off fast. First across the line wins."
+}
