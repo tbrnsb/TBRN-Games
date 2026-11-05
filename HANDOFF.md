@@ -66,3 +66,4 @@ Do not commit or push without the human asking.
 - feat(games): add mind meld with a 61-item category pack
 - feat(games): add mind reader with footrule scoring
 - feat(games): add stowaway with a private role card
+- feat(games): add blind date chat with private threads
