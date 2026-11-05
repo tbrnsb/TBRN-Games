@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Mind Reader - server logic.
+ * Everyone ranks four things, then you guess how one chosen player ranked them. Closer = more points.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";

@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Frankenanswers - server logic.
+ * Everyone writes three word chips. Then build the best answer you can out of other people's words.
  */
 
 interface GameManifest {

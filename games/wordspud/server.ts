@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Word Spud - server logic.
+ * Chain words by association. Everyone votes accept or reject.
  */
 
 interface GameManifest {

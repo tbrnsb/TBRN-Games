@@ -1,6 +1,6 @@
 /**
  * Percentile - server logic.
- * One player estimates a real statistic on a slider, everyone else bets higher or lower.
+ * One player estimates a real statistic on a slider. Everyone else bets higher or lower. Close guess, big score.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";

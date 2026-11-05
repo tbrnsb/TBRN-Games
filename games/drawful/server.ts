@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Drawful - server logic.
+ * Draw a ridiculous prompt on your phone, then lie about everyone else's drawings.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";

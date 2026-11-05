@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Mind Meld - server logic.
+ * Everyone answers the same category with one word. Matching answers score. Match the whole table for a jackpot.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";

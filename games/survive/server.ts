@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Survive the Internet - server logic.
+ * Answer innocently, twist someone else's answer into a headline, vote for the funniest.
  */
 
 interface GameManifest {

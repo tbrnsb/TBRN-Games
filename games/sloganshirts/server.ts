@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Slogan Shirts - server logic.
+ * Draw a design, write a slogan, then everyone gets someone else's slogan on their shirt and you vote for the best.
  */
 
 interface GameManifest {

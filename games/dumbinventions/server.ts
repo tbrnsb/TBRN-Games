@@ -1,8 +1,8 @@
 import { secureShuffle } from "../../shared/secure-random.ts";
 
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Dumb Inventions - server logic.
+ * You get a problem and two random words. Invent a product that uses both, then pitch it.
  */
 
 interface GameManifest {

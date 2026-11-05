@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Blind Date Chat - server logic.
+ * One Dater, everyone else a Candidate with a secret persona. Chat privately, then get picked.
  */
 
 interface GameManifest {

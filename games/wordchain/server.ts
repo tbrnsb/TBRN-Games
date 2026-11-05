@@ -1,8 +1,8 @@
 import { secureRandomInt } from "../../shared/secure-random.ts";
 
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Word Chain - server logic.
+ * Chain words: each one must start with the last letter of the one before. Miss and lose a life.
  */
 
 interface GameManifest {

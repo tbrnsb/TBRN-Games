@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Quick Trivia - server logic.
+ * Rapid-fire trivia. Faster answers score more.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";

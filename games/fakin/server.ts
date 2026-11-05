@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Fakin' It - server logic.
+ * Everyone gets the same instruction except one Faker. Spot them.
  */
 
 interface GameManifest {

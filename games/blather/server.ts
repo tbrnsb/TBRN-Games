@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Blather Round - server logic.
+ * Describe a secret thing in one sentence without naming it. Everyone else races to guess.
  */
 
 interface GameManifest {

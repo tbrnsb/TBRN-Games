@@ -1,8 +1,8 @@
 import { secureRandomInt } from "../../shared/secure-random.ts";
 
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Bracket Brawl - server logic.
+ * Everyone writes one answer, then it is a knockout bracket. Only players not in a duel get to vote.
  */
 
 interface GameManifest {

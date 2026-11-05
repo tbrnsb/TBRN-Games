@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Dictionarium - server logic.
+ * Invent a definition for an obsolete word and beat the real one.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";

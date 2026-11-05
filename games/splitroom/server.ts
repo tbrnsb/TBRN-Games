@@ -1,6 +1,6 @@
 /**
  * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Fill a blank to split the room down the middle. The closer the yes/no vote, the more you score. The closer the yes/no vote, the more you score.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";

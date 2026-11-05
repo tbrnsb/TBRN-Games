@@ -1,6 +1,6 @@
 /**
- * Split the Room - server logic.
- * Fill a blank to split the room down the middle.
+ * Stowaway - server logic.
+ * Everyone shares a secret category except one Stowaway. Write a clue, talk it out, then vote.
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
