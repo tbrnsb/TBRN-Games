@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 481/481 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -53,19 +53,26 @@ Last gate: `npm test` 481/481 · typecheck clean · lint 0 errors (236 warnings)
   byes, 2 brackets at 3-4 / one at 5-6, new TV bracket renderer, stats.
 - Phase 3 (c) Stowaway: 3-8, three-word clue cap, 500 x f(N) correct voters,
   round-1 setup bug fixed, pre-reveal secrecy, stats.
+- Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
+  Faker rotation in shuffled cycles with no repeat before every seat has had
+  it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,
+  pre-reveal secrecy, result stats.
 
 ## In progress
 Phase 3: widen each existing game on its own task, in shared-system groups.
 Room cap is 8; a game stays at its old max until its own task.
 
 ## Next three actions
-1. Fakin' It (3-8, faker rotation without repeats).
-2. Blather Round (3-8, speed-decayed guesses).
-3. Most Likely To (3-8, new top-vote scoring).
+1. Blather Round (3-8, speed-decayed guesses).
+2. Most Likely To (3-8, new top-vote scoring).
+3. Slide Roulette (3-8, presenter rotation).
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and
   the dictionary has gaps. Pre-existing, needs a deterministic fixture.
+- `tests/poker.test.ts`'s randomized betting run can flake (seen once on
+  2026-11-06): the generated action sequence sometimes misses the hand limit.
+  Pre-existing and unrelated to the game tasks.
 - `server/session.ts` still uses `Math.random` for its existing selection;
   Phase 5 replaces only the selection step with presets.
 

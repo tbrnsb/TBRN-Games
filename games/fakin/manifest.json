@@ -2,7 +2,7 @@
   "id": "fakin",
   "name": "Fakin' It",
   "minPlayers": 3,
-  "maxPlayers": 4,
+  "maxPlayers": 8,
   "controllerType": "choice",
   "description": "Everyone gets the same instruction except one Faker. Spot them.",
   "howTo": "Everyone gets the same instruction except one Faker. Copy the group, then vote."

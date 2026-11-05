@@ -252,16 +252,19 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "deduction",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
-    minutes: { standalone: 3, rumble: 3 },
+    minutes: { standalone: 5, rumble: 3 },
     dropoutPolicy: "void-round",
     contentPacks: [],
-    scale: (playerCount) => ({
-      rounds: 3,
+    scale: (playerCount, mode) => ({
+      // Five standalone rounds; the Rumble runs three. The 25-second acting
+      // timer stays as it was at every count.
+      rounds: mode === "rumble" ? 3 : 5,
       timers: { act: 25, vote: 20, reveal: 8 },
-      optionCaps: { options: playerCount },
+      // One ballot option per other seat: 7 on the largest phone.
+      optionCaps: { options: Math.max(1, playerCount - 1) },
     }),
   },
   blather: {
