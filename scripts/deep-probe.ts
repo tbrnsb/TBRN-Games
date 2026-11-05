@@ -162,7 +162,8 @@ function driver(gameId: string, cs: any, playerId: string): unknown {
     case "frankenanswers":
     case "bracket":
     case "dumbinventions":
-    case "wordchain": {
+    case "wordchain":
+    case "sloganshirts": {
       // These games switch controller UI per phase and report it as `mode`.
       if (cs.mode === "slider") {
         return Math.random() < 0.5 ? { slider: { axis: "x", value: Math.random() } } : { action: "action" };
