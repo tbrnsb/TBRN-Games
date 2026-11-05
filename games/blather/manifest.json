@@ -1,0 +1,8 @@
+{
+  "id": "blather",
+  "name": "Blather Round",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "text",
+  "description": "Describe a secret thing in one sentence without naming it. Everyone else races to guess."
+}

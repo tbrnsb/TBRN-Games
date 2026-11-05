@@ -1,0 +1,8 @@
+{
+  "id": "fakin",
+  "name": "Fakin' It",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "choice",
+  "description": "Everyone gets the same instruction except one Faker. Spot them."
+}

@@ -1,0 +1,8 @@
+{
+  "id": "survive",
+  "name": "Survive the Internet",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "text",
+  "description": "Answer innocently, twist someone else's answer into a headline, vote for the funniest."
+}
