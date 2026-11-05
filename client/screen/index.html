@@ -358,7 +358,93 @@
       letter-spacing: -0.01em;
     }
     .shelf-head .count { font-size: 12px; color: var(--color-text-muted); }
-    .topbar-right { display: flex; align-items: center; gap: 14px; }
+    .topbar-right { display: flex; align-items: center; gap: 14px; position: relative; }
+    .gear-btn {
+      width: 32px; height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      border: 1px solid var(--color-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--color-text-muted);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .gear-btn:hover { color: var(--color-text); background: rgba(255, 255, 255, 0.09); }
+    .gear-btn[aria-expanded="true"] {
+      color: var(--color-cyan);
+      border-color: rgba(0, 229, 255, 0.45);
+    }
+    .gear-btn:focus-visible,
+    .switch:focus-visible,
+    .settings-close:focus-visible {
+      outline: 2px solid var(--color-cyan);
+      outline-offset: 2px;
+    }
+    .settings-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 40;
+      width: 300px;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: linear-gradient(160deg, rgba(37, 28, 90, 0.98), rgba(20, 15, 51, 0.98));
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: left;
+    }
+    .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .settings-head h2 { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+    .settings-close { height: 28px; padding: 0 10px; font-size: 11px; }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 13px;
+      color: var(--color-text);
+      cursor: pointer;
+    }
+    .setting-label { min-width: 0; }
+    .switch {
+      appearance: none;
+      -webkit-appearance: none;
+      flex: 0 0 auto;
+      width: 44px;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.14);
+      position: relative;
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .switch::before {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-text);
+      transition: transform 120ms ease, background 120ms ease;
+    }
+    .switch:checked {
+      background: var(--color-magenta);
+      border-color: var(--color-magenta);
+    }
+    .switch:checked::before { transform: translateX(20px); background: var(--ink); }
+    .switch:disabled { opacity: 0.4; cursor: not-allowed; }
+    .setting-note { font-size: 11px; line-height: 1.45; color: var(--color-text-muted); }
+    /* Lift the whole bar while its panel is open: `main` is a later sibling at
+       the same z-index, so without this the lobby would paint over the panel. */
+    body.settings-open .topbar { z-index: 45; }
     .top-action {
       height: 32px;
       padding: 0 13px;
@@ -650,6 +736,7 @@
       .join { animation: none; }
       .live .dot { animation: none; }
       .game-tile, #startGameBtn { transition: none; }
+      .switch, .switch::before { transition: none; }
     }
     .stack-field { display: flex; align-items: center; gap: 8px; }
     .stack-field.hidden { display: none; }
@@ -896,6 +983,32 @@
     <div class="topbar-right">
       <button class="top-action hidden" id="endGameBtn" type="button">End game</button>
       <div class="live"><span class="dot"></span><span><span id="playerCount">0</span> phones at the table</span></div>
+      <button
+        class="gear-btn"
+        id="settingsBtn"
+        type="button"
+        aria-label="TV settings"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="settingsPanel"
+        title="TV settings"
+      >&#9881;</button>
+      <div class="settings-panel hidden" id="settingsPanel" role="dialog" aria-labelledby="settingsTitle">
+        <div class="settings-head">
+          <h2 id="settingsTitle">TV settings</h2>
+          <button class="ghost settings-close" id="settingsClose" type="button">Close</button>
+        </div>
+        <label class="setting-row">
+          <span class="setting-label">Sound effects</span>
+          <input class="switch" id="soundToggle" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span class="setting-label">Spoken turn announcements</span>
+          <input class="switch" id="speechToggle" type="checkbox" aria-describedby="speechNote" />
+        </label>
+        <p class="setting-note hidden" id="speechNote">This browser has no speech synthesis, so spoken announcements stay off.</p>
+        <p class="setting-note">Both are optional. The game is fully playable without sound or speech.</p>
+      </div>
     </div>
   </header>
   <main>

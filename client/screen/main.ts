@@ -26,6 +26,23 @@ import {
   type WatchOverlayState,
   type WatchTickerRow,
 } from "./kit/ticker.ts";
+import {
+  cueSignature,
+  cuesFromScreen,
+  loadSoundEnabled,
+  playCue,
+  saveSoundEnabled,
+  unlockAudio,
+} from "./sound.ts";
+import {
+  announce,
+  cancelSpeech,
+  loadSpeechEnabled,
+  saveSpeechEnabled,
+  shouldAnnounce,
+  speechSupported,
+} from "./speech.ts";
+import type { SettingsStorage } from "./settings.ts";
 
 console.log("[Screen] Module loaded");
 
@@ -153,6 +170,25 @@ const interludeRuleEl = document.getElementById("interludeRule")!;
 const interludeCountEl = document.getElementById("interludeCount")!;
 const interludeCountdownEl = document.getElementById("interludeCountdown")!;
 const interludeSkipBtn = document.getElementById("interludeSkip") as HTMLButtonElement;
+const settingsBtn = document.getElementById("settingsBtn") as HTMLButtonElement;
+const settingsPanel = document.getElementById("settingsPanel")!;
+const settingsCloseBtn = document.getElementById("settingsClose") as HTMLButtonElement;
+const soundToggle = document.getElementById("soundToggle") as HTMLInputElement;
+const speechToggle = document.getElementById("speechToggle") as HTMLInputElement;
+const speechNote = document.getElementById("speechNote")!;
+
+/** localStorage can throw in private mode; settings then live for this page. */
+const settingsStorage: SettingsStorage | null = (() => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+})();
+const speechOk = speechSupported();
+/** Sound on by default; speech only when this browser can actually speak. */
+let soundEnabled = loadSoundEnabled(settingsStorage);
+let speechEnabled = loadSpeechEnabled(settingsStorage, speechOk);
 
 function getPlayersList(): HTMLElement {
   return _playersList;
@@ -163,6 +199,59 @@ function getRoomCodeEl(): HTMLElement {
 }
 
 startBtn.disabled = true;
+
+// --- Host settings (sound + speech) ---
+
+/** Reflect the current preferences and capabilities in the settings panel. */
+function applySettingControls(): void {
+  soundToggle.checked = soundEnabled;
+  speechToggle.checked = speechEnabled;
+  speechToggle.disabled = !speechOk;
+  speechNote.classList.toggle("hidden", speechOk);
+}
+
+function openSettings(): void {
+  applySettingControls();
+  settingsPanel.classList.remove("hidden");
+  settingsBtn.setAttribute("aria-expanded", "true");
+  document.body.classList.add("settings-open");
+  soundToggle.focus();
+}
+
+function closeSettings(): void {
+  settingsPanel.classList.add("hidden");
+  settingsBtn.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("settings-open");
+  settingsBtn.focus();
+}
+
+function toggleSettings(): void {
+  if (settingsPanel.classList.contains("hidden")) openSettings();
+  else closeSettings();
+}
+
+settingsBtn.addEventListener("click", toggleSettings);
+settingsCloseBtn.addEventListener("click", closeSettings);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !settingsPanel.classList.contains("hidden")) {
+    closeSettings();
+  }
+});
+
+soundToggle.addEventListener("change", () => {
+  soundEnabled = soundToggle.checked;
+  saveSoundEnabled(settingsStorage, soundEnabled);
+  // Audible confirmation that the setting took effect.
+  if (soundEnabled) playCue("vote");
+});
+
+speechToggle.addEventListener("change", () => {
+  speechEnabled = speechToggle.checked;
+  saveSpeechEnabled(settingsStorage, speechEnabled);
+  if (!speechEnabled) cancelSpeech();
+});
+
+applySettingControls();
 
 let manifests: GameManifestLite[] = [];
 
@@ -596,6 +685,10 @@ function handleMessage(msg: ServerMessage) {
   } else if (msg.type === MESSAGE_TYPES.GAME_STATE) {
     const m = msg as ServerMessage & { type: "gameState"; payload: { screen: unknown; gameId?: string | null; gameName?: string } };
     const payload = m.payload;
+    if (payload.gameId !== undefined && payload.gameId !== currentGameId) {
+      // A new game starts with a clean cue/announce baseline.
+      resetAudioHooks();
+    }
     currentScreen = payload.screen;
     if (payload.gameId !== undefined) currentGameId = payload.gameId;
     if (payload.gameName) currentGameName = payload.gameName;
@@ -1174,12 +1267,75 @@ function drawWatchLayer(width: number, height: number): void {
 
 /** Continuous frame loop so particles, cards and victory screens animate smoothly. */
 function frameLoop(): void {
+  syncAudioHooks();
   if (!playing.classList.contains("hidden")) {
     renderGame();
   }
   requestAnimationFrame(frameLoop);
 }
 requestAnimationFrame(frameLoop);
+
+// --- Optional sound and speech hooks (brief 3.8) ---
+
+let lastCueSignature = "";
+let lastCaption = "";
+let lastAnnouncement = "";
+
+function resetAudioHooks(): void {
+  lastCueSignature = "";
+  lastCaption = "";
+  lastAnnouncement = "";
+}
+
+/**
+ * Play the cues and speak the line the current screen state asks for. Runs
+ * once per frame but only acts when a published value changes, so a game can
+ * hold `sound` or `announce` on screen without replaying it every frame.
+ *
+ * Generic by design: games publish `sound`, `announce` and `caption`; the
+ * screen owns the synth, the speech and the mute toggles.
+ */
+function syncAudioHooks(): void {
+  const state = currentScreen;
+  if (!state || typeof state !== "object") {
+    resetAudioHooks();
+    return;
+  }
+  const record = state as Record<string, unknown>;
+
+  const cues = cuesFromScreen(record);
+  const signature = cueSignature(cues);
+  if (signature !== lastCueSignature) {
+    lastCueSignature = signature;
+    for (const cue of cues) playCue(cue, { enabled: soundEnabled });
+  }
+
+  // A new caption is a reveal moment, even when the game published no cue.
+  const caption = typeof record.caption === "string" ? record.caption.trim() : "";
+  if (!caption) {
+    lastCaption = "";
+  } else if (caption !== lastCaption) {
+    lastCaption = caption;
+    if (!cues.includes("reveal")) playCue("reveal", { enabled: soundEnabled });
+  }
+
+  const line = typeof record.announce === "string" ? record.announce : "";
+  if (shouldAnnounce(lastAnnouncement, line)) {
+    lastAnnouncement = line.trim();
+    announce(line, { enabled: speechEnabled });
+  } else if (!line.trim()) {
+    lastAnnouncement = "";
+  }
+}
+
+// Browsers only release audio after a gesture; the first click or key press
+// unlocks it, and the settings toggle doubles as a gesture when it is flipped.
+window.addEventListener("pointerdown", () => {
+  if (soundEnabled) unlockAudio();
+}, { once: true });
+window.addEventListener("keydown", () => {
+  if (soundEnabled) unlockAudio();
+}, { once: true });
 
 /** Normalise a game's screen `options` array into the kit's VoteOption shape. */
 function readVoteOptions(state: Record<string, unknown>): VoteOption[] {

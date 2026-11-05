@@ -5,7 +5,7 @@ Platform expansion phases 2-6 in progress, on branch `Games-expansion`.
 Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree,
 21 enabled, 15 retired but kept.
 
-Last gate: `npm test` 327/327 · typecheck clean · lint 0 errors (236 warnings)
+Last gate: `npm test` 341/341 · typecheck clean · lint 0 errors (236 warnings)
 · `npm run probe` 0 issues.
 
 ## Done
@@ -33,14 +33,17 @@ Last gate: `npm test` 327/327 · typecheck clean · lint 0 errors (236 warnings)
   seven briefed awards (max 6 on the finale). Placement points unchanged.
 - Phase 2.6b: 15 s between-game interlude with movement arrows and a next-up
   card, always-on score ticker, waiting-on banner, caption/reveal hooks.
+- Phase 2.6c: no-asset WebAudio cues, speech-synthesis turn announcements,
+  TV settings toggles persisted locally.
 
 ## In progress
-Phase 2 platform foundation: sound/TTS hooks, then Phase 3 game widening.
+Phase 3: widen each existing game on its own task, in shared-system groups.
+Room cap is 8; a game stays at its old max until its own task.
 
 ## Next three actions
-1. Sound and speech hooks with mute toggles.
-2. Widen the first game group (text answer and voting) one game at a time.
-3. Bot-test each group before the next.
+1. Bluff (3-8, f(N), Facts/Dictionary packs, nine-option voting).
+2. Write & Vote (3-8), then Split the Room (3-8), then Survive (3-6).
+3. Bot-test the group before moving to chips/composed text.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and
