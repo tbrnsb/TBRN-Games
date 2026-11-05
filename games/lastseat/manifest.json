@@ -1,0 +1,8 @@
+{
+  "id": "lastseat",
+  "name": "Last Seat",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "choice",
+  "description": "Answer trivia. Get it wrong and you play a minigame for your seat. The last two settle it."
+}

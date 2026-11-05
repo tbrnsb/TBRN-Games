@@ -166,7 +166,8 @@ function driver(gameId: string, cs: any, playerId: string): unknown {
     case "sloganshirts":
     case "mashup":
     case "arena":
-    case "slideroulette": {
+    case "slideroulette":
+    case "lastseat": {
       // These games switch controller UI per phase and report it as `mode`.
       if (cs.mode === "slider") {
         return Math.random() < 0.5 ? { slider: { axis: "x", value: Math.random() } } : { action: "action" };
