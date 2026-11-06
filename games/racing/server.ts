@@ -1,7 +1,18 @@
 /**
  * Racing - Server Logic
  * Pure mash race: every tap shoves your racer forward. First across the line wins.
+ *
+ * Range is 1-8. Every seat gets its own lane and keeps its seat identity
+ * (colour + glyph) on the TV: the race is simultaneous, so nobody is ever
+ * "waited on" and there is no turn order to rotate.
  */
+
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import { standingsFromScores } from "../../shared/scoring.ts";
+import type { GameResult } from "../../shared/scoring.ts";
+import { seatForIndex } from "../../shared/seat-identity.ts";
+import type { SeatIdentity } from "../../shared/seat-identity.ts";
 
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
@@ -38,6 +49,7 @@ interface Player {
   rejoinToken: string;
   connected: boolean;
   controllerType?: string;
+  seat?: SeatIdentity;
 }
 
 interface RoomState {
@@ -64,6 +76,7 @@ interface GamePlugin {
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
 
 // --- Types ---
@@ -72,6 +85,8 @@ interface RacerState {
   distance: number;
   speed: number;
   taps: number;
+  /** Peak speed reached, kept for the awards stats. */
+  topSpeed: number;
   finished: boolean;
 }
 
@@ -99,10 +114,39 @@ const manifest: GameManifest = {
   id: "racing",
   name: "Tap Race",
   minPlayers: 1,
-  maxPlayers: 4,
+  maxPlayers: 8,
   controllerType: "tap-race",
   description: "Mash the button. Every tap shoves your racer forward and speed bleeds off fast. First across the line wins.",
 };
+
+/** Progress in 0..1 for a racer (0 when the seat is missing). */
+function progressOf(racer: RacerState | undefined): number {
+  if (!racer || !Number.isFinite(racer.distance)) return 0;
+  return Math.min(1, Math.max(0, racer.distance / FINISH_DISTANCE));
+}
+
+/** Seat identity for a player index, falling back to the index for old players. */
+function seatAt(instance: RacingInstance, index: number): SeatIdentity {
+  return instance.players[index]?.seat ?? seatForIndex(index);
+}
+
+/**
+ * The TV is never waiting on anyone during a race: every phone can tap at the
+ * same time, and the countdown and buzzer are server-driven.
+ */
+function waitingNames(): string[] {
+  return [];
+}
+
+/** Public finish line for the winning racer, never a hidden value. */
+function finishCaption(instance: RacingInstance): string | null {
+  const state = instance.state;
+  if (state.phase !== "finished" || state.winnerIndex === null) return null;
+  const winner = instance.players[state.winnerIndex];
+  const racer = state.racers[state.winnerIndex];
+  if (!winner) return null;
+  return captionFor({ kind: "fastest", name: winner.name, seed: winner.name.length + (racer?.taps ?? 0) });
+}
 
 function winnerFromProgress(state: RacingState): number {
   let best = -1;
@@ -119,7 +163,7 @@ const plugin: GamePlugin = {
       roomId: room.id,
       players,
       state: {
-        racers: players.map((_, i) => ({ lane: i, distance: 0, speed: 0, taps: 0, finished: false })),
+        racers: players.map((_, i) => ({ lane: i, distance: 0, speed: 0, taps: 0, topSpeed: 0, finished: false })),
         phase: "countdown",
         countdownMs: COUNTDOWN_MS,
         elapsedMs: 0,
@@ -141,6 +185,7 @@ const plugin: GamePlugin = {
 
     racer.taps++;
     racer.speed = Math.min(MAX_SPEED, racer.speed + TAP_BOOST);
+    if (racer.speed > racer.topSpeed) racer.topSpeed = racer.speed;
   },
 
   onTick(instance: RacingInstance, deltaMs: number): void {
@@ -182,6 +227,7 @@ const plugin: GamePlugin = {
 
   screenState(instance: RacingInstance): unknown {
     const state = instance.state;
+    const seats = instance.players.map((_, i) => seatAt(instance, i));
     return {
       phase: state.phase,
       countdown: state.phase === "countdown" ? Math.max(1, Math.ceil(state.countdownMs / 1000)) : null,
@@ -189,20 +235,25 @@ const plugin: GamePlugin = {
       racers: instance.players.map((p, i) => ({
         name: p.name,
         lane: state.racers[i].lane,
-        progress: Math.min(1, state.racers[i].distance / FINISH_DISTANCE),
+        progress: progressOf(state.racers[i]),
         taps: state.racers[i].taps,
         speed: state.racers[i].speed,
+        topSpeed: state.racers[i].topSpeed,
         finished: state.racers[i].finished,
+        seat: seats[i],
       })),
       obstacles: [],
       finishDistance: FINISH_DISTANCE,
       elapsedMs: state.elapsedMs,
       finished: state.phase === "finished",
+      waitingOn: waitingNames(),
+      caption: finishCaption(instance),
+      sound: state.phase === "finished" ? "win" : null,
       winner:
         state.phase === "finished" && state.winnerIndex !== null
           ? {
               name: instance.players[state.winnerIndex].name,
-              progress: Math.min(1, state.racers[state.winnerIndex].distance / FINISH_DISTANCE),
+              progress: progressOf(state.racers[state.winnerIndex]),
             }
           : null,
     };
@@ -214,12 +265,14 @@ const plugin: GamePlugin = {
     const racer = state.racers[playerIndex];
     if (!racer) return { race: { disabled: true, label: "TAP!" } };
 
-    // Show the closest rival by tap count so the phone has someone to beat.
+    // Show the nearest rival by race progress so the phone has someone to beat.
     let rivalIndex = -1;
-    let rivalTaps = -1;
+    let rivalGap = Number.POSITIVE_INFINITY;
     state.racers.forEach((r, i) => {
-      if (i !== playerIndex && r.taps > rivalTaps) {
-        rivalTaps = r.taps;
+      if (i === playerIndex) return;
+      const gap = Math.abs(r.distance - racer.distance);
+      if (gap < rivalGap) {
+        rivalGap = gap;
         rivalIndex = i;
       }
     });
@@ -227,7 +280,7 @@ const plugin: GamePlugin = {
     return {
       race: {
         taps: racer.taps,
-        progress: Math.min(1, racer.distance / FINISH_DISTANCE),
+        progress: progressOf(racer),
         label: state.phase === "countdown" ? "READY" : "TAP!",
         opponentName: rivalIndex >= 0 ? instance.players[rivalIndex].name : "",
         opponentTaps: rivalIndex >= 0 ? state.racers[rivalIndex].taps : 0,
@@ -239,6 +292,27 @@ const plugin: GamePlugin = {
       phase: state.phase,
       finished: state.phase === "finished",
       youWon: state.phase === "finished" && state.winnerIndex === playerIndex,
+    };
+  },
+
+  results(instance: RacingInstance): GameResult {
+    const state = instance.state;
+    const stats: Record<string, number> = {};
+    instance.players.forEach((player, index) => {
+      const racer = state.racers[index];
+      stats[playerStatKey(player.id, "taps")] = racer?.taps ?? 0;
+      stats[playerStatKey(player.id, "topSpeed")] = racer?.topSpeed ?? 0;
+    });
+    return {
+      standings: standingsFromScores(
+        instance.players.map((player, index) => ({
+          id: player.id,
+          // Rank-only game: raw is the same 0..1 progress the TV shows, so a
+          // 3-4 player result matches what the screen fallback used to report.
+          raw: progressOf(state.racers[index]),
+        })),
+      ),
+      stats,
     };
   },
 };

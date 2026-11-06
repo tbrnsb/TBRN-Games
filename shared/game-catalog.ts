@@ -446,12 +446,15 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "skill",
     minPlayers: 1,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 3,
     idealMax: 8,
     minutes: { standalone: 1, rumble: 1 },
     dropoutPolicy: "continue",
     contentPacks: [],
+    // One race at every count: 3-second countdown, 60-second buzzer. The
+    // optional standalone best-of-3 is a host choice that stays off by default,
+    // so the catalog reports the single-race game that actually starts.
     scale: fixedScale(1, { countdown: 3, race: 60 }),
   },
 

@@ -4,6 +4,8 @@
  * All values from DESIGN.md — single source of truth.
  */
 
+import { theme as sharedTheme } from "../../../shared/theme.ts";
+
 // --- Color Palette ---
 export const colors = {
   // Base
@@ -25,12 +27,18 @@ export const colors = {
   success: "#3DFFA2",       // correct, win
   danger: "#FF4D6D",        // wrong, lose
 
-  // Player colors (always paired with number badge/shape)
+  // Player colors (always paired with number badge/shape). The eight entries
+  // come straight from the shared theme so a kit-rendered scoreboard keeps the
+  // same seat identity as the lobby, the ticker and every game renderer.
   player: [
-    "#FF2E97",  // P1 magenta
-    "#00E5FF",  // P2 cyan
-    "#FFE45E",  // P3 amber
-    "#3DFFA2",  // P4 success
+    sharedTheme.colors.player[0],  // P1 magenta
+    sharedTheme.colors.player[1],  // P2 cyan
+    sharedTheme.colors.player[2],  // P3 amber
+    sharedTheme.colors.player[3],  // P4 green
+    sharedTheme.colors.player[4],  // P5 orange
+    sharedTheme.colors.player[5],  // P6 violet
+    sharedTheme.colors.player[6],  // P7 sky
+    sharedTheme.colors.player[7],  // P8 off-white
   ],
 
   // Gradient stops

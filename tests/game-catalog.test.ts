@@ -272,6 +272,17 @@ describe("gameAvailability", () => {
     assert.strictEqual(gameAvailability(mostlikely, 9), "max 8");
   });
 
+  test("racing moved from 1-4 to 1-8", () => {
+    const racing = GAME_CATALOG.racing;
+    assert.strictEqual(gameAvailability(racing, 0), "needs 1+");
+    assert.strictEqual(gameAvailability(racing, 1), null);
+    assert.strictEqual(gameAvailability(racing, 4), null);
+    assert.strictEqual(gameAvailability(racing, 8), null);
+    assert.strictEqual(gameAvailability(racing, 9), "max 8");
+    assert.strictEqual(racing.idealMin, 3);
+    assert.strictEqual(racing.idealMax, 8);
+  });
+
   test("survive moved from 3-4 to 3-6", () => {
     const survive = GAME_CATALOG.survive;
     assert.strictEqual(gameAvailability(survive, 2), "needs 3-6");

@@ -2,7 +2,7 @@
   "id": "racing",
   "name": "Tap Race",
   "minPlayers": 1,
-  "maxPlayers": 4,
+  "maxPlayers": 8,
   "controllerType": "tap-race",
   "description": "Mash the button. Every tap shoves your racer forward and speed bleeds off fast. First across the line wins.",
   "howTo": "Mash the button. Every tap shoves your racer forward. First across the line wins."
