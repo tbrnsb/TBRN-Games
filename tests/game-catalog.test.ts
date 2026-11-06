@@ -547,4 +547,34 @@ describe("game registry over HTTP", () => {
       for (const bot of bots) bot.disconnect();
     }
   });
+
+  test("starting a game above its max players is rejected and leaves the room in the lobby", async () => {
+    // Bracket Brawl caps at six, so seven connected phones are one too many.
+    const bots = await createBots(7, wsUrl, "CrowdBot");
+    const screen = await connectScreen(bots[0].roomId);
+    try {
+      const res = await fetch(`${httpUrl}/api/rooms/${bots[0].roomId}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
+        body: JSON.stringify({ gameId: "bracket" }),
+      });
+      assert.strictEqual(res.status, 400);
+      const body = (await res.json()) as { code?: string; message?: string };
+      assert.strictEqual(body.code, "TOO_MANY_PLAYERS");
+      assert.match(String(body.message), /Maximum 6 players/);
+
+      // The rejected start must not move the room out of the lobby: a game
+      // that fits the seven connected phones still starts normally.
+      const legal = await fetch(`${httpUrl}/api/rooms/${bots[0].roomId}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
+        body: JSON.stringify({ gameId: "bluff" }),
+      });
+      assert.strictEqual(legal.status, 200);
+      assert.strictEqual(((await legal.json()) as { success?: boolean }).success, true);
+    } finally {
+      screen.ws.close();
+      for (const bot of bots) bot.disconnect();
+    }
+  });
 });

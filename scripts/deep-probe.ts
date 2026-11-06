@@ -56,9 +56,17 @@ function isFinished(instance: unknown): boolean {
   return state?.phase === "finished" || state?.finished === true;
 }
 
+/**
+ * Keys whose values are scores and therefore must never be negative
+ * (brief 7.1: "no negative or NaN scores"). Matched case-insensitively as a
+ * substring so `score`, `scores`, `rawScore`, `chips`, `stack`, `pots`,
+ * `points` and `roundGain` are all covered.
+ */
+const SCORE_KEY = /(score|raw|chips|stack|pots|points|gain)/i;
+
 function badNumbers(value: unknown, path = "$", out: string[] = []): string[] {
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) out.push(`${path} = ${String(value)}`);
+    if (!Number.isFinite(value)) out.push(`${path} = ${String(value)} (non-finite)`);
     return out;
   }
   if (Array.isArray(value)) {
@@ -67,7 +75,13 @@ function badNumbers(value: unknown, path = "$", out: string[] = []): string[] {
   }
   if (value && typeof value === "object") {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      badNumbers(v, `${path}.${k}`, out);
+      const childPath = `${path}.${k}`;
+      // Only score-like numeric keys are range-checked; other numbers (times,
+      // counts, coordinates, angles) may legitimately be negative.
+      if (typeof v === "number" && Number.isFinite(v) && v < 0 && SCORE_KEY.test(k)) {
+        out.push(`${childPath} = ${v} (negative score)`);
+      }
+      badNumbers(v, childPath, out);
     }
   }
   return out;
@@ -317,7 +331,7 @@ for (const gameId of gameIds) {
       try {
         const screen = plugin.screenState(inst);
         checkWire(`screen`, screen, issues);
-        for (const bad of badNumbers(screen)) issues.push(`screen non-finite ${bad}`);
+        for (const bad of badNumbers(screen)) issues.push(`screen bad number ${bad}`);
       } catch (e) {
         issues.push(`screenState threw: ${(e as Error).message}`);
       }
@@ -326,7 +340,7 @@ for (const gameId of gameIds) {
         try {
           const cs = plugin.controllerState(inst, p.id);
           checkWire(`controller(${p.id})`, cs, issues);
-          for (const bad of badNumbers(cs)) issues.push(`controller(${p.id}) non-finite ${bad}`);
+          for (const bad of badNumbers(cs)) issues.push(`controller(${p.id}) bad number ${bad}`);
         } catch (e) {
           issues.push(`controllerState threw for ${p.id}: ${(e as Error).message}`);
         }
