@@ -382,13 +382,18 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "party",
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 3, rumble: 2 },
     dropoutPolicy: "continue",
     contentPacks: ["categories"],
-    scale: fixedScale(6, { collect: 20, reveal: 8 }),
+    // Standalone keeps six rounds at 2-4 and runs five from five players up;
+    // the Rumble runs four. Timers are unchanged at every count.
+    scale: (playerCount, mode) => ({
+      rounds: mode === "rumble" ? 4 : playerCount >= 5 ? 5 : 6,
+      timers: { collect: 20, reveal: 8 },
+    }),
   },
   percentile: {
     id: "percentile",

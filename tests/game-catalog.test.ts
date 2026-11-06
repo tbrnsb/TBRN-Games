@@ -304,6 +304,27 @@ describe("gameAvailability", () => {
     assert.strictEqual(fast.optionCaps?.options, 4);
   });
 
+  test("mindmeld moved from 2-4 to 2-8 with a rounds split", () => {
+    const mindmeld = GAME_CATALOG.mindmeld;
+    assert.strictEqual(gameAvailability(mindmeld, 1), "needs 2+");
+    assert.strictEqual(gameAvailability(mindmeld, 2), null);
+    assert.strictEqual(gameAvailability(mindmeld, 4), null);
+    assert.strictEqual(gameAvailability(mindmeld, 8), null);
+    assert.strictEqual(gameAvailability(mindmeld, 9), "max 8");
+    assert.strictEqual(mindmeld.idealMin, 4);
+    assert.strictEqual(mindmeld.idealMax, 8);
+
+    for (const count of [2, 3, 4]) {
+      assert.strictEqual(mindmeld.scale(count, "standalone").rounds, 6, `${count}: today's count`);
+    }
+    for (const count of [5, 6, 7, 8]) {
+      assert.strictEqual(mindmeld.scale(count, "standalone").rounds, 5, `${count}: shorter standalone`);
+    }
+    for (let count = 2; count <= 8; count++) {
+      assert.strictEqual(mindmeld.scale(count, "rumble").rounds, 4, `${count}: rumble`);
+    }
+  });
+
   test("survive moved from 3-4 to 3-6", () => {
     const survive = GAME_CATALOG.survive;
     assert.strictEqual(gameAvailability(survive, 2), "needs 3-6");
