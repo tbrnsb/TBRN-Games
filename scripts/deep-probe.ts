@@ -2,16 +2,24 @@
  * Deep invariant probe over every game plugin.
  * Finds: Map/Set/undefined/NaN on the wire, stuck games, hostile-input crashes,
  * unsafe post-finish calls, and player-index range errors.
+ *
+ * Runs every enabled game at every player count in its manifest range.
+ * Pass `--all` to include retired (disabled) games. Exits non-zero when any
+ * run reports an issue.
  */
 import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import assert from "node:assert";
+import { isGameEnabled } from "../shared/game-catalog.ts";
+
+const includeDisabled = process.argv.includes("--all");
 
 const gamesDir = join(process.cwd(), "games");
-const gameIds = readdirSync(gamesDir, { withFileTypes: true })
+const allGameIds = readdirSync(gamesDir, { withFileTypes: true })
   .filter((d) => d.isDirectory() && existsSync(join(gamesDir, d.name, "server.ts")))
   .map((d) => d.name)
   .sort();
+const gameIds = includeDisabled ? allGameIds : allGameIds.filter((id) => isGameEnabled(id));
 
 const mkPlayers = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -25,6 +33,28 @@ const mkRoom = (players: any[], gameId: string) => ({
   id: "r1", code: "ABCDE", hostPlayerId: players[0]?.id ?? null,
   players, gameId, gameState: null, createdAt: 0, status: "playing",
 });
+
+/** Every integer player count the manifest allows, deduped. */
+function playerCounts(manifest: { minPlayers: number; maxPlayers: number }): number[] {
+  const counts: number[] = [];
+  for (let n = manifest.minPlayers; n <= manifest.maxPlayers; n++) {
+    if (n >= manifest.minPlayers && n <= manifest.maxPlayers) counts.push(n);
+  }
+  return [...new Set(counts)];
+}
+
+function phaseOf(instance: unknown): string {
+  const state = (instance as { state?: Record<string, unknown> } | null)?.state;
+  if (!state) return "unknown";
+  if (state.phase !== undefined) return String(state.phase);
+  if (state.finished === true) return "finished";
+  return "unknown";
+}
+
+function isFinished(instance: unknown): boolean {
+  const state = (instance as { state?: Record<string, unknown> } | null)?.state;
+  return state?.phase === "finished" || state?.finished === true;
+}
 
 function badNumbers(value: unknown, path = "$", out: string[] = []): string[] {
   if (typeof value === "number") {
@@ -136,6 +166,21 @@ function driver(gameId: string, cs: any, playerId: string): unknown {
       const pool = guesses.length && Math.random() < 0.15 ? guesses : qs.length ? qs : opts;
       return { choice: pool[rnd(pool.length)].id };
     }
+    case "guessimposter": {
+      // Clue turns are either typed or a one-button spoken confirmation; the
+      // vote and final guess both use a plain option list.
+      if (cs.mode === "one-button") return { tap: true };
+      if (cs.mode === "text") {
+        if (cs.isYourTurn === false) return null;
+        return { text: `clue${rnd(999)}` };
+      }
+      if (cs.mode === "choice") {
+        const opts = (cs.options as Array<{ id: string }>) ?? [];
+        if (!opts.length) return null;
+        return { choice: opts[rnd(opts.length)].id };
+      }
+      return null;
+    }
     case "bluff":
     case "writevote": {
       if (cs.phase === "writing") return cs.hasSubmitted ? null : { text: `${gameId}-${playerId}-${rnd(999)}` };
@@ -169,6 +214,7 @@ function driver(gameId: string, cs: any, playerId: string): unknown {
     case "slideroulette":
     case "lastseat": {
       // These games switch controller UI per phase and report it as `mode`.
+      if (cs.mode === "one-button") return { tap: true };
       if (cs.mode === "slider") {
         return Math.random() < 0.5 ? { slider: { axis: "x", value: Math.random() } } : { action: "action" };
       }
@@ -226,20 +272,27 @@ const budgets: Record<string, number> = {
 };
 
 const report: string[] = [];
-let hardFailures = 0;
+const perCount = new Map<number, { runs: number; failing: number }>();
+let totalRuns = 0;
+let failingRuns = 0;
+let totalIssues = 0;
 
 for (const gameId of gameIds) {
   const plugin = (await import(join(gamesDir, gameId, "server.ts"))).default;
-  const counts = [plugin.manifest.minPlayers, 2, 3, 4].filter(
-    (n, i, a) => n >= plugin.manifest.minPlayers && n <= plugin.manifest.maxPlayers && a.indexOf(n) === i,
-  );
-  for (const n of counts) {
+  for (const n of playerCounts(plugin.manifest)) {
+    totalRuns++;
+    const countStats = perCount.get(n) ?? { runs: 0, failing: 0 };
+    countStats.runs++;
+
     const issues: string[] = [];
     const players = mkPlayers(n);
     const inst = plugin.onStart(mkRoom(players, gameId), players);
     const budget = budgets[gameId] ?? 5000;
     let tick = 0;
     let finished = false;
+    let lastPhase = phaseOf(inst);
+    let phaseChangedAt = 0;
+    const phaseSeq: string[] = [lastPhase];
 
     for (; tick < budget; tick++) {
       // Hostile inputs at fixed points, plus post-finish calls later.
@@ -305,16 +358,22 @@ for (const gameId of gameIds) {
         break;
       }
 
-      const s = inst.state as any;
-      if (s?.phase === "finished" || s?.finished === true) {
+      const phase = phaseOf(inst);
+      if (phase !== lastPhase) {
+        lastPhase = phase;
+        phaseChangedAt = tick;
+        phaseSeq.push(phase);
+        if (phaseSeq.length > 16) phaseSeq.shift();
+      }
+
+      if (isFinished(inst)) {
         finished = true;
         break;
       }
     }
 
     // Post-finish safety.
-    const s = inst.state as any;
-    if (finished || s?.phase === "finished" || s?.finished === true) {
+    if (finished || isFinished(inst)) {
       for (const p of players) {
         try {
           plugin.onInput(inst, p.id, { tap: true });
@@ -326,19 +385,40 @@ for (const gameId of gameIds) {
         }
       }
     } else {
-      issues.push(`did not finish within ${budget} ticks (phase=${s?.phase ?? s?.finished})`);
+      const heldFor = budget - phaseChangedAt;
+      issues.push(
+        `did not finish within ${budget} ticks (last phase "${lastPhase}" held ${heldFor} ticks; phases seen: ${phaseSeq.join(" -> ")})`,
+      );
     }
 
     const unique = [...new Set(issues)];
     if (unique.length) {
-      hardFailures += unique.length;
+      countStats.failing++;
+      failingRuns++;
+      totalIssues += unique.length;
       report.push(`\n### ${gameId} (${n} players) — ${unique.length} issue(s)`);
-      for (const u of unique.slice(0, 14)) report.push(`  - ${u}`);
+      for (const u of unique) report.push(`  - ${u}`);
     } else {
       report.push(`${gameId} (${n}p): clean`);
     }
+    perCount.set(n, countStats);
   }
 }
 
 console.log(report.join("\n"));
-console.log(`\nTOTAL ISSUES: ${hardFailures}`);
+
+const countBreakdown = [...perCount.entries()]
+  .sort(([a], [b]) => a - b)
+  .map(([n, stats]) => `${n}p=${stats.runs}${stats.failing ? ` (${stats.failing} failing)` : ""}`)
+  .join(", ");
+
+console.log("");
+console.log("PROBE SUMMARY");
+console.log(`  mode: ${includeDisabled ? "all games (--all)" : "enabled games only (--all includes retired)"}`);
+console.log(`  games probed: ${gameIds.length}`);
+console.log(`  total runs: ${totalRuns}`);
+console.log(`  player counts: ${countBreakdown || "none"}`);
+console.log(`  clean runs: ${totalRuns - failingRuns}, failing runs: ${failingRuns}`);
+console.log(`TOTAL ISSUES: ${totalIssues}`);
+
+process.exitCode = totalIssues > 0 ? 1 : 0;
