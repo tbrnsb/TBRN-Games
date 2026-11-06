@@ -12,11 +12,12 @@ lobby and everyone can play again.
 
 ## Precision & aim
 
-### Archery — 1-4 players
+### Archery — 1-8 players
 Hold the button to draw the bow: power builds while you hold. Release to fire. The arrow
 flies with gravity toward a target that slides left and right. Score is how close to the
 target's centre you land, up to 100 per arrow. Five rounds; highest total wins. Release too
-early and the shot is cancelled rather than wasted.
+early and the shot is cancelled rather than wasted. Players fire in seat order; at eight the
+TV shows every seat's lane and colours each arrow with the owner's seat colour and glyph.
 
 ### Darts — 1-4 players
 A horizontal slider aims left/right, a vertical slider aims up/down, THROW fires at that

@@ -17,6 +17,8 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp,
 } from "../../client/screen/kit/index.ts";
+import { seatForIndex } from "../../shared/seat-identity.ts";
+import type { SeatIdentity } from "../../shared/seat-identity.ts";
 
 interface ArcheryShot {
   playerIndex: number;
@@ -24,6 +26,9 @@ interface ArcheryShot {
   y: number;
   score: number;
   round: number;
+  /** Target centre when the arrow landed, so the marker stays on it as it slides. */
+  targetX?: number;
+  seat?: SeatIdentity;
 }
 
 interface ArcheryScreenState {
@@ -34,10 +39,15 @@ interface ArcheryScreenState {
   isDrawing: boolean;
   arrow: { x: number; y: number } | null;
   currentPlayer: number;
+  currentPlayerName?: string | null;
   round: number;
   maxRounds: number;
-  scores: Array<{ name: string; score: number }>;
+  scores: Array<{ name: string; score: number; seat?: SeatIdentity }>;
   shots: ArcheryShot[];
+  turnOrder?: Array<{ name: string; seat?: SeatIdentity; isCurrent?: boolean }>;
+  waitingOn?: string[];
+  caption?: string | null;
+  sound?: string | null;
   finished: boolean;
   winner: { name: string; score: number } | null;
 }
@@ -250,6 +260,9 @@ function drawRange(
     { fill: "rgba(18,13,46,0.97)", stroke: colors.border },
   );
 
+  // One lane per seat, in turn order, above the target rail.
+  drawTurnLanes(ctx, range, state, scale);
+
   // Ground.
   ctx.strokeStyle = "rgba(255,46,151,0.45)";
   ctx.lineWidth = Math.max(1, scaledSize(2, scale));
@@ -274,8 +287,9 @@ function drawRange(
   const targetR = Math.max(scaledSize(30, scale), (state.targetWidth / (WORLD_MAX - WORLD_MIN)) * range.width);
   drawTarget(ctx, targetX, range.targetY, targetR, scale);
 
-  // Arrows already in the target would drift as the target slides, so the
-  // result is shown by the +score popup instead of stale markers.
+  // Every arrow stays on the shared target, coloured by its owner's seat, so
+  // eight lanes read as one round rather than eight separate boards.
+  drawShotMarkers(ctx, range, state, scale);
 
   // Archer at the left edge.
   const archerX = range.x + scaledSize(54, scale);
@@ -328,6 +342,146 @@ function drawRange(
     );
     ctx.restore();
   }
+}
+
+/** One chip per seat: the full turn order, with the active archer lit. */
+function drawTurnLanes(
+  ctx: CanvasRenderingContext2D,
+  range: ReturnType<typeof rangeRect>,
+  state: ArcheryScreenState,
+  scale: number,
+): void {
+  const entries = state.turnOrder && state.turnOrder.length > 0
+    ? state.turnOrder
+    : state.scores.map((score, index) => ({
+        name: score.name,
+        seat: score.seat ?? seatForIndex(index),
+        isCurrent: index === state.currentPlayer && !state.finished,
+      }));
+  if (entries.length === 0) return;
+
+  const pad = scaledSize(12, scale);
+  const gap = scaledSize(5, scale);
+  const chipH = scaledSize(24, scale);
+  const y = range.y + pad;
+
+  ctx.save();
+  ctx.font = `700 ${scaledSize(10, scale)}px ${fonts.title.family}`;
+  const roundLabel = `ROUND ${state.round}/${state.maxRounds}`;
+  const roundW = ctx.measureText(roundLabel).width;
+  const usable = range.width - pad * 2 - roundW - gap * 2;
+  const chipW = Math.max(scaledSize(28, scale), (usable - gap * (entries.length - 1)) / entries.length);
+  const active = state.phase !== "finished" ? state.currentPlayer : -1;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const seat = entry.seat ?? seatForIndex(i);
+    const isCurrent = entry.isCurrent ?? (i === active && !state.finished);
+    const x = range.x + pad + i * (chipW + gap);
+
+    drawRoundRect(
+      ctx,
+      x,
+      y,
+      chipW,
+      chipH,
+      chipH / 2,
+      isCurrent ? `${seat.color}33` : "rgba(255,255,255,0.05)",
+      isCurrent ? seat.color : "rgba(255,255,255,0.12)",
+      1,
+    );
+
+    ctx.fillStyle = seat.color;
+    ctx.beginPath();
+    ctx.arc(x + chipH * 0.45, y + chipH / 2, scaledSize(4.4, scale), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = colors.bg0;
+    ctx.font = `700 ${scaledSize(8, scale)}px ${fonts.title.family}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(seat.emoji, x + chipH * 0.45, y + chipH / 2 + 0.5);
+
+    ctx.font = `600 ${scaledSize(11, scale)}px ${fonts.body.family}`;
+    ctx.fillStyle = isCurrent ? colors.text : colors.textMuted;
+    ctx.textAlign = "left";
+    const nameX = x + chipH * 0.9;
+    const nameMax = x + chipW - scaledSize(6, scale) - nameX;
+    ctx.fillText(truncateToWidth(ctx, entry.name, nameMax), nameX, y + chipH / 2);
+  }
+
+  ctx.font = `700 ${scaledSize(10, scale)}px ${fonts.title.family}`;
+  ctx.fillStyle = colors.textMuted;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(roundLabel, range.x + range.width - pad, y + chipH / 2);
+  ctx.restore();
+}
+
+/** Shrink a label with an ellipsis until it fits the chip. */
+function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return "";
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let out = text;
+  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return `${out}…`;
+}
+
+/** Every arrow in the game, pinned to the shared target by seat colour/glyph. */
+function drawShotMarkers(
+  ctx: CanvasRenderingContext2D,
+  range: ReturnType<typeof rangeRect>,
+  state: ArcheryScreenState,
+  scale: number,
+): void {
+  const currentRound = state.round - 1;
+  for (const shot of state.shots) {
+    const seat = shot.seat ?? seatForIndex(shot.playerIndex);
+    const age = currentRound - shot.round;
+    const alpha = age <= 0 ? 1 : Math.max(0.25, 1 - age * 0.3);
+
+    if (shot.score > 0) {
+      const anchor = shot.targetX ?? state.targetX;
+      const markerX = worldToX(state.targetX + (shot.x - anchor), range, scale);
+      drawShotMarker(ctx, markerX, range.targetY, seat, shot.playerIndex, alpha, scale);
+    } else {
+      const markerX = worldToX(shot.x, range, scale);
+      drawShotMarker(ctx, markerX, range.groundY - scaledSize(4, scale), seat, shot.playerIndex, alpha * 0.5, scale);
+    }
+  }
+}
+
+function drawShotMarker(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  seat: SeatIdentity,
+  playerIndex: number,
+  alpha: number,
+  scale: number,
+): void {
+  // Fan overlapping arrows around a tiny ring so eight bullseyes stay visible.
+  const ring = scaledSize(2.6, scale);
+  const angle = (playerIndex / 8) * Math.PI * 2;
+  const mx = x + Math.cos(angle) * ring;
+  const my = y + Math.sin(angle) * ring;
+
+  ctx.save();
+  ctx.globalAlpha = clamp(alpha, 0, 1);
+  ctx.fillStyle = seat.color;
+  ctx.beginPath();
+  ctx.arc(mx, my, scaledSize(5.4, scale), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(11,8,32,0.78)";
+  ctx.lineWidth = Math.max(1, scaledSize(1, scale));
+  ctx.stroke();
+  ctx.fillStyle = colors.bg0;
+  ctx.font = `700 ${scaledSize(7, scale)}px ${fonts.title.family}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(seat.emoji, mx, my + 0.5);
+  ctx.restore();
 }
 
 function drawTarget(
