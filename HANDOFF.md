@@ -5,7 +5,7 @@ Platform expansion phases 2-6, branch `Games-expansion`. Phase 1 audit is
 committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree, 22 enabled,
 15 retired but kept (two overlap in the counts via catalog aliases).
 
-Last gate: `npm test` 890/890 · typecheck clean · lint 0 errors (982 warnings)
+Last gate: `npm test` 902/902 · typecheck clean · lint 0 errors (1020 warnings)
 · `npm run probe` 130 runs, 0 issues.
 
 ## Done
@@ -51,14 +51,21 @@ Last gate: `npm test` 890/890 · typecheck clean · lint 0 errors (982 warnings)
   that still asserts baseline round counts, cap ceilings with 5-player cap
   probes, and exact payout-formula probes; `guessimposter` is skipped as
   baseline-absent. A newly enabled game fails the suite until classified.
+- Phase 6 disconnects: `tests/disconnect-matrix.test.ts` drops and rejoins a
+  phone in every non-terminal phase of poker (6), drawful (4), bluff (3) and
+  guessimposter (8), asserting seat/private-state/input survival and a
+  below-minimum pause per game. Phase coverage is fail-closed in both
+  directions. Observed design: an away clue-holder in Guess the Imposter
+  forfeits the turn to the next seat on the next tick (the rejoined phone
+  acts when its turn returns).
 
 ## In progress
 Phase 6 verification.
 
 ## Next three actions
-1. Disconnect/rejoin matrix: poker, drawful, bluff, guessimposter — drop and
-   rejoin in every phase, plus a below-minimum drop (brief 7.5).
-2. Scaling bound suite (brief 7.3) and layout checks 1080p/720p/360dp (7.8).
+1. Scaling bound suite (brief 7.3): per-game per-N ceilings, written
+   exceptions for parity-protected 3-4 stacking and poker pots.
+2. Layout checks 1080p/720p/360dp (brief 7.8); add `npm run probe` to CI.
 3. Final critic (family differs from authors), then final report.
 
 ## Known issues
