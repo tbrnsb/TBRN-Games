@@ -40,6 +40,7 @@ const ENABLED = [
   "mostlikely",
   "stowaway",
   "fakin",
+  "guessimposter",
   "blather",
   "slideroulette",
   "drawful",
@@ -82,7 +83,7 @@ describe("game catalog", () => {
     assert.deepStrictEqual(Object.keys(GAME_CATALOG).sort(), gameDirs);
   });
 
-  test("enabled roster is exactly the 21 existing games", () => {
+  test("enabled roster is exactly the 22 existing games", () => {
     const enabled = Object.keys(GAME_CATALOG).filter((id) => GAME_CATALOG[id].enabled).sort();
     assert.deepStrictEqual(enabled, ENABLED);
   });
@@ -151,6 +152,7 @@ describe("game catalog", () => {
       mostlikely: 8,
       stowaway: 3,
       fakin: 5,
+      guessimposter: 3,
       blather: 4,
       slideroulette: 4,
       drawful: 3,

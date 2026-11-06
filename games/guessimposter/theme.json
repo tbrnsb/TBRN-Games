@@ -1,0 +1,16 @@
+{
+  "gameId": "guessimposter",
+  "displayName": "Guess the Imposter",
+  "artStyle": "noir",
+  "palette": {
+    "background": "#14161A",
+    "primary": "#E8E6E1",
+    "accent": "#E05252",
+    "surface": "#1F2329",
+    "text": "#F3F1EC"
+  },
+  "animationProfile": {
+    "style": "suspense_pulse",
+    "easings": "cubic-bezier(0.4,0,0.2,1)"
+  }
+}

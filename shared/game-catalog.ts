@@ -270,6 +270,36 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
       optionCaps: { options: Math.max(1, playerCount - 1) },
     }),
   },
+  guessimposter: {
+    id: "guessimposter",
+    displayName: "Guess the Imposter",
+    enabled: true,
+    kind: "deduction",
+    minPlayers: 3,
+    maxPlayers: 8,
+    idealMin: 5,
+    idealMax: 8,
+    minutes: { standalone: 12, rumble: 7 },
+    dropoutPolicy: "pause",
+    contentPacks: ["words"],
+    // Three words standalone; the Rumble runs two. The default timers are the
+    // brief's: 3 s countdown, 5 s hold-to-peek, 20 s per clue turn, 90 s
+    // discussion, 20 s vote/revote, 15 s final guess and 8 s reveal.
+    scale: (playerCount, mode) => ({
+      rounds: mode === "rumble" ? 2 : 3,
+      timers: {
+        countdown: 3,
+        peek: 5,
+        turn: 20,
+        discuss: 90,
+        vote: 20,
+        revote: 20,
+        finalGuess: 15,
+        reveal: 8,
+      },
+      optionCaps: { options: Math.max(1, playerCount - 1), finalGuess: 6 },
+    }),
+  },
   blather: {
     id: "blather",
     displayName: "Blather Round",

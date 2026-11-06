@@ -82,6 +82,8 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   hang fixed.
 - Phase 4 content: 168 Imposter entries across 14 categories with five
   same-category decoys each, plus the game manifest skeleton.
+- Phase 4 engine: full Imposter role/round state machine, 13 settings,
+  scoring, disconnects, secrecy, 39 tests, catalog + theme.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,

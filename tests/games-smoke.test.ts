@@ -122,6 +122,17 @@ function chooseInput(gameId: string, cs: Record<string, unknown>, playerId: stri
       }
       return null;
     }
+    case "guessimposter": {
+      if (cs.mode === "one-button" && cs.isYourTurn === true) return { action: "done" };
+      if (cs.mode === "text" && cs.isYourTurn === true) return { text: "clue" };
+      if (cs.mode === "choice") {
+        if (cs.hasVoted === true) return null;
+        const opts = (cs.options as Array<{ id: string }>) ?? [];
+        if (!opts.length) return null;
+        return { choice: opts[rand(opts.length)].id };
+      }
+      return null;
+    }
     case "percentile":
     case "splitroom":
     case "dictionarium":
