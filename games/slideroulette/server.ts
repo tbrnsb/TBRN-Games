@@ -1,6 +1,20 @@
 /**
- * Slogan Shirts - server logic.
- * Draw a design, write a slogan, then everyone gets someone else's slogan on their shirt and you vote for the best.
+ * Slide Roulette - server logic.
+ *
+ * Player range is 3-8. The presenter seat rotates `round % N`, so a standalone
+ * game runs one round per player (up to eight) and every player presents
+ * exactly once; the Rumble runs three rounds.
+ *
+ * Each non-presenter writes one caption. The captions are shuffled with a
+ * secure shuffle before they reach the presenter, so the order on the TV cannot
+ * be mapped back to the author. Authors are published only in the reveal
+ * payload. The TV gets the current caption, the presenter's name and a
+ * "slides left" counter.
+ *
+ * Scoring is unchanged from the original game: the presenter earns
+ * `round(200 * average stars)` (max 1000) and every caption author earns a flat
+ * 100 when the average is 4 or more. The average is already a per-vote measure,
+ * so no `f(N)` is applied and 3-4 player totals stay identical.
  */
 
 interface GameManifest {
@@ -60,11 +74,12 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
 
 
@@ -77,12 +92,18 @@ interface GamePlugin {
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import { standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TOPICS: Array<{ text: string }> = JSON.parse(readFileSync(join(HERE, "content", "topics.json"), "utf8")) as Array<{ text: string }>;
 
+type SlideMode = "standalone" | "rumble";
+
 interface SlideState {
+  mode: SlideMode;
   round: number;
   maxRounds: number;
   phase: "writing" | "presenting" | "rating" | "reveal" | "finished";
@@ -95,6 +116,12 @@ interface SlideState {
   scores: number[];
   timerMs: number;
   reveal: { average: number; presenterPoints: number } | null;
+  /** Rounds each seat has presented. Used for the `averageStars` stat. */
+  presented: number[];
+  /** Sum of the star averages earned while presenting. */
+  starTotal: number[];
+  /** Rounds where this seat's caption earned the 4-star author bonus. */
+  captionsRated4: number[];
 }
 
 interface SlideInstance extends GameInstance { state: SlideState }
@@ -104,15 +131,31 @@ const SLIDE_MS = 15000;
 const RATE_MS = 20000;
 const REVEAL_MS = 8000;
 const MAX_CAPTION = 40;
+const MIN_PLAYERS = 3;
+const MAX_PLAYERS = 8;
+/** Brief 4: a Rumble runs three presenters. */
+const RUMBLE_ROUNDS = 3;
 
 const manifest: GameManifest = {
   id: "slideroulette",
   name: "Slide Roulette",
-  minPlayers: 3,
-  maxPlayers: 4,
+  minPlayers: MIN_PLAYERS,
+  maxPlayers: MAX_PLAYERS,
   controllerType: "text",
   description: "Write one slide caption for a topic you did not choose. The presenter has to improvise around it.",
 };
+
+/**
+ * Round count for a table of `playerCount`.
+ *
+ * Standalone is one presenter per player (up to the eight-seat ceiling), which
+ * keeps the original game at 3-4 players. The Rumble runs three presenters.
+ */
+export function slideRounds(playerCount: number, mode: SlideMode = "standalone"): number {
+  const count = Number.isFinite(playerCount) ? Math.max(0, Math.floor(playerCount)) : 0;
+  if (mode === "rumble") return Math.min(RUMBLE_ROUNDS, Math.max(1, count));
+  return Math.max(1, Math.min(count || 1, MAX_PLAYERS));
+}
 
 export function averageRating(ratings: Array<number | null>): number {
   const valid = ratings.filter((r): r is number => typeof r === "number" && Number.isFinite(r) && r >= 1 && r <= 5);
@@ -122,6 +165,25 @@ export function averageRating(ratings: Array<number | null>): number {
 
 export function presenterPoints(average: number): number {
   return Math.round(200 * Math.max(0, Math.min(5, average)));
+}
+
+/**
+ * Build the presenter's deck from the submitted captions.
+ *
+ * One caption per non-presenter, with the author only kept for scoring. The
+ * order is shuffled (secure random) so a presenter cannot map a slide position
+ * to a seat. The shuffle is injectable so tests can pin the order.
+ */
+export function deckFor(
+  submissions: ReadonlyArray<string | null>,
+  presenter: number,
+  shuffle: <T>(items: T[]) => T[] = secureShuffle,
+): Array<{ author: number; text: string }> {
+  const slides = submissions
+    .map((text, author) => ({ author, text: text ?? "" }))
+    .filter((slide) => slide.author !== presenter && slide.text.length > 0);
+  if (slides.length === 0) return [{ author: presenter, text: "no slide was written" }];
+  return shuffle(slides);
 }
 
 function slideLeader(instance: SlideInstance): string | null {
@@ -148,10 +210,7 @@ function slideBegin(instance: SlideInstance, round: number, topics: string[]): v
 
 function buildDeck(instance: SlideInstance): void {
   const s = instance.state;
-  s.deck = instance.players
-    .map((_, i) => ({ author: i, text: s.submissions[i] ?? "" }))
-    .filter((slide, i) => i !== s.presenter && slide.text.length > 0);
-  if (s.deck.length === 0) s.deck = [{ author: s.presenter, text: "no slide was written" }];
+  s.deck = deckFor(s.submissions, s.presenter);
   s.slideIndex = 0;
   s.phase = "presenting";
   s.timerMs = SLIDE_MS;
@@ -160,26 +219,67 @@ function buildDeck(instance: SlideInstance): void {
 function slideSettle(instance: SlideInstance): void {
   const s = instance.state;
   const average = averageRating(s.ratings);
-  s.scores[s.presenter] += presenterPoints(average);
+  const points = presenterPoints(average);
+  s.scores[s.presenter] += points;
+  s.presented[s.presenter] += 1;
+  s.starTotal[s.presenter] += average;
   if (average >= 4) {
-    for (const slide of s.deck) s.scores[slide.author] += 100;
+    for (const slide of s.deck) {
+      s.scores[slide.author] += 100;
+      // The fallback deck is credited to the presenter; it is not a real
+      // caption and must not inflate the player's author stats.
+      if (slide.author !== s.presenter) s.captionsRated4[slide.author] += 1;
+    }
   }
-  s.reveal = { average, presenterPoints: presenterPoints(average) };
+  s.reveal = { average, presenterPoints: points };
   s.phase = "reveal";
   s.timerMs = REVEAL_MS;
+}
+
+/** Who the TV is waiting on in the current phase. */
+function waitingNames(instance: SlideInstance): string[] {
+  const s = instance.state;
+  if (s.phase === "writing") {
+    return instance.players
+      .filter((_, index) => index !== s.presenter && s.submissions[index] === null)
+      .map((player) => player.name);
+  }
+  if (s.phase === "presenting") {
+    const name = instance.players[s.presenter]?.name;
+    return name ? [name] : [];
+  }
+  if (s.phase === "rating") {
+    return instance.players
+      .filter((_, index) => index !== s.presenter && s.ratings[index] === null)
+      .map((player) => player.name);
+  }
+  return [];
+}
+
+/** Public reveal line: the presenter and their star average, never an author. */
+function revealCaption(instance: SlideInstance): string | null {
+  const s = instance.state;
+  if (s.phase !== "reveal" || !s.reveal) return null;
+  const name = instance.players[s.presenter]?.name;
+  if (name && s.reveal.average >= 5) {
+    return captionFor({ kind: "perfect", name, seed: s.round });
+  }
+  return captionFor({ kind: "reveal", seed: s.round });
 }
 
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): GameInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
+    const mode: SlideMode = options?.mode === "rumble" ? "rumble" : "standalone";
     const topics = secureShuffle(TOPICS).map((t) => t.text);
     const inst: SlideInstance = {
       roomId: room.id,
       players,
       state: {
+        mode,
         round: 0,
-        maxRounds: players.length,
+        maxRounds: slideRounds(players.length, mode),
         phase: "writing",
         presenter: 0,
         topic: topics[0],
@@ -190,6 +290,9 @@ const plugin: GamePlugin = {
         scores: players.map(() => 0),
         timerMs: WRITE_MS,
         reveal: null,
+        presented: players.map(() => 0),
+        starTotal: players.map(() => 0),
+        captionsRated4: players.map(() => 0),
       } satisfies SlideState,
     };
     slideBegin(inst, 0, topics);
@@ -262,16 +365,31 @@ const plugin: GamePlugin = {
     const inst = instance as SlideInstance;
     const s = inst.state;
     const slide = s.deck[s.slideIndex];
+    const shown = s.phase === "presenting" || s.phase === "rating" || s.phase === "reveal";
+    const revealed = s.phase === "reveal" || s.phase === "finished";
+    const slideNumber = s.deck.length ? Math.min(s.slideIndex + 1, s.deck.length) : 0;
     return {
       phase: s.phase,
       round: s.round + 1,
       maxRounds: s.maxRounds,
       topic: s.topic,
       presenterName: inst.players[s.presenter]?.name ?? "",
-      slide: s.phase === "presenting" || s.phase === "rating" || s.phase === "reveal" ? (slide?.text ?? "") : null,
-      slideNumber: s.deck.length ? s.slideIndex + 1 : 0,
+      slide: shown ? (slide?.text ?? "") : null,
+      slideNumber,
       slideCount: s.deck.length,
+      // "Slides left" including the one on screen now, for the TV counter.
+      slidesLeft: s.deck.length ? Math.max(0, s.deck.length - s.slideIndex) : 0,
+      // Authorship is a reveal only: never send a caption-to-seat mapping early.
+      captions: revealed
+        ? s.deck.map((entry) => ({
+          text: entry.text,
+          author: inst.players[entry.author]?.name ?? "",
+        }))
+        : null,
       reveal: s.reveal,
+      waitingOn: waitingNames(inst),
+      caption: revealCaption(inst),
+      sound: s.phase === "reveal" ? "reveal" : null,
       timerMs: Math.max(0, s.timerMs),
       scores: inst.players.map((p, i) => ({ name: p.name, score: s.scores[i] })),
       finished: s.phase === "finished",
@@ -323,6 +441,23 @@ const plugin: GamePlugin = {
       };
     }
     return { ...base, mode: "wait", controllerType: "choice", options: [], info: s.reveal ? `Average ${s.reveal.average.toFixed(1)} stars` : "" };
+  },
+
+  results(instance: GameInstance): GameResult {
+    const inst = instance as SlideInstance;
+    const s = inst.state;
+    const stats: Record<string, number> = {};
+    inst.players.forEach((player, index) => {
+      const presented = s.presented[index] ?? 0;
+      stats[playerStatKey(player.id, "averageStars")] = presented > 0 ? s.starTotal[index] / presented : 0;
+      stats[playerStatKey(player.id, "captionsRated4")] = s.captionsRated4[index] ?? 0;
+    });
+    return {
+      standings: standingsFromScores(
+        inst.players.map((player, index) => ({ id: player.id, raw: s.scores[index] })),
+      ),
+      stats,
+    };
   },
 };
 

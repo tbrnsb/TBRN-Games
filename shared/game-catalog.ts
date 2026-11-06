@@ -294,14 +294,16 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "party",
     minPlayers: 3,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 4,
     idealMax: 8,
     minutes: { standalone: 7, rumble: 4 },
     dropoutPolicy: "void-round",
     contentPacks: ["topics"],
-    scale: (playerCount) => ({
-      rounds: playerCount,
+    scale: (playerCount, mode) => ({
+      // Standalone gives every player one presenter turn (up to eight); the
+      // Rumble runs three presenters. Timers are unchanged at every count.
+      rounds: mode === "rumble" ? 3 : Math.max(1, Math.min(playerCount, 8)),
       timers: { write: 30, slide: 15, rate: 20, reveal: 8 },
     }),
   },

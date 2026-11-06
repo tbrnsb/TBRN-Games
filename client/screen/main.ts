@@ -14,6 +14,13 @@ import { GAME_CATALOG, gameAvailability } from "../../shared/game-catalog.ts";
 import { SEATS, seatForIndex, type SeatIdentity } from "../../shared/seat-identity.ts";
 import { interludeCard, standingsMovement, type MovementDirection } from "../../shared/interlude.ts";
 import { stageScale } from "./layout.ts";
+import {
+  drawGenericSlide,
+  drawGenericStrokes,
+  genericSlideLayout,
+  genericStrokeLayout,
+  normaliseStrokes,
+} from "./kit/generic.ts";
 import { drawVoteOptions, type VoteOption } from "./kit/vote.ts";
 import { scaleForViewport } from "./kit/theme.ts";
 import {
@@ -1409,14 +1416,30 @@ function renderGeneric(width: number, height: number): void {
     y += 32;
   }
 
-  // Big text: prompt, info or last event.
-  const bigText = [state.prompt, state.info, state.lastEvent].find(
-    (t) => typeof t === "string" && t.length > 0,
-  ) as string | undefined;
-  if (bigText) {
-    ctx.fillStyle = "#F8FAFC";
-    ctx.font = "600 26px Inter, sans-serif";
-    y = drawWrapped(ctx, bigText, 32, y, width - 64, 32) + 16;
+  // Big text: a `slide` caption takes the slot when present; otherwise the
+  // existing prompt / info / last-event path is untouched.
+  const slideLayout = genericSlideLayout(width, height, y, state);
+  if (slideLayout) {
+    drawGenericSlide(ctx, slideLayout, String(state.slide));
+    y = slideLayout.nextY;
+  } else {
+    const bigText = [state.prompt, state.info, state.lastEvent].find(
+      (t) => typeof t === "string" && t.length > 0,
+    ) as string | undefined;
+    if (bigText) {
+      ctx.fillStyle = "#F8FAFC";
+      ctx.font = "600 26px Inter, sans-serif";
+      y = drawWrapped(ctx, bigText, 32, y, width - 64, 32) + 16;
+    }
+  }
+
+  // Stroke canvas: games that publish `strokes` get a scaled fallback drawing
+  // when they have no custom renderer (Drawful).
+  const strokes = normaliseStrokes(state.strokes);
+  if (strokes.length > 0) {
+    const strokeRect = genericStrokeLayout(width, height, y);
+    drawGenericStrokes(ctx, strokeRect, strokes);
+    y = strokeRect.y + strokeRect.height + 16;
   }
 
   // Vote options: use the shared layout whenever a game exposes one, even if
