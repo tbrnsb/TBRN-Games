@@ -75,6 +75,8 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   Trivia's questions), answer distribution at reveal, host Fast toggle.
 - Phase 3 (f) Mind Meld: 2-8, scaled match payouts, N-1 early end above
   four, new eight-seat reveal renderer.
+- Phase 3 (f) Percentile: 2-8, everyone-guesses-once option, content pack
+  with value/unit/source/year, blind bets, new TV renderer.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,

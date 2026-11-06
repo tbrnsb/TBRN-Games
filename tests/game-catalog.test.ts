@@ -325,6 +325,23 @@ describe("gameAvailability", () => {
     }
   });
 
+  test("percentile moved from 2-4 to 2-8 with five / four rounds", () => {
+    const percentile = GAME_CATALOG.percentile;
+    assert.strictEqual(gameAvailability(percentile, 1), "needs 2+");
+    assert.strictEqual(gameAvailability(percentile, 2), null);
+    assert.strictEqual(gameAvailability(percentile, 4), null);
+    assert.strictEqual(gameAvailability(percentile, 8), null);
+    assert.strictEqual(gameAvailability(percentile, 9), "max 8");
+    assert.strictEqual(percentile.idealMin, 3);
+    assert.strictEqual(percentile.idealMax, 8);
+    assert.deepStrictEqual(percentile.contentPacks, ["percentile-stats"]);
+
+    for (let count = 2; count <= 8; count++) {
+      assert.strictEqual(percentile.scale(count, "standalone").rounds, 5, `${count}: standalone`);
+      assert.strictEqual(percentile.scale(count, "rumble").rounds, 4, `${count}: rumble`);
+    }
+  });
+
   test("survive moved from 3-4 to 3-6", () => {
     const survive = GAME_CATALOG.survive;
     assert.strictEqual(gameAvailability(survive, 2), "needs 3-6");

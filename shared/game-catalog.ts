@@ -401,13 +401,18 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "trivia",
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 3,
     idealMax: 8,
     minutes: { standalone: 4, rumble: 4 },
     dropoutPolicy: "void-round",
-    contentPacks: [],
-    scale: fixedScale(5, { guess: 30, bet: 15, reveal: 7 }),
+    contentPacks: ["percentile-stats"],
+    scale: (_playerCount, mode) => ({
+      // Five standalone rounds (today's count); the "Everyone guesses once"
+      // host setting lets `onStart` run N rounds, which `scale()` cannot see.
+      rounds: mode === "rumble" ? 4 : 5,
+      timers: { guess: 30, bet: 15, reveal: 7 },
+    }),
   },
   archery: {
     id: "archery",
