@@ -2,7 +2,7 @@
   "id": "poker",
   "name": "Texas Hold'em",
   "minPlayers": 2,
-  "maxPlayers": 4,
+  "maxPlayers": 8,
   "controllerType": "card-hand",
   "description": "Texas Hold'em poker with play chips. Laptop shows community cards, phones show hole cards and bet buttons.",
   "howTo": "Play Texas Hold'em. The host sets the stack, you size your bets on the numpad."

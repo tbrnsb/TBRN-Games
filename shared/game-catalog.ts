@@ -453,13 +453,18 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "cards",
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 3,
     idealMax: 8,
     minutes: { standalone: 5, rumble: 4 },
     dropoutPolicy: "continue",
     contentPacks: [],
-    scale: fixedScale(12, { action: 25 }),
+    // Standalone keeps the twelve-hand default; a Rumble runs eight hands and
+    // doubles the blinds at hand five (`onStart` reads `options.mode`).
+    scale: (_playerCount, mode) => ({
+      rounds: mode === "rumble" ? 8 : 12,
+      timers: { action: 25 },
+    }),
   },
   racing: {
     id: "racing",

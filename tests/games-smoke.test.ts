@@ -298,16 +298,16 @@ describe("game plugins: privacy", () => {
       const screen = plugin.screenState(instance) as Record<string, unknown>;
       const phase = String(screen.phase ?? "");
       const screenJson = JSON.stringify(screen);
-      // Player rows on the screen must never carry cards; only the public
-      // showdown reveal may.
+      // Player rows on the screen must never carry cards; the showdown is a
+      // hand-name reveal only.
       assert.ok(!JSON.stringify(screen.players ?? []).includes('"cards"'), `poker: hole cards leaked to screen during ${phase}`);
-      if (phase !== "showdown" && phase !== "hand-end") {
-        assert.ok(!screenJson.includes("showdown\":["), `poker: showdown revealed outside showdown phase (${phase})`);
-      }
-      // Every player's controller gets their own cards.
+      assert.ok(!screenJson.includes('"cards"'), `poker: hole cards leaked to the TV during ${phase}`);
+      // Every player still in the game gets their own cards. A busted player
+      // is a spectator and receives the inert spectator payload instead.
       for (const p of players) {
-        const cs = JSON.stringify(plugin.controllerState(instance, p.id));
-        assert.ok(cs.includes("\"cards\""), "poker: controller must receive hole cards");
+        const payload = plugin.controllerState(instance, p.id) as Record<string, unknown>;
+        if (payload.spectator === true) continue;
+        assert.ok(JSON.stringify(payload).includes("\"cards\""), "poker: controller must receive hole cards");
       }
       const s = instance.state as Record<string, unknown>;
       const turnIndex = s.turnIndex as number;

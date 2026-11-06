@@ -77,14 +77,18 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   four, new eight-seat reveal renderer.
 - Phase 3 (f) Percentile: 2-8, everyone-guesses-once option, content pack
   with value/unit/source/year, blind bets, new TV renderer.
+- Phase 3 (g) Texas Hold'em: 2-8, Rumble 8 hands / blinds double at 5,
+  reverse-elimination ranking, live side pots, 8-seat TV, heads-up blind
+  hang fixed.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,
   pre-reveal secrecy, result stats.
 
+- Phase 4 (next): Guess the Imposter.
+
 ## In progress
-Phase 3: widen each existing game on its own task, in shared-system groups.
-Room cap is 8; a game stays at its old max until its own task.
+Phase 4: Guess the Imposter content pack, engine, screens.
 
 ## Next three actions
 1. Blather Round (3-8, speed-decayed guesses).

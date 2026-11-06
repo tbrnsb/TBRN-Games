@@ -220,6 +220,15 @@ function handleMessage(msg: ServerMessage) {
         coach.classList.remove("your-turn");
         sessionCard.classList.add("hidden");
         renderSeatState(true);
+        // A player eliminated inside the running game (poker) is a game-level
+        // spectator, not a room-level one: hide the stale controls and show
+        // the watch-and-react note. Their seat stays in the room so reactions
+        // keep working.
+        if (controller.spectator === true && !mySpectator) {
+          controllerContainer.classList.add("hidden");
+          controllerContainer.innerHTML = "";
+          showTableNote("You're out", "Watch the table and react below.");
+        }
         break;
       }
       hideTableNote();

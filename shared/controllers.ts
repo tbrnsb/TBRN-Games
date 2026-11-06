@@ -489,11 +489,13 @@ export function createCardHandLayout(): ControllerLayout {
         pokerActions(state);
       // Raise sizing lives on the phone: start at the minimum and step up.
       let raiseTo = minRaiseTo;
+      const chips = typeof s.chips === "number" ? s.chips : null;
       const pot = typeof s.pot === "number" ? s.pot : null;
       const bet = typeof s.bet === "number" ? s.bet : null;
       const timeLeft = typeof s.timeLeft === "number" ? Math.max(0, Math.ceil(s.timeLeft / 1000)) : null;
 
       const info: string[] = [];
+      if (chips !== null) info.push(`Stack ${chips}`);
       if (pot !== null) info.push(`Pot ${pot}`);
       if (bet !== null && bet > 0) info.push(`Your bet ${bet}`);
       if (timeLeft !== null && yourTurn) info.push(`${timeLeft}s`);
@@ -581,6 +583,8 @@ export function createCardHandLayout(): ControllerLayout {
         amount: s.minRaiseTo ?? null,
         maxRaiseTo: s.maxRaiseTo ?? null,
         callAmount: s.callAmount ?? null,
+        chips: s.chips ?? null,
+        pot: s.pot ?? null,
       });
     },
   };

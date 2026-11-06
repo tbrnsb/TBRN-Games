@@ -342,6 +342,23 @@ describe("gameAvailability", () => {
     }
   });
 
+  test("poker moved from 2-4 to 2-8 with eight rumble hands", () => {
+    const poker = GAME_CATALOG.poker;
+    assert.strictEqual(gameAvailability(poker, 1), "needs 2+");
+    assert.strictEqual(gameAvailability(poker, 2), null);
+    assert.strictEqual(gameAvailability(poker, 4), null);
+    assert.strictEqual(gameAvailability(poker, 8), null);
+    assert.strictEqual(gameAvailability(poker, 9), "max 8");
+    assert.strictEqual(poker.idealMin, 3);
+    assert.strictEqual(poker.idealMax, 8);
+
+    for (let count = 2; count <= 8; count++) {
+      assert.strictEqual(poker.scale(count, "standalone").rounds, 12, `${count}: standalone`);
+      assert.strictEqual(poker.scale(count, "rumble").rounds, 8, `${count}: rumble`);
+      assert.strictEqual(poker.scale(count, "rumble").timers?.action, 25, `${count}: action timer`);
+    }
+  });
+
   test("survive moved from 3-4 to 3-6", () => {
     const survive = GAME_CATALOG.survive;
     assert.strictEqual(gameAvailability(survive, 2), "needs 3-6");

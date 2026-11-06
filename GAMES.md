@@ -233,12 +233,14 @@ six wrong guesses end the round for everyone. Completing the word pays 50. Ten r
 
 ## Cards & board
 
-### Texas Hold'em — 2-4 players
+### Texas Hold'em — 2-8 players
 Full no-limit Texas Hold'em against the other phones. The host picks the starting stack
 (everyone equal) and the number of hands before the game starts. Betting uses a raise
 stepper between the minimum raise and your maximum, so you can size bets freely instead of
-fixed increments. Hole cards are private; only your own hand ever reaches your phone. After
-the agreed hand count, the biggest stack wins.
+fixed increments. Hole cards are private; only your own hand ever reaches your phone. All-ins
+are split into a main pot and side pots automatically. When you lose your last chip you become
+a spectator and finish in reverse elimination order. After the agreed hand count, the biggest
+stack wins.
 
 ### Guess Who — 2-4 players
 Everyone gets a secret character. You are matched with one fixed opponent for the whole

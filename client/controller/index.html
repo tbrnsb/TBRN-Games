@@ -807,6 +807,7 @@
     }
     .actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       width: 100%;
     }
@@ -1161,12 +1162,19 @@
     }
     .canvas-size span { display: block; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--text, #fff); }
     .canvas-size.active { outline: 2px solid var(--accent, #ffd166); outline-offset: 1px; }
-    .raise-row { display: flex; align-items: center; gap: 8px; }
+    .raise-row { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
     .raise-step {
-      width: 44px; height: 44px; border-radius: 12px; font-size: 20px; font-weight: 800;
+      width: 48px; height: 48px; flex: 0 0 48px; border-radius: 12px; font-size: 20px; font-weight: 800;
       border: 1px solid var(--border, rgba(255,255,255,.16)); background: var(--surface, rgba(255,255,255,.06)); color: inherit;
+      touch-action: manipulation;
     }
     .raise-amount { min-width: 64px; text-align: center; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    /* 360dp phones: the raise stepper takes its own full row so fold / check /
+       call stay at a 48dp tap target instead of shrinking. */
+    @media (max-width: 400px) {
+      .raise-row { flex: 1 1 100%; }
+      .raise-amount { flex: 1; }
+    }
   </style>
 </head>
 <body>
