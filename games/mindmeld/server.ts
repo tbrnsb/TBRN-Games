@@ -11,6 +11,7 @@
  */
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { scalePayout, standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
@@ -274,7 +275,8 @@ const plugin: GamePlugin = {
 
   onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     const mode: MindMeldMode = options?.mode === "rumble" ? "rumble" : "standalone";
-    const maxRounds = mindmeldRounds(players.length, mode);
+    // A preset Rumble passes four rounds; standalone keeps the table rule.
+    const maxRounds = roundsOption(options) ?? mindmeldRounds(players.length, mode);
     return {
       roomId: room.id,
       players,

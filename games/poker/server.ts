@@ -6,6 +6,7 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { captionFor } from "../../shared/interlude.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores, type GameResult } from "../../shared/scoring.ts";
@@ -751,18 +752,23 @@ const plugin: GamePlugin = {
 
   onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): PokerInstance {
     // The host picks the stack and the number of hands. Everyone starts equal.
-    // A Rumble slot gets eight hands unless the host overrides the count.
+    // Precedence: an explicit `options.maxHands` wins, then the Rumble/catalog
+    // `options.rounds`, then the mode default (eight in a Rumble, twelve
+    // standalone).
     const rumble = options?.mode === "rumble";
     const rawStack = Number(options?.startingStack);
     const startingStack = Number.isFinite(rawStack)
       ? Math.min(100000, Math.max(100, Math.round(rawStack)))
       : STARTING_CHIPS;
     const rawHands = Number(options?.maxHands);
+    const explicitRounds = roundsOption(options);
     const maxHands = Number.isFinite(rawHands)
       ? Math.min(50, Math.max(1, Math.round(rawHands)))
-      : rumble
-        ? RUMBLE_MAX_HANDS
-        : MAX_HANDS;
+      : explicitRounds !== undefined
+        ? Math.min(50, Math.max(1, explicitRounds))
+        : rumble
+          ? RUMBLE_MAX_HANDS
+          : MAX_HANDS;
 
     const seats: SeatState[] = players.map(() => ({
       chips: startingStack,

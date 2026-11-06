@@ -8,6 +8,7 @@
  */
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores } from "../../shared/scoring.ts";
 import type { GameResult } from "../../shared/scoring.ts";
@@ -290,7 +291,8 @@ const plugin: GamePlugin = {
       state: {
         mode,
         round: 0,
-        rounds: mode === "rumble" ? RUMBLE_ROUNDS : STANDALONE_ROUNDS,
+        // A Rumble passes one match; standalone keeps best of three.
+        rounds: roundsOption(options) ?? (mode === "rumble" ? RUMBLE_ROUNDS : STANDALONE_ROUNDS),
         phase: "aiming",
         pucks: [],
         hazards: [],

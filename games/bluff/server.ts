@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { captionFor } from "../../shared/interlude.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import {
@@ -330,13 +331,15 @@ const plugin: GamePlugin = {
     const contentPack: ContentPack =
       options?.contentPack === "dictionary" ? "dictionary" : "facts";
     const source = contentPack === "dictionary" ? DICTIONARY : FACTS;
+    // A Rumble passes the catalog's shorter round count; standalone keeps six.
+    const rounds = roundsOption(options) ?? ROUNDS;
 
     return {
       roomId: room.id,
       players,
       state: {
         contentPack,
-        prompts: secureShuffle(source).slice(0, ROUNDS),
+        prompts: secureShuffle(source).slice(0, rounds),
         currentPrompt: 0,
         phase: "writing",
         submissions: {},

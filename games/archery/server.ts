@@ -8,6 +8,7 @@
  */
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores } from "../../shared/scoring.ts";
 import type { GameResult } from "../../shared/scoring.ts";
@@ -43,7 +44,7 @@ type ControllerType =
 interface Player { id: string; name: string; joinedAt: number; rejoinToken: string; connected: boolean; controllerType?: string; seat?: SeatIdentity; }
 interface RoomState { id: string; code: string; hostPlayerId: string | null; players: Player[]; gameId: string | null; gameState: unknown | null; createdAt: number; status: "lobby" | "playing" | "finished"; }
 interface GameInstance { roomId: string; players: Player[]; state: unknown; }
-interface GamePlugin { manifest: GameManifest; onStart(room: RoomState, players: Player[]): GameInstance; onInput(instance: GameInstance, playerId: string, input: unknown): void; onTick(instance: GameInstance, deltaMs: number): void; screenState(instance: GameInstance): unknown; controllerState(instance: GameInstance, playerId: string): unknown; results?(instance: GameInstance): GameResult; }
+interface GamePlugin { manifest: GameManifest; onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance; onInput(instance: GameInstance, playerId: string, input: unknown): void; onTick(instance: GameInstance, deltaMs: number): void; screenState(instance: GameInstance): unknown; controllerState(instance: GameInstance, playerId: string): unknown; results?(instance: GameInstance): GameResult; }
 
 interface ArcheryState {
   currentPlayer: number;
@@ -121,7 +122,7 @@ function revealCaption(instance: ArcheryInstance): string | null {
 
 const plugin: GamePlugin = {
   manifest,
-  onStart(room: RoomState, players: Player[]): ArcheryInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): ArcheryInstance {
     return {
       roomId: room.id,
       players,
@@ -134,7 +135,8 @@ const plugin: GamePlugin = {
         shots: [],
         scores: players.map(() => 0),
         round: 0,
-        maxRounds: ROUNDS,
+        // A Rumble passes three shot rounds; standalone keeps five.
+        maxRounds: roundsOption(options) ?? ROUNDS,
         drawPower: 0,
         isDrawing: false,
         arrowX: 0,

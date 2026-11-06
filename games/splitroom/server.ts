@@ -5,6 +5,7 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { captionFor } from "../../shared/interlude.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores, type GameResult } from "../../shared/scoring.ts";
@@ -64,7 +65,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -269,8 +270,10 @@ function filledScenario(scenario: Scenario, submission: string | null): string {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): SplitInstance {
-    const rounds = standaloneRounds(players.length);
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): SplitInstance {
+    // A Rumble passes the catalog's shorter count; standalone keeps the
+    // four-until-eight round rule.
+    const rounds = roundsOption(options) ?? standaloneRounds(players.length);
     return {
       roomId: room.id,
       players,

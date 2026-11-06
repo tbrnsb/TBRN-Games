@@ -5,7 +5,7 @@ Platform expansion phases 2-6, branch `Games-expansion`. Phase 1 audit is
 committed (`docs/EXPANSION_AUDIT.md`). 37 games in the tree: 22 enabled and
 15 retired but kept, one catalog entry per game directory (no aliases).
 
-Last gate: `npm test` 1000/1000 · typecheck clean · lint 0 errors (warnings
+Last gate: `npm test` 1007/1007 · typecheck clean · lint 0 errors (warnings
 only) · `npm run probe` 130 runs, 0 issues.
 
 ## Done
@@ -45,22 +45,25 @@ only) · `npm run probe` 130 runs, 0 issues.
 - Phase 6 layout: `tests/layout-fit.test.ts` — every renderer at 1080p/720p
   with 8 players and 12-character names, host-board geometry, 360dp phone
   audit (>=44px targets, fluid widths); four findings fixed and asserted.
-- Phase 6 acceptance gaps: `GAMES.md` ranges now match the catalog (22
-  enabled, 15 marked disabled, Guess the Imposter added); `npm run probe`
-  flags negative score-like numbers (brief 7.1); the HTTP start gate covers
-  TOO_MANY_PLAYERS and proves the room stays in the lobby.
+- Phase 6 acceptance gaps: `GAMES.md` ranges match the catalog (Guess the
+  Imposter added); probe flags negative score-like numbers; the HTTP start
+  gate covers TOO_MANY_PLAYERS and proves the room stays in the lobby.
 - CI: `.github/workflows/ci.yml` runs `npm run probe` on Ubuntu and Windows
   after the test suite.
 
+- Rumble mode: both preset start paths inject `rumble: true`, `mode:"rumble"`
+  (a slot's own mode wins, e.g. quiz `fast`) and `rounds` from the catalog;
+  all 22 games treat `options.rounds` as authoritative, so presets run the
+  brief's shorter Rumble lengths. Standalone play is unchanged.
+
 ## In progress
-Rumble-mode plumbing: the preset start path injects `rumble`, `mode` and
-`rounds` (`rumbleSlotOptions`, shared/game-options.ts) and every game honours
-`options.rounds` (games/*/server.ts, session-rumble tests, decision log).
+Final verification: re-run the final-verifier (previous run rejected on the
+Rumble-mode gap) and the critic on the delta.
 
 ## Next three actions
-1. Rumble-mode plumbing + docs in flight; finish, re-run the gate, commit.
-2. Final critic (family differs from every author), then final-verifier.
-3. Queued design-session handoff prompt.
+1. Final-verifier re-run; expect ACCEPT.
+2. Critic delta re-check (family differs from every author).
+3. Queued design-session handoff prompt; then the final report.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: random starting letter with dictionary

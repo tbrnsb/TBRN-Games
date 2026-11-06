@@ -58,6 +58,31 @@ export interface SessionOptions {
   lastGameDouble?: boolean;
 }
 
+/**
+ * Options passed into `onStart` for one preset-Rumble game.
+ *
+ * Every preset game runs in `mode: "rumble"` (brief section 6), with the round
+ * count the catalog reports for this table, so the started game matches the
+ * short Rumble length instead of its standalone one. A slot's own mode wins
+ * over the generic default: Quiz in "Friday Night at Mo's" keeps `"fast"`, and
+ * Big Brain Sunday keeps `"standard"`, while both get the Rumble round count.
+ */
+export function rumbleSlotOptions(
+  gameId: string,
+  slotOptions: Record<string, unknown> | undefined,
+  playerCount: number,
+): Record<string, unknown> {
+  const entry = catalogEntry(gameId);
+  const count = Number.isFinite(playerCount) ? Math.max(0, Math.floor(playerCount)) : 0;
+  const rounds = entry?.scale(count, "rumble").rounds;
+  return {
+    ...(slotOptions ?? {}),
+    rumble: true,
+    mode: slotOptions?.mode ?? "rumble",
+    ...(rounds !== undefined ? { rounds } : {}),
+  };
+}
+
 export interface SessionState {
   // --- Preset mode ---
   presetId: string;

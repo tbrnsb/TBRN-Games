@@ -7,6 +7,7 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { captionFor } from "../../shared/interlude.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { scalePayout, standingsFromScores, type GameResult } from "../../shared/scoring.ts";
@@ -66,7 +67,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -274,13 +275,14 @@ function revealCaption(instance: FakinInstance): string | null {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): GameInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     const instance: FakinInstance = {
       roomId: room.id,
       players,
       state: {
         round: 0,
-        maxRounds: roundsFor(players.length),
+        // A Rumble passes three rounds; standalone keeps the table rule.
+        maxRounds: roundsOption(options) ?? roundsFor(players.length),
         phase: "acting",
         faker: 0,
         fakerOrder: [],

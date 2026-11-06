@@ -19,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
@@ -374,7 +375,9 @@ const plugin: GamePlugin = {
   onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     const mode: PercentileMode = options?.mode === "rumble" ? "rumble" : "standalone";
     const guessOnce = options?.guessOnce === true;
-    const maxRounds = percentileRounds(players.length, mode, guessOnce);
+    // A preset Rumble passes four rounds; standalone keeps five (or N when the
+    // host asks everyone to guess once).
+    const maxRounds = roundsOption(options) ?? percentileRounds(players.length, mode, guessOnce);
     return {
       roomId: room.id,
       players,

@@ -10,6 +10,7 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { captionFor } from "../../shared/interlude.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import {
@@ -74,7 +75,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -274,13 +275,14 @@ function surviveSettle(instance: SurviveInstance): void {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): GameInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     return {
       roomId: room.id,
       players,
       state: {
         round: 0,
-        maxRounds: 3,
+        // A Rumble passes the catalog's two rounds; standalone keeps three.
+        maxRounds: roundsOption(options) ?? 3,
         phase: "answering",
         prompt: PROMPTS[0],
         answers: players.map(() => null),

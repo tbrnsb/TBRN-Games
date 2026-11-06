@@ -1,4 +1,5 @@
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import {
   MAX_ROUND_SCORE,
@@ -80,7 +81,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -416,14 +417,15 @@ function bracketResolve(instance: BracketInstance): void {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): GameInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     return {
       roomId: room.id,
       players,
       state: {
         round: 0,
         // 3-4 players keep the old two brackets; 5-6 play one full bracket.
-        maxRounds: players.length <= TWO_BRACKET_MAX ? 2 : 1,
+        // A preset Rumble passes the catalog's count explicitly.
+        maxRounds: roundsOption(options) ?? (players.length <= TWO_BRACKET_MAX ? 2 : 1),
         phase: "writing",
         prompt: PROMPTS[0],
         entries: players.map(() => null),

@@ -93,6 +93,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
@@ -279,7 +280,8 @@ const plugin: GamePlugin = {
       state: {
         mode,
         round: 0,
-        maxRounds: slideRounds(players.length, mode),
+        // A Rumble passes three presenters; standalone gives every seat one.
+        maxRounds: roundsOption(options) ?? slideRounds(players.length, mode),
         phase: "writing",
         presenter: 0,
         topic: topics[0],

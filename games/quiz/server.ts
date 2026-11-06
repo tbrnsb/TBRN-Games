@@ -16,6 +16,7 @@
 
 import { readFileSync } from "node:fs";
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
@@ -224,13 +225,13 @@ function questionCountFor(mode: QuizMode): number {
   return mode === "fast" ? FAST_QUESTIONS : STANDARD_QUESTIONS;
 }
 
-function selectQuestions(mode: QuizMode): Question[] {
+function selectQuestions(mode: QuizMode, countOverride?: number): Question[] {
   // Fast mode promises four options; keep the pool honest if a future pack
   // entry adds a different option count.
   const pool = mode === "fast"
     ? QUESTION_PACK.filter((question) => question.options.length === 4)
     : QUESTION_PACK;
-  const count = Math.min(questionCountFor(mode), pool.length);
+  const count = Math.min(countOverride ?? questionCountFor(mode), pool.length);
   return secureShuffle(pool).slice(0, count);
 }
 
@@ -363,13 +364,17 @@ const plugin: GamePlugin = {
   onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): QuizInstance {
     const mode = parseMode(options);
     const questionTimeMs = questionTimeFor(mode);
+    // A preset Rumble passes the catalog question count while keeping the
+    // slot's own mode ("fast" in Friday Night at Mo's, "standard" in Big Brain
+    // Sunday, both six questions at Rumble length).
+    const rounds = roundsOption(options);
 
     return {
       roomId: room.id,
       players,
       state: {
         mode,
-        questions: selectQuestions(mode),
+        questions: selectQuestions(mode, rounds),
         currentQuestion: 0,
         timeLeft: questionTimeMs,
         phase: "waiting",

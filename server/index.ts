@@ -45,6 +45,7 @@ import {
   abortRound,
   completeRound,
   quizAccuracy,
+  rumbleSlotOptions,
   type SessionState,
 } from "./session.ts";
 import { RUMBLE_PRESETS } from "../shared/rumble-presets.ts";
@@ -1672,7 +1673,9 @@ async function handleSessionNext(req: IncomingMessage, res: ServerResponse, url:
   }
 
   try {
-    beginGameInRoom(room, plugin, participants, slot.options);
+    // A preset game runs in Rumble mode with the catalog's shorter round count.
+    const slotOptions = rumbleSlotOptions(gameId, slot.options, participants.length);
+    beginGameInRoom(room, plugin, participants, slotOptions);
   } catch (e) {
     console.error("[Server] Error starting next rumble game:", e);
     abortRound(session);
@@ -1995,8 +1998,10 @@ async function handleStartGame(req: IncomingMessage, res: ServerResponse, url: U
     }
 
     gameId = slot.gameId;
-    startOptions = slot.options;
     participants = activeParticipants(room);
+    // Starting a preset game through /start must match /session/next: Rumble
+    // mode plus the catalog's shorter round count for this table.
+    startOptions = rumbleSlotOptions(gameId, slot.options, participants.length);
   } else {
     gameId = typeof body.gameId === "string" ? body.gameId : "";
     startOptions =

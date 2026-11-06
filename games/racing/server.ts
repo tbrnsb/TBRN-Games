@@ -8,6 +8,7 @@
  */
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores } from "../../shared/scoring.ts";
 import type { GameResult } from "../../shared/scoring.ts";
@@ -71,7 +72,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -96,6 +97,8 @@ interface RacingState {
   countdownMs: number;
   elapsedMs: number;
   winnerIndex: number | null;
+  /** Races this game runs. Tap Race is a single race in both modes. */
+  maxRaces: number;
 }
 
 interface RacingInstance extends GameInstance {
@@ -158,7 +161,10 @@ function winnerFromProgress(state: RacingState): number {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): RacingInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): RacingInstance {
+    // Tap Race is one race in both modes (the catalog reports one round), so a
+    // Rumble's round count is clamped to the single race the engine runs.
+    const maxRaces = Math.min(1, roundsOption(options) ?? 1);
     return {
       roomId: room.id,
       players,
@@ -168,6 +174,7 @@ const plugin: GamePlugin = {
         countdownMs: COUNTDOWN_MS,
         elapsedMs: 0,
         winnerIndex: null,
+        maxRaces,
       },
     };
   },

@@ -4,6 +4,7 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { captionFor } from "../../shared/interlude.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { scalePayout, standingsFromScores, type GameResult } from "../../shared/scoring.ts";
@@ -64,7 +65,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -314,14 +315,15 @@ function cluesArePublic(phase: StowState["phase"]): boolean {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): GameInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     const instance: StowInstance = {
       roomId: room.id,
       players,
       state: {
         categories: secureShuffle(CATEGORIES),
         round: 0,
-        maxRounds: roundsFor(players.length),
+        // A Rumble passes two rounds; standalone keeps the table rule.
+        maxRounds: roundsOption(options) ?? roundsFor(players.length),
         phase: "brief",
         stowaway: 0,
         category: "",

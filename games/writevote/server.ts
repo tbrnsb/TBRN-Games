@@ -6,6 +6,7 @@
  */
 
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { canChangeVote } from "../../shared/vote-options.ts";
 import { captionFor } from "../../shared/interlude.ts";
 import { playerStatKey } from "../../shared/results.ts";
@@ -71,7 +72,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -271,12 +272,14 @@ function nextRoundOrFinish(instance: WriteVoteInstance): void {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): WriteVoteInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): WriteVoteInstance {
+    // A Rumble passes the catalog's shorter round count; standalone keeps five.
+    const rounds = roundsOption(options) ?? ROUNDS;
     return {
       roomId: room.id,
       players,
       state: {
-        prompts: secureShuffle(PROMPTS).slice(0, ROUNDS),
+        prompts: secureShuffle(PROMPTS).slice(0, rounds),
         currentPrompt: 0,
         phase: "writing",
         responses: {},

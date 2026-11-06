@@ -21,6 +21,7 @@
  */
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import {
   MAX_ROUND_SCORE,
@@ -166,10 +167,17 @@ export interface ShirtPlan {
  * cycle (one round with N shirts). A Rumble at 5-8 also runs one round but uses
  * four design seats chosen by secure random, per brief 4's "max 4 shirts".
  */
-export function shirtPlan(playerCount: number, mode: ShirtMode = "standalone"): ShirtPlan {
+export function shirtPlan(
+  playerCount: number,
+  mode: ShirtMode = "standalone",
+  roundsOverride?: number,
+): ShirtPlan {
   const count = clampPlayerCount(playerCount);
   const seats = Array.from({ length: count }, (_, index) => index);
-  const rounds = Math.max(1, count <= 4 ? Math.min(LEGACY_ROUNDS, count) : 1);
+  const defaultRounds = Math.max(1, count <= 4 ? Math.min(LEGACY_ROUNDS, count) : 1);
+  const rounds = roundsOverride !== undefined && Number.isFinite(roundsOverride) && roundsOverride >= 1
+    ? Math.floor(roundsOverride)
+    : defaultRounds;
 
   if (mode === "rumble" && count > 4) {
     const designers = secureShuffle(seats).slice(0, RUMBLE_SHIRT_CAP).sort((a, b) => a - b);
@@ -375,7 +383,8 @@ const plugin: GamePlugin = {
 
   onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     const mode: ShirtMode = options?.mode === "rumble" ? "rumble" : "standalone";
-    const plan = shirtPlan(players.length, mode);
+    // A preset Rumble passes the catalog's shorter round count.
+    const plan = shirtPlan(players.length, mode, roundsOption(options));
     const instance: ShirtInstance = {
       roomId: room.id,
       players,

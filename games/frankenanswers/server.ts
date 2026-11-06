@@ -60,7 +60,7 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
@@ -76,6 +76,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import {
   MAX_ROUND_SCORE,
@@ -334,13 +335,14 @@ function faSettle(instance: FaInstance): void {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): GameInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     return {
       roomId: room.id,
       players,
       state: {
         round: 0,
-        maxRounds: roundsFor(players.length),
+        // A Rumble passes its shorter count; standalone keeps the table rule.
+        maxRounds: roundsOption(options) ?? roundsFor(players.length),
         phase: "chips",
         prompt: PROMPTS[0],
         tiles: faPackTiles(),

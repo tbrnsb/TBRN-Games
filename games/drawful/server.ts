@@ -15,6 +15,7 @@
  */
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { scalePayout, standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
@@ -181,11 +182,16 @@ export interface DrawfulPlan {
 export function drawfulPlan(
   playerCount: number,
   mode: DrawfulMode = "standalone",
+  roundsOverride?: number,
 ): DrawfulPlan {
   const count = clampPlayerCount(playerCount);
+  const override =
+    roundsOverride !== undefined && Number.isFinite(roundsOverride) && roundsOverride >= 1
+      ? Math.min(Math.floor(roundsOverride), Math.max(count, 1))
+      : undefined;
 
   if (count <= 4) {
-    const rounds = Math.min(LEGACY_ROUNDS, count);
+    const rounds = Math.min(override ?? LEGACY_ROUNDS, count);
     return {
       rounds,
       artists: Array.from({ length: rounds }, (_, index) => index),
@@ -193,7 +199,7 @@ export function drawfulPlan(
     };
   }
 
-  const rounds = mode === "rumble" ? Math.min(RUMBLE_ROUNDS, count) : count;
+  const rounds = Math.min(override ?? (mode === "rumble" ? RUMBLE_ROUNDS : count), count);
   const artists = mode === "rumble"
     ? secureShuffle(Array.from({ length: count }, (_, index) => index)).slice(0, rounds)
     : Array.from({ length: rounds }, (_, index) => index);
@@ -365,7 +371,8 @@ const plugin: GamePlugin = {
 
   onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
     const mode: DrawfulMode = options?.mode === "rumble" ? "rumble" : "standalone";
-    const plan = drawfulPlan(players.length, mode);
+    // A preset Rumble passes the catalog's shorter drawing count.
+    const plan = drawfulPlan(players.length, mode, roundsOption(options));
     const instance: DrawInstance = {
       roomId: room.id,
       players,

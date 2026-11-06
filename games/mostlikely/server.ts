@@ -8,6 +8,7 @@
  */
 
 import { captionFor } from "../../shared/interlude.ts";
+import { roundsOption } from "../../shared/game-options.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import { standingsFromScores, type GameResult } from "../../shared/scoring.ts";
 import { secureShuffle } from "../../shared/secure-random.ts";
@@ -33,7 +34,7 @@ type ControllerType =
 interface Player { id: string; name: string; joinedAt: number; rejoinToken: string; connected: boolean; controllerType?: string; }
 interface RoomState { id: string; code: string; hostPlayerId: string | null; players: Player[]; gameId: string | null; gameState: unknown | null; createdAt: number; status: "lobby" | "playing" | "finished"; }
 interface GameInstance { roomId: string; players: Player[]; state: unknown; }
-interface GamePlugin { manifest: GameManifest; onStart(room: RoomState, players: Player[]): GameInstance; onInput(instance: GameInstance, playerId: string, input: unknown): void; onTick(instance: GameInstance, deltaMs: number): void; screenState(instance: GameInstance): unknown; controllerState(instance: GameInstance, playerId: string): unknown; results?(instance: GameInstance): GameResult; }
+interface GamePlugin { manifest: GameManifest; onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance; onInput(instance: GameInstance, playerId: string, input: unknown): void; onTick(instance: GameInstance, deltaMs: number): void; screenState(instance: GameInstance): unknown; controllerState(instance: GameInstance, playerId: string): unknown; results?(instance: GameInstance): GameResult; }
 
 /**
  * General-table prompts only: no private or sensitive traits (health, money,
@@ -137,8 +138,10 @@ function beginVoting(state: MostLikelyState): void {
 
 const plugin: GamePlugin = {
   manifest,
-  onStart(room: RoomState, players: Player[]): MostLikelyInstance {
-    const shuffled = secureShuffle(PROMPTS).slice(0, STANDALONE_ROUNDS);
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): MostLikelyInstance {
+    // A Rumble passes five rounds; standalone keeps the eight-round game.
+    const rounds = roundsOption(options) ?? STANDALONE_ROUNDS;
+    const shuffled = secureShuffle(PROMPTS).slice(0, rounds);
     return {
       roomId: room.id,
       players,
