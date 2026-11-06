@@ -1,7 +1,18 @@
 /**
- * Slogan Shirts - server logic.
- * Draw a design, write a slogan, then everyone gets someone else's slogan on their shirt and you vote for the best.
+ * Slingshot Arena - server logic.
+ * Turn-based pucks: aim, set power, FIRE. Pucks collide elastically and die at
+ * the rim or on a hazard; nearest to the centre wins the round.
+ *
+ * Range stays 2-4. Standalone is best of three; a Rumble starts one match on
+ * the existing 60-second round clock.
  */
+
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import { standingsFromScores } from "../../shared/scoring.ts";
+import type { GameResult } from "../../shared/scoring.ts";
+import { seatForIndex } from "../../shared/seat-identity.ts";
+import type { SeatIdentity } from "../../shared/seat-identity.ts";
 
 interface GameManifest {
   id: string;
@@ -39,6 +50,7 @@ interface Player {
   rejoinToken: string;
   connected: boolean;
   controllerType?: string;
+  seat?: SeatIdentity;
 }
 
 interface RoomState {
@@ -60,11 +72,12 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
 
 
@@ -76,10 +89,13 @@ interface GamePlugin {
 
 interface Puck { x: number; y: number; vx: number; vy: number; alive: boolean }
 
+type ArenaMode = "standalone" | "rumble";
+
 interface ArenaState {
+  mode: ArenaMode;
   round: number;
   rounds: number;
-  phase: "aiming" | "moving" | "finished";
+  phase: "aiming" | "moving" | "reveal" | "finished";
   pucks: Puck[];
   hazards: Array<{ x: number; y: number; r: number }>;
   turn: number;
@@ -87,8 +103,12 @@ interface ArenaState {
   aimY: number;
   power: number;
   timerMs: number;
+  /** How long the round-end beat stays on screen before the next round. */
+  revealMs: number;
   simMs: number;
   scores: number[];
+  /** Closest each puck got to the centre, for the `nearestMiss` stat. */
+  nearest: number[];
   roundWinner: number | null;
 }
 
@@ -103,7 +123,10 @@ const STOP_SPEED = 0.03;
 const SIM_LIMIT_MS = 6000;
 const ROUND_MS = 60000;
 const SHOT_MS = 20000;
-const ROUNDS = 3;
+const STANDALONE_ROUNDS = 3;
+const RUMBLE_ROUNDS = 1;
+/** Short beat that shows the round winner before the next puck placement. */
+const REVEAL_MS = 1500;
 
 const manifest: GameManifest = {
   id: "arena",
@@ -128,12 +151,63 @@ export function outOfBounds(p: { x: number; y: number }): boolean {
   return Math.hypot(p.x, p.y) > 1 - PUCK_R * 0.5;
 }
 
-function arenaLeader(instance: ArenaInstance): string | null {
-  const s = instance.state;
+/** Seat identity for a player index, falling back to the index for old players. */
+function seatAt(instance: ArenaInstance, index: number): SeatIdentity {
+  return instance.players[index]?.seat ?? seatForIndex(index);
+}
+
+/** Highest score, first seat wins an exact tie (as the winner banner always did). */
+function arenaLeaderIndex(instance: ArenaInstance): number {
   let best = -1;
   let idx = -1;
-  s.scores.forEach((v, i) => { if (v > best) { best = v; idx = i; } });
+  instance.state.scores.forEach((value, index) => {
+    if (value > best) { best = value; idx = index; }
+  });
+  return idx;
+}
+
+function arenaLeader(instance: ArenaInstance): string | null {
+  const idx = arenaLeaderIndex(instance);
   return idx >= 0 ? instance.players[idx].name : null;
+}
+
+/** The round just played while revealing, otherwise the round in progress. */
+function displayRound(s: ArenaState): number {
+  if (s.phase === "reveal" || s.phase === "finished") return s.round;
+  return s.round + 1;
+}
+
+/** The active player's name while aiming; nobody during motion, reveal or finish. */
+function waitingNames(instance: ArenaInstance): string[] {
+  const s = instance.state;
+  if (s.phase !== "aiming") return [];
+  const name = instance.players[s.turn]?.name;
+  return name ? [name] : [];
+}
+
+/** Public round/match caption from the fixed bank; never a hidden value. */
+function revealCaption(instance: ArenaInstance): string | null {
+  const s = instance.state;
+  if (s.phase === "finished") {
+    const name = arenaLeader(instance);
+    return name ? captionFor({ kind: "perfect", name, seed: s.round }) : null;
+  }
+  if (s.phase !== "reveal" || s.roundWinner === null) return null;
+  const name = instance.players[s.roundWinner]?.name;
+  return name ? captionFor({ kind: "perfect", name, seed: s.round }) : null;
+}
+
+/** Keep the closest approach of one live puck; dead pucks stop sampling. */
+function recordPuckNearest(s: ArenaState, index: number): void {
+  const puck = s.pucks[index];
+  if (!puck || !puck.alive) return;
+  const distance = Math.hypot(puck.x, puck.y);
+  if (distance < s.nearest[index]) s.nearest[index] = distance;
+}
+
+/** Sample every live puck before a round is scored. */
+function recordNearest(s: ArenaState): void {
+  s.pucks.forEach((_, index) => recordPuckNearest(s, index));
 }
 
 function resetRound(instance: ArenaInstance): void {
@@ -152,8 +226,10 @@ function resetRound(instance: ArenaInstance): void {
   s.aimY = 1;
   s.power = 0.5;
   s.timerMs = ROUND_MS;
+  s.revealMs = 0;
   s.simMs = 0;
   s.roundWinner = null;
+  s.pucks.forEach((_, index) => recordPuckNearest(s, index));
   s.phase = "aiming";
 }
 
@@ -171,9 +247,20 @@ function nearestToCentre(instance: ArenaInstance): number {
 
 function endRound(instance: ArenaInstance, winner: number): void {
   const s = instance.state;
+  recordNearest(s);
   s.roundWinner = winner >= 0 ? winner : null;
   if (winner >= 0) s.scores[winner]++;
   s.round++;
+  // Hold the final puck positions on screen for a short reveal beat. The
+  // round counter has already advanced, so a finished match reports the full
+  // number of rounds played.
+  s.phase = "reveal";
+  s.revealMs = REVEAL_MS;
+}
+
+/** Leave the reveal beat, then either start the next round or end the match. */
+function finishReveal(instance: ArenaInstance): void {
+  const s = instance.state;
   if (s.round >= s.rounds) { s.phase = "finished"; return; }
   resetRound(instance);
 }
@@ -195,13 +282,15 @@ function nextTurn(instance: ArenaInstance): void {
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): GameInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance {
+    const mode: ArenaMode = options?.mode === "rumble" ? "rumble" : "standalone";
     const inst: ArenaInstance = {
       roomId: room.id,
       players,
       state: {
+        mode,
         round: 0,
-        rounds: ROUNDS,
+        rounds: mode === "rumble" ? RUMBLE_ROUNDS : STANDALONE_ROUNDS,
         phase: "aiming",
         pucks: [],
         hazards: [],
@@ -210,8 +299,10 @@ const plugin: GamePlugin = {
         aimY: 1,
         power: 0.5,
         timerMs: ROUND_MS,
+        revealMs: 0,
         simMs: 0,
         scores: players.map(() => 0),
+        nearest: players.map(() => Number.POSITIVE_INFINITY),
         roundWinner: null,
       } satisfies ArenaState,
     };
@@ -255,6 +346,14 @@ const plugin: GamePlugin = {
     const inst = instance as ArenaInstance;
     const s = inst.state;
     if (s.phase === "finished") return;
+
+    // The round-end beat does not run the clock or the physics.
+    if (s.phase === "reveal") {
+      s.revealMs -= Math.min(Math.max(deltaMs, 0), 2000);
+      if (s.revealMs <= 0) finishReveal(inst);
+      return;
+    }
+
     const dt = Math.min(Math.max(deltaMs, 0), 100) / 1000;
     s.timerMs -= Math.min(Math.max(deltaMs, 0), 2000);
 
@@ -263,12 +362,15 @@ const plugin: GamePlugin = {
     if (s.phase === "moving") {
       s.simMs += deltaMs;
       const friction = Math.pow(FRICTION_PER_SEC, dt);
-      for (const puck of s.pucks) {
+      for (let i = 0; i < s.pucks.length; i++) {
+        const puck = s.pucks[i];
         if (!puck.alive) continue;
         puck.x += puck.vx * dt;
         puck.y += puck.vy * dt;
         puck.vx *= friction;
         puck.vy *= friction;
+        // Sample before the death checks so a fast pass near the centre counts.
+        recordPuckNearest(s, i);
         if (outOfBounds(puck)) { puck.alive = false; puck.vx = 0; puck.vy = 0; }
         for (const hazard of s.hazards) {
           if (Math.hypot(puck.x - hazard.x, puck.y - hazard.y) < PUCK_R + hazard.r) {
@@ -317,12 +419,22 @@ const plugin: GamePlugin = {
   screenState(instance: GameInstance): unknown {
     const inst = instance as ArenaInstance;
     const s = inst.state;
+    const seats = inst.players.map((_, i) => seatAt(inst, i));
+    const table = inst.players.map((p, i) => ({
+      name: p.name,
+      score: s.scores[i],
+      seat: seats[i],
+      alive: s.pucks[i]?.alive ?? false,
+      isTurn: i === s.turn && s.phase === "aiming",
+    }));
     return {
       phase: s.phase,
-      round: s.round + 1,
+      mode: s.mode,
+      round: displayRound(s),
       rounds: s.rounds,
       pucks: inst.players.map((p, i) => ({
         name: p.name,
+        seat: seats[i],
         x: s.pucks[i]?.x ?? 0,
         y: s.pucks[i]?.y ?? 0,
         alive: s.pucks[i]?.alive ?? false,
@@ -331,7 +443,12 @@ const plugin: GamePlugin = {
       hazards: s.hazards,
       roundWinner: s.roundWinner !== null ? inst.players[s.roundWinner]?.name : null,
       timerMs: Math.max(0, s.timerMs),
-      scores: inst.players.map((p, i) => ({ name: p.name, score: s.scores[i] })),
+      // One row per seat, each with its colour + glyph badge.
+      players: table,
+      scores: table.map(({ name, score, seat }) => ({ name, score, seat })),
+      waitingOn: waitingNames(inst),
+      caption: revealCaption(inst),
+      sound: s.phase === "reveal" || s.phase === "finished" ? "reveal" : null,
       finished: s.phase === "finished",
       winner: s.phase === "finished" ? arenaLeader(inst) : null,
     };
@@ -344,7 +461,7 @@ const plugin: GamePlugin = {
     if (index === -1) return { mode: "wait", controllerType: "choice", options: [] };
     const yourTurn = s.phase === "aiming" && index === s.turn;
     const base = {
-      round: s.round + 1,
+      round: displayRound(s),
       rounds: s.rounds,
       yourScore: s.scores[index],
       alive: s.pucks[index]?.alive ?? false,
@@ -355,13 +472,12 @@ const plugin: GamePlugin = {
       return { ...base, mode: "wait", controllerType: "choice", options: [], info: "Match over" };
     }
     if (!yourTurn) {
-      return {
-        ...base,
-        mode: "wait",
-        controllerType: "choice",
-        options: [],
-        info: s.phase === "moving" ? "Pucks moving..." : `Waiting for ${inst.players[s.turn]?.name ?? ""}`,
-      };
+      const info = s.phase === "moving"
+        ? "Pucks moving..."
+        : s.phase === "reveal"
+          ? "Round over"
+          : `Waiting for ${inst.players[s.turn]?.name ?? ""}`;
+      return { ...base, mode: "wait", controllerType: "choice", options: [], info };
     }
     return {
       ...base,
@@ -372,9 +488,27 @@ const plugin: GamePlugin = {
         y: s.aimY,
         power: s.power,
         actionLabel: "FIRE",
-        hint: `Round ${s.round + 1} of ${s.rounds}`,
+        hint: `Round ${displayRound(s)} of ${s.rounds}`,
         disabled: false,
       },
+    };
+  },
+
+  results(instance: GameInstance): GameResult {
+    const inst = instance as ArenaInstance;
+    const s = inst.state;
+    const stats: Record<string, number> = {};
+    inst.players.forEach((player, index) => {
+      stats[playerStatKey(player.id, "roundWins")] = s.scores[index];
+      const nearest = s.nearest[index];
+      if (Number.isFinite(nearest)) stats[playerStatKey(player.id, "nearestMiss")] = nearest;
+    });
+    return {
+      // Rank-only game: raw is the round-win count the TV shows.
+      standings: standingsFromScores(
+        inst.players.map((player, index) => ({ id: player.id, raw: s.scores[index] })),
+      ),
+      stats,
     };
   },
 };

@@ -69,6 +69,8 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   seat-coloured arrows on one target, result stats.
 - Phase 3 (e) Tap Race: 1-8, eight lanes, rank standings, nearest-rival
   phone readout, kit palette synced to all eight seat colours.
+- Phase 3 (e) Slingshot Arena: stays 2-4, best-of-3 standalone / one 60 s
+  match in the Rumble, reveal beat and result stats.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,

@@ -424,7 +424,12 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     minutes: { standalone: 3, rumble: 2 },
     dropoutPolicy: "continue",
     contentPacks: [],
-    scale: fixedScale(3, { round: 60, shot: 20 }),
+    // Standalone is best of three. The Rumble plays one match on the same
+    // 60-second round clock, so it is always a single-round game.
+    scale: (_playerCount, mode) => ({
+      rounds: mode === "rumble" ? 1 : 3,
+      timers: { round: 60, shot: 20 },
+    }),
   },
   poker: {
     id: "poker",
