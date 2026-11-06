@@ -5,7 +5,7 @@ Platform expansion phases 2-6, branch `Games-expansion`. Phase 1 audit is
 committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree, 22 enabled,
 15 retired but kept (two overlap in the counts via catalog aliases).
 
-Last gate: `npm test` 902/902 · typecheck clean · lint 0 errors (1020 warnings)
+Last gate: `npm test` 999/999 · typecheck clean · lint 0 errors (1055 warnings)
 · `npm run probe` 130 runs, 0 issues.
 
 ## Done
@@ -61,6 +61,17 @@ Last gate: `npm test` 902/902 · typecheck clean · lint 0 errors (1020 warnings
 - CI: `.github/workflows/ci.yml` now runs `npm run probe` after the test
   suite on both Ubuntu and Windows, so the 130-run every-game/every-N gate
   is enforced on push and pull request.
+- Phase 6 scaling: `tests/scaling-bounds.test.ts` — every enabled game at
+  every valid N, with a per-game ceiling derived from its scoring code and a
+  driven worst-case round at min and max N. The only >1500 pairs are 14
+  documented exceptions, all human-decided (3-4 parity stacking and poker
+  chip pots); coverage is fail-closed in both directions.
+- Phase 6 layout: `tests/layout-fit.test.ts` — every enabled game renderer
+  at 1080p and 720p with 8 players and 12-character names, host-board
+  geometry helpers, and a 360dp phone audit of tap targets (>=44px) and
+  fluid widths. Findings queued for a fix: rank controls unstyled
+  (Frankenanswers), draw swatches 30/34px (Drawful/Slogan Shirts),
+  single-column choice wrapping, and a 40px leave button.
 
 ## In progress
 Phase 6 verification.
