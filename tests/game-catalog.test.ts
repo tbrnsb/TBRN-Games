@@ -141,17 +141,19 @@ describe("game catalog", () => {
   });
 
   test("scale reports today's round counts, not a redesign", () => {
+    // Standalone at four players. Games with a 3-4 baseline split report the
+    // baseline count here and the brief count from five up.
     const roundsAtFour: Record<string, number> = {
       bluff: 6,
       writevote: 5,
       splitroom: 4,
       survive: 3,
-      frankenanswers: 3,
+      frankenanswers: 2,
       bracket: 2,
-      dumbinventions: 3,
+      dumbinventions: 2,
       mostlikely: 8,
-      stowaway: 3,
-      fakin: 5,
+      stowaway: 4,
+      fakin: 3,
       guessimposter: 3,
       blather: 4,
       slideroulette: 4,
@@ -171,6 +173,42 @@ describe("game catalog", () => {
     // Presenter/artist counts follow the room size.
     assert.strictEqual(GAME_CATALOG.slideroulette.scale(3, "standalone").rounds, 3);
     assert.strictEqual(GAME_CATALOG.drawful.scale(8, "standalone").rounds, 8);
+
+    // The four parity games keep their baseline rounds at 3-4 and the brief's
+    // count from five (restored by the parity test, 2026-11-06).
+    const parityStandalone: Record<string, [number, number]> = {
+      frankenanswers: [2, 3],
+      dumbinventions: [2, 3],
+      stowaway: [4, 3],
+      fakin: [3, 5],
+    };
+    for (const [id, [small, large]] of Object.entries(parityStandalone)) {
+      for (const count of [3, 4]) {
+        assert.strictEqual(GAME_CATALOG[id].scale(count, "standalone").rounds, small, `${id}: ${count} standalone`);
+      }
+      for (const count of [5, 6]) {
+        assert.strictEqual(GAME_CATALOG[id].scale(count, "standalone").rounds, large, `${id}: ${count} standalone`);
+      }
+    }
+    // Rumble is unchanged: 2 for three of them and 3 for Fakin' It.
+    for (const count of [3, 4, 5, 6]) {
+      assert.strictEqual(GAME_CATALOG.frankenanswers.scale(count, "rumble").rounds, 2, `${count}: frankenanswers rumble`);
+      assert.strictEqual(GAME_CATALOG.dumbinventions.scale(count, "rumble").rounds, 2, `${count}: dumbinventions rumble`);
+      assert.strictEqual(GAME_CATALOG.stowaway.scale(count, "rumble").rounds, 2, `${count}: stowaway rumble`);
+      assert.strictEqual(GAME_CATALOG.fakin.scale(count, "rumble").rounds, 3, `${count}: fakin rumble`);
+    }
+    // At 3-4 standalone now equals rumble for three of the four games, so a
+    // strict "rumble < standalone" rule no longer holds; equal counts are
+    // allowed. Rumble is never longer than standalone.
+    for (const count of [3, 4, 5, 6]) {
+      for (const id of ["frankenanswers", "dumbinventions", "stowaway", "fakin"]) {
+        const entry = GAME_CATALOG[id];
+        assert.ok(
+          entry.scale(count, "rumble").rounds <= entry.scale(count, "standalone").rounds,
+          `${id}: rumble is longer than standalone at ${count}`,
+        );
+      }
+    }
   });
 
   test("bracket plays two brackets at 3-4 and one full bracket at 5-6", () => {

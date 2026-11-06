@@ -105,8 +105,14 @@ interface StowInstance extends GameInstance { state: StowState }
 
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 8;
-/** Standalone rounds; the catalog's `scale()` reports 3 standalone / 2 rumble. */
-const ROUNDS = 3;
+/** Standalone rounds; the catalog's `scale()` reports the same split. */
+const ROUNDS_SMALL_TABLE = 4;
+const ROUNDS_LARGE_TABLE = 3;
+
+/** 3-4 players keep the pre-expansion four rounds; five and up run three. */
+function roundsFor(playerCount: number): number {
+  return playerCount <= 4 ? ROUNDS_SMALL_TABLE : ROUNDS_LARGE_TABLE;
+}
 
 const BRIEF_MS = 6000;
 const CLUE_MS = 45000;
@@ -315,7 +321,7 @@ const plugin: GamePlugin = {
       state: {
         categories: secureShuffle(CATEGORIES),
         round: 0,
-        maxRounds: ROUNDS,
+        maxRounds: roundsFor(players.length),
         phase: "brief",
         stowaway: 0,
         category: "",

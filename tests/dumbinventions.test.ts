@@ -253,10 +253,13 @@ describe("dumb inventions: catalog and player range", () => {
     assert.strictEqual(entry.idealMax, 6);
   });
 
-  test("standalone runs three rounds, rumble two, and the timers are unchanged", () => {
+  test("standalone runs two rounds at 3-4 and three from five; rumble stays two", () => {
     for (const count of [3, 4, 5, 6]) {
       const standalone = GAME_CATALOG.dumbinventions.scale(count, "standalone");
-      assert.strictEqual(standalone.rounds, 3, `${count}: standalone rounds`);
+      // The pre-expansion baseline keeps two rounds at 3-4; the brief's three
+      // start at five players.
+      const expectedStandalone = count <= 4 ? 2 : 3;
+      assert.strictEqual(standalone.rounds, expectedStandalone, `${count}: standalone rounds`);
       assert.deepStrictEqual(
         standalone.timers,
         { invent: 90, vote: 25, reveal: 9 },
@@ -273,6 +276,7 @@ describe("dumb inventions: catalog and player range", () => {
 
   test("the game starts on the standalone round count", () => {
     assert.strictEqual(startGame(6).inst.state.maxRounds, 3);
+    assert.strictEqual(startGame(3).inst.state.maxRounds, 2, "3-4 players keep the baseline two rounds");
   });
 });
 
@@ -361,7 +365,7 @@ describe("dumb inventions: full playthrough", () => {
       driveToFinish(inst);
 
       assert.strictEqual(inst.state.phase, "finished");
-      assert.strictEqual(inst.state.maxRounds, 3);
+      assert.strictEqual(inst.state.maxRounds, count <= 4 ? 2 : 3);
       assert.strictEqual(inst.state.scores.length, count);
       // 3-4 players keep the old uncapped per-round total; the 1500 bound
       // only applies from five players up.

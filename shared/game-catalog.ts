@@ -161,9 +161,9 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     dropoutPolicy: "continue",
     contentPacks: ["chips"],
     scale: (playerCount, mode) => ({
-      // Three standalone rounds; the Rumble runs two. Every player is dealt
-      // six foreign chips plus four connectors at any count.
-      rounds: mode === "rumble" ? 2 : 3,
+      // Standalone is two rounds at 3-4 and three from five up; the Rumble
+      // runs two. Every player is dealt six foreign chips plus four connectors.
+      rounds: mode === "rumble" ? 2 : playerCount <= 4 ? 2 : 3,
       timers: { chips: 60, build: 90, vote: 25, reveal: 9 },
       optionCaps: { chips: 6, connectors: 4, options: playerCount },
     }),
@@ -200,9 +200,9 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     dropoutPolicy: "continue",
     contentPacks: ["problems", "words"],
     scale: (playerCount, mode) => ({
-      // Three standalone rounds; the Rumble runs two shorter rounds. The
-      // invent/vote/reveal timers stay as they were at every count.
-      rounds: mode === "rumble" ? 2 : 3,
+      // Standalone is two rounds at 3-4 and three from five up; the Rumble
+      // runs two. The invent/vote/reveal timers stay as they were.
+      rounds: mode === "rumble" ? 2 : playerCount <= 4 ? 2 : 3,
       timers: { invent: 90, vote: 25, reveal: 9 },
       optionCaps: { options: playerCount },
     }),
@@ -241,9 +241,10 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     dropoutPolicy: "void-round",
     contentPacks: [],
     scale: (playerCount, mode) => ({
-      // Three standalone rounds; the Rumble runs two. The brief/clue/discuss/
-      // vote/catch/reveal timers stay unchanged at every count.
-      rounds: mode === "rumble" ? 2 : 3,
+      // Standalone is four rounds at 3-4 and three from five up; the Rumble
+      // runs two. The brief/clue/discuss/vote/catch/reveal timers stay
+      // unchanged at every count.
+      rounds: mode === "rumble" ? 2 : playerCount <= 4 ? 4 : 3,
       timers: { brief: 6, clue: 45, discuss: 30, vote: 20, catch: 20, reveal: 8 },
       // One ballot slot per seat and six category choices.
       optionCaps: { options: playerCount, categories: 6 },
@@ -262,9 +263,9 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     dropoutPolicy: "void-round",
     contentPacks: [],
     scale: (playerCount, mode) => ({
-      // Five standalone rounds; the Rumble runs three. The 25-second acting
-      // timer stays as it was at every count.
-      rounds: mode === "rumble" ? 3 : 5,
+      // Standalone is three rounds at 3-4 and five from five up; the Rumble
+      // runs three. The 25-second acting timer stays as it was.
+      rounds: mode === "rumble" ? 3 : playerCount <= 4 ? 3 : 5,
       timers: { act: 25, vote: 20, reveal: 8 },
       // One ballot option per other seat: 7 on the largest phone.
       optionCaps: { options: Math.max(1, playerCount - 1) },

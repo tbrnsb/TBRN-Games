@@ -121,8 +121,14 @@ const REVEAL_MS = 9000;
 const MAX_NAME = 30;
 const MAX_PITCH = 120;
 
-/** Standalone rounds; the catalog's `scale()` reports 3 standalone / 2 rumble. */
-const ROUNDS = 3;
+/** Standalone rounds; the catalog's `scale()` reports the same split. */
+const ROUNDS_SMALL_TABLE = 2;
+const ROUNDS_LARGE_TABLE = 3;
+
+/** 3-4 players keep the pre-expansion two rounds; five and up run three. */
+function roundsFor(playerCount: number): number {
+  return playerCount <= 4 ? ROUNDS_SMALL_TABLE : ROUNDS_LARGE_TABLE;
+}
 
 /** Per-vote payout before `scalePayout` applies `f(N)`. */
 const VOTE_POINTS = 1000;
@@ -268,7 +274,7 @@ const plugin: GamePlugin = {
       players,
       state: {
         round: 0,
-        maxRounds: ROUNDS,
+        maxRounds: roundsFor(players.length),
         phase: "invent",
         problems: players.map((_, i) => problems[i % problems.length]),
         chips: players.map((_, i) => [words[(i * 2) % words.length], words[(i * 2 + 1) % words.length]] as [string, string]),

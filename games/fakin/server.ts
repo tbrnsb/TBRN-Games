@@ -111,8 +111,14 @@ const FAKE_PROMPTS = [
 
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 8;
-/** Standalone rounds; the catalog's `scale()` reports 5 standalone / 3 rumble. */
-const ROUNDS = 5;
+/** Standalone rounds; the catalog's `scale()` reports the same split. */
+const ROUNDS_SMALL_TABLE = 3;
+const ROUNDS_LARGE_TABLE = 5;
+
+/** 3-4 players keep the pre-expansion three rounds; five and up run five. */
+function roundsFor(playerCount: number): number {
+  return playerCount <= 4 ? ROUNDS_SMALL_TABLE : ROUNDS_LARGE_TABLE;
+}
 
 const ACT_MS = 25000;
 const VOTE_MS = 20000;
@@ -274,7 +280,7 @@ const plugin: GamePlugin = {
       players,
       state: {
         round: 0,
-        maxRounds: ROUNDS,
+        maxRounds: roundsFor(players.length),
         phase: "acting",
         faker: 0,
         fakerOrder: [],

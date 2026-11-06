@@ -180,7 +180,7 @@ describe("stowaway", () => {
     assert.strictEqual(s.scores[0], 500, "caught Stowaway still earns the category guess");
   });
 
-  test("playthrough at three players: three rounds, distinct Stowaways, points land", () => {
+  test("playthrough at three players: four rounds, the rotation restarts, points land", () => {
     const { players, inst } = startGame(3);
     const seen: number[] = [];
 
@@ -216,10 +216,22 @@ describe("stowaway", () => {
     assert.strictEqual(inst.state.catchChoice, null, "no guess is a miss");
     assert.strictEqual(inst.state.scores[2], beforeTimeout, "a caught Stowaway with no guess scores nothing");
 
+    // Round 4: the baseline four-round game restarts the rotation at seat 0.
+    advanceTo(inst, "brief");
+    seen.push(inst.state.stowaway);
+    const beforeFinalEscape = [...inst.state.scores];
+    playRound(inst, players, { caught: false });
+    assert.strictEqual(inst.state.phase, "reveal");
+    assert.strictEqual(
+      inst.state.scores[inst.state.stowaway] - beforeFinalEscape[inst.state.stowaway],
+      1000,
+      "round four's uncaught Stowaway still takes 1000",
+    );
+
     advanceTo(inst, "finished");
     assert.strictEqual(inst.state.phase, "finished");
-    assert.strictEqual(inst.state.maxRounds, 3);
-    assert.deepStrictEqual(seen, [0, 1, 2], "the Stowaway rotates through every seat once");
+    assert.strictEqual(inst.state.maxRounds, 4, "3-4 players keep the baseline four rounds");
+    assert.deepStrictEqual(seen, [0, 1, 2, 0], "the first three rounds cover every seat once; round four restarts the cycle");
   });
 
   test("playthrough at eight players: eight clues, eight TV options, three rounds", () => {
@@ -503,7 +515,7 @@ describe("stowaway", () => {
     assert.strictEqual(result.stats[`${players[0].id}:roundsUndetected`], 0);
   });
 
-  test("the catalog reports 3-8 players, 3/2 rounds and the unchanged timers", () => {
+  test("the catalog reports 3-8 players, 4/3 standalone rounds, 2 rumble and the unchanged timers", () => {
     const entry = GAME_CATALOG.stowaway;
     assert.strictEqual(entry.minPlayers, 3);
     assert.strictEqual(entry.maxPlayers, 8);
@@ -512,7 +524,9 @@ describe("stowaway", () => {
 
     for (let count = 3; count <= 8; count++) {
       const standalone = entry.scale(count, "standalone");
-      assert.strictEqual(standalone.rounds, 3, `${count}: standalone rounds`);
+      // The pre-expansion baseline keeps four rounds at 3-4; the brief's three
+      // start at five players.
+      assert.strictEqual(standalone.rounds, count <= 4 ? 4 : 3, `${count}: standalone rounds`);
       assert.deepStrictEqual(
         standalone.timers,
         { brief: 6, clue: 45, discuss: 30, vote: 20, catch: 20, reveal: 8 },

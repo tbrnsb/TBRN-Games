@@ -137,7 +137,7 @@ function playRound(inst: FakinInstance, players: TestPlayer[], caught: boolean):
 const screenOf = (inst: FakinInstance): TVScreen => fakinPlugin.screenState(inst) as TVScreen;
 
 describe("fakin", () => {
-  test("the catalog reports 3-8 players, 5/3 rounds and the 25-second acting timer", () => {
+  test("the catalog reports 3-8 players, 3/5 standalone rounds, 3 rumble and the 25-second acting timer", () => {
     const entry = GAME_CATALOG.fakin;
     assert.strictEqual(entry.minPlayers, 3);
     assert.strictEqual(entry.maxPlayers, 8);
@@ -146,7 +146,9 @@ describe("fakin", () => {
 
     for (let count = 3; count <= 8; count++) {
       const standalone = entry.scale(count, "standalone");
-      assert.strictEqual(standalone.rounds, 5, `${count}: standalone rounds`);
+      // The pre-expansion baseline keeps three rounds at 3-4; the brief's five
+      // start at five players.
+      assert.strictEqual(standalone.rounds, count <= 4 ? 3 : 5, `${count}: standalone rounds`);
       assert.deepStrictEqual(
         standalone.timers,
         { act: 25, vote: 20, reveal: 8 },
@@ -250,12 +252,12 @@ describe("fakin", () => {
     );
   });
 
-  test("playthrough at three players: five rounds, one full cycle and the payouts", () => {
+  test("playthrough at three players: three rounds, three different seats and the payouts", () => {
     const { players, inst } = startGame(3);
-    assert.strictEqual(inst.state.maxRounds, 5, "standalone runs five rounds");
+    assert.strictEqual(inst.state.maxRounds, 3, "3-4 players keep the baseline three rounds");
     const seen: number[] = [];
 
-    for (let round = 0; round < 5; round++) {
+    for (let round = 0; round < 3; round++) {
       assert.strictEqual(inst.state.phase, "acting");
       seen.push(inst.state.faker);
       const before = [...inst.state.scores];
@@ -270,18 +272,19 @@ describe("fakin", () => {
           assert.strictEqual(gain, escaped ? 0 : 200, `round ${round + 1}: voter ${i}`);
         }
       }
-      if (round < 4) advanceTo(inst, "acting");
+      if (round < 2) advanceTo(inst, "acting");
     }
 
-    assert.deepStrictEqual(seen.slice(0, 3).sort((a, b) => a - b), [0, 1, 2], "cycle one visits every seat");
-    assert.strictEqual(new Set(seen.slice(3)).size, 2, "the partial second cycle never repeats");
+    assert.strictEqual(new Set(seen).size, 3, "three rounds use three different seats");
 
     advanceTo(inst, "finished");
     assert.strictEqual(inst.state.phase, "finished");
     const screen = screenOf(inst);
     assert.strictEqual(screen.finished, true);
     assert.strictEqual(typeof screen.winner, "string");
-    assert.strictEqual(inst.state.scores.reduce((sum, score) => sum + score, 0), 2100);
+    // Two caught rounds pay 2 x 200 to each of two voters; the escaped round
+    // pays the Faker 500.
+    assert.strictEqual(inst.state.scores.reduce((sum, score) => sum + score, 0), 1300);
   });
 
   test("playthrough at eight players: eight seats, seven phone options, two TV columns", () => {
