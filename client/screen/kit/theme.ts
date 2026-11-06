@@ -7,7 +7,7 @@
  */
 
 
-import { INKS, PAPERS, PLAYERS, TYPE } from "../../kit/theme.ts";
+import { INKS, PAPERS, TYPE } from "../../kit/theme.ts";
 import type { Skin } from "../../kit/types.ts";
 import { theme as sharedTheme } from "../../../shared/theme.ts";
 

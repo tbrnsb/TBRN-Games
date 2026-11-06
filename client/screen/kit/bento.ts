@@ -85,7 +85,7 @@ export function drawBentoCard(
   ctx.shadowOffsetY = 6;
 
   roundRect(ctx, x, y, w, h, r);
-  ctx.fillStyle = colors.surface;
+  ctx.fillStyle = colors.bg0;
   ctx.fill();
 
   ctx.shadowColor = "transparent";
@@ -152,7 +152,12 @@ export function drawScoreboard(
   const padding = scaledSize(20, scale);
 
   ctx.save();
+  ctx.fillStyle = "#FFFDF5";
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(2, scale * 3);
   roundRect(ctx, rect.x, rect.y, rect.width, rect.height, radius.card);
+  ctx.fill();
+  ctx.stroke();
   ctx.clip();
 
   let y = rect.y + padding;

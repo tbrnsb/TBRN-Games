@@ -13,6 +13,7 @@ import { getLayout } from "../../shared/controllers.ts";
 import type { ControllerLayout } from "../../shared/controllers.ts";
 import type { SeatIdentity } from "../../shared/seat-identity.ts";
 import { REACTIONS, REACTION_COOLDOWN_MS, type ReactionId } from "../../shared/reactions.ts";
+import { sound } from "../kit/sound.ts";
 
 const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
 const wsUrl = `${wsProtocol}://${location.host}`;
@@ -786,5 +787,10 @@ if (!roomId) {
 } else if (linkedFromQr) {
   nameInput.focus();
 }
+
+document.addEventListener("pointerdown", (event) => {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("button, .card, .grid-cell, .board-tile, .rank-item, .rank-slot, .chat-contact")) sound.haptic(8);
+}, { passive: true });
 
 connect();

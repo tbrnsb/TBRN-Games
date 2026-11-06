@@ -272,10 +272,10 @@ function drawTicker(
 
   ctx.save();
   roundRect(ctx, x, y, cardWidth, cardHeight, Math.max(10, scaledSize(14, scale)));
-  ctx.fillStyle = "rgba(11, 8, 32, 0.82)";
+  ctx.fillStyle = "#FFFDF5";
   ctx.fill();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(2, scale * 2.5);
   ctx.stroke();
 
   const badgeSize = rowHeight * 0.64;
@@ -312,7 +312,7 @@ function drawTicker(
     ctx.fillStyle = row.seat.color;
     roundRect(ctx, badgeX, badgeY, badgeSize, badgeSize, Math.max(5, badgeSize * 0.24));
     ctx.fill();
-    ctx.fillStyle = colors.bg0;
+    ctx.fillStyle = colors.cardText;
     ctx.font = `700 ${Math.max(10, Math.floor(badgeSize * 0.52))}px ${fonts.display.family}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -325,7 +325,7 @@ function drawTicker(
     const nameMax = x + cardWidth - padding - scoreWidth - Math.max(6, scaledSize(10, scale));
 
     ctx.font = `500 ${nameSize}px ${fonts.display.family}`;
-    ctx.fillStyle = isWaiting ? colors.amber : colors.text;
+    ctx.fillStyle = isWaiting ? colors.magenta : colors.cardText;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(
@@ -336,12 +336,12 @@ function drawTicker(
 
     // Leader marker: a small amber bar, never colour alone in the row itself.
     if (isLeader) {
-      ctx.fillStyle = colors.amber;
+      ctx.fillStyle = colors.magenta;
       ctx.fillRect(x + 4, rowY + rowHeight * 0.22, 3, rowHeight * 0.56);
     }
 
     ctx.font = `700 ${scoreSize}px ${fonts.display.family}`;
-    ctx.fillStyle = isLeader ? colors.amber : colors.text;
+    ctx.fillStyle = isLeader ? colors.magenta : colors.cardText;
     ctx.textAlign = "right";
     ctx.fillText(scoreText, x + cardWidth - padding, rowY + rowHeight / 2);
   }
@@ -356,10 +356,9 @@ function drawWaitingBanner(
   state: WatchOverlayState,
   now: number,
   scale: number,
-  reducedMotion: boolean,
+  _reducedMotion: boolean,
 ): void {
   let label: string | null = null;
-  let accent: string = colors.amber;
   let waiting = true;
 
   if (state.waiting.length > 0) {
@@ -368,7 +367,6 @@ function drawWaitingBanner(
     label = `Waiting on: ${shown}${extra}`;
   } else if (state.timeLeft !== null && state.timeLeft > 0) {
     label = `${Math.ceil(state.timeLeft / 1000)}s`;
-    accent = colors.cyan;
     waiting = false;
   }
   if (!label) return;
@@ -384,17 +382,15 @@ function drawWaitingBanner(
   const x = (width - boxWidth) / 2;
   const y = margin;
 
-  const pulse = reducedMotion || !waiting ? 1 : 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(now / 260));
   roundRect(ctx, x, y, boxWidth, boxHeight, boxHeight / 2);
-  ctx.fillStyle = "rgba(11, 8, 32, 0.86)";
+  ctx.fillStyle = "#FBE7A1";
   ctx.fill();
-  ctx.strokeStyle = accent;
-  ctx.globalAlpha = pulse;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(2, scale * 3);
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  ctx.fillStyle = accent;
+  ctx.fillStyle = colors.cardText;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(ellipsize(ctx, label, boxWidth - paddingX * 2), width / 2, y + boxHeight / 2 + 1);
@@ -436,13 +432,13 @@ function drawCaption(
 
   ctx.globalAlpha = alpha;
   roundRect(ctx, x, y, boxWidth, boxHeight, Math.max(10, scaledSize(14, scale)));
-  ctx.fillStyle = "rgba(11, 8, 32, 0.9)";
+  ctx.fillStyle = "#FFFDF5";
   ctx.fill();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(2, scale * 2.5);
   ctx.stroke();
 
-  ctx.fillStyle = colors.text;
+  ctx.fillStyle = colors.cardText;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, width / 2, y + boxHeight / 2 + 1);
@@ -468,14 +464,14 @@ function drawReveal(
   const fontSize = Math.max(24, scaledSize(44, scale));
 
   ctx.save();
-  ctx.fillStyle = `rgba(0, 229, 255, ${(0.16 * fade).toFixed(3)})`;
+  ctx.fillStyle = `rgba(255, 228, 94, ${(0.88 * fade).toFixed(3)})`;
   ctx.fillRect(0, y, width, bandHeight);
-  ctx.fillStyle = `rgba(0, 229, 255, ${(0.55 * fade).toFixed(3)})`;
-  ctx.fillRect(0, y, width, 2);
-  ctx.fillRect(0, y + bandHeight - 2, width, 2);
+  ctx.fillStyle = colors.border;
+  ctx.fillRect(0, y, width, 3);
+  ctx.fillRect(0, y + bandHeight - 3, width, 3);
 
   ctx.font = `700 ${fontSize}px ${fonts.display.family}`;
-  ctx.fillStyle = colors.text;
+  ctx.fillStyle = colors.cardText;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(ellipsize(ctx, state.reveal, width * 0.86), width / 2, height / 2);

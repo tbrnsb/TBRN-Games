@@ -23,7 +23,8 @@ import {
   normaliseStrokes,
 } from "./kit/generic.ts";
 import { drawVoteOptions, type VoteOption } from "./kit/vote.ts";
-import { scaleForViewport } from "./kit/theme.ts";
+import { scaleForViewport, setLegacySkin } from "@legacy-kit/theme.ts";
+import { skinFor } from "../skins/index.ts";
 import {
   createWatchOverlay,
   drawWatchOverlay,
@@ -1505,6 +1506,10 @@ function renderGame(): void {
   }
 
   const fn = currentGameId ? (rendererCache.get(currentGameId) ?? null) : null;
+  if (currentGameId) {
+    const skin = skinFor(currentGameId);
+    if (skin) setLegacySkin(skin);
+  }
 
   // Always draw in CSS-pixel space. Renderers may translate for shake and may
   // throw halfway through, so the DPR transform is restored for every frame and

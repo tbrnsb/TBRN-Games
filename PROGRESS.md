@@ -1,93 +1,55 @@
-# TBRN Progress — Paper & Ink
+# TBRN Progress — Paper & Ink (post-merge)
 
-This file now tracks the DESIGN.md v2 paper-and-ink overhaul. The paper shell (shared kit)
-log below is historical.
+`Games-expansion` was merged into `paper-overhaul` (81 commits). The platform is
+now 37 games: **22 enabled**, 15 retired but kept. Every enabled game has a
+screen renderer and is skinned in the paper system.
 
-## V0 — Foundation: DONE
+## Current state
 
-- Renderer interface is unchanged: `ScreenRenderer(ctx, width, height, state)` loaded from `games/<id>/screen.ts`; the screen client owns DPR and canvas fit. DOM games export `renderDom(root, state)`.
-- New shared kit at `client/kit/`: paper/ink tokens, paper surfaces, props, text-fit, sound manager with skin banks, motion, player tokens, Mox + host line library, box art, shelf, ratchet counter, flecks, victory.
-- 22 Latin font faces installed self-hosted; 10 papers, wood, grain, halftone and 10 generated props.
-- `scripts/install-fonts.mjs`, `scripts/generate-assets.mjs`, `scripts/generate-skins.mjs`.
-- `npm run assets:check`, `npm run check:design` (contrast, text-fit, overflow, console, 4× CPU frame time, reload heap), `npm run shots` (start/live/controller phases), and `?debug=1` FPS overlay exist.
-- 18 existing skins live in `client/skins/<game>/skin.ts`; new games use the same interface.
-- The paper shell (shared kit) Quiz canvas renderer is deleted. The legacy kit remains only for the unmigrated game renderers; it is not dead code until the last game moves.
+- **Host board**: 8 fixed seats with colour + emoji/shape identity, 22-game
+  paper shelf, 8-player names, new Rumble preset picker, slot progress, swap
+  controls, interlude, pause overlay, settings, ticker and paper finale
+  podium/leaderboard/awards.
+- **Controllers**: paper shell over every new layout (`one-button`, `left-right`,
+  `dpad`, `choice`, `text`, `card-hand`, `private-grid`, `slider`, `rank`,
+  `draw`, `chat`, `role`, `aim`, `numpad`, `race`, `board`), player seat badge,
+  reactions, haptics and large paper controls.
+- **All 22 enabled renderers** now use the paper vocabulary. The 11 new
+  expansion games use the shared paper board; the 11 pre-existing enabled
+  renderers inherit paper background, cards, score rail, title and victory from
+  the restyled shared kit with per-game paper/inks/display font.
+- **New games added to the renderer set**: Split the Room, Survive the Internet,
+  Frankenanswers, Dumb Inventions, Stowaway, Fakin' It, Blather Round,
+  Slide Roulette, Drawful, Slogan Shirts, Slingshot Arena.
+- **Retired games** (15) have no lobby entry and were not migrated.
 
-## V1 — The Table: DONE
+## Verification
 
-- Wood table, paper join card, luggage-tag room code, QR sticker with hand-drawn arrow, player tokens, Mox dock, audio gate, credits sheet.
-- Shelf of 18 boxes with per-game paper, two inks, box art, tape/pins, sticky NEED notes, lift/select motion.
-- Selection ticket and Open button; Royal Rumble sheets restyled on paper.
-- `npm run check:design`: PASS (10 papers, p95 16.8 ms); `npm run shots` captures lobby + game + controller.
+- `npx tsc --noEmit` — clean.
+- `npm run lint` — 0 errors (1065 existing warnings).
+- `npm test` — **1018/1018 pass**, including 8-player/long-name layout and TV
+  secret tests.
+- `npm run assets:check` — **344 files covered**.
+- `npm run check:design` — **PASS**, p95 16.8 ms.
+- `npm run shots` groups:
+  - `design/shots-enabled` — 11 existing enabled games
+  - `design/shots-new` — 11 new enabled games
+  - `design/shots-a/b/c` — pre-merge 18-game sweep
+- Browser-verified: 8-seat lobby, 22-game shelf, Rumble preset/slot board,
+  paper controller quiz, new game TV boards, 1920/1280 and 390 phone.
 
-## V2 — Controller shell: DONE
+## Renderer interface
 
-- Paper app bar, player token + name, status ribbon, stamped primary/choice/dpad/one-button/left-right/card/grid controls, ruled text field, paper session card, haptics hook.
-- Existing seven controller layouts are restyled; new primitives (slider, rank, draw, chat, role, aim) are not in this branch yet.
-- Verified at 390×844 for join, idle, quiz, knife throw, racing, golf, bluff, poker and sea battle.
+`ScreenRenderer(ctx, width, height, state)` from `games/<id>/screen.ts`; the
+screen client owns DPR and canvas fit. `setLegacySkin(skinFor(gameId))` swaps the
+paper, inks and display font before every canvas frame. The new shared paper
+board is `client/screen/kit/paperBoard.ts`.
 
-## V3 — Reference game: Quiz — DONE
+## Next
 
-- New DOM renderer path in the screen client (`renderDom`) while canvas renderers keep working.
-- Paper TV-set Quiz: Titan One masthead, paper question card, 2×2 stamped answers, score tags, reveal stamps, timed countdown, Mox with the host line library, final champion.
-- Three handmade details on the question screen (tape, pin, coffee ring) plus a star sticker.
-- The paper shell (shared kit) canvas Quiz renderer and its kit imports are deleted.
-- Console clean; `npm run shots` captures start, live, 1280/1920 and the phone controller.
-
-## Compliance notes
-
-- All 18 existing canvas renderers now inherit paper backgrounds, paper score cards,
-  hard offset shadows, per-game paper/spot-ink/display-font tokens, paper title
-  cards and the paper victory screen from the shared legacy kit. The remaining
-  work is per-game art (the playfield itself), not the shell.
-
-- V0–V3 were bundled into this worktree in one session. From V4 onward: one phase
-  or game per session, then stop.
-- The controller’s obsolete synthwave `@font-face`, gradient and glow base has
-  been removed; only layout base rules remain under the paper override.
-- Token faces are seeded by player id so they survive renames and rejoins.
-- Controller taps and your-turn transitions now use haptics.
-- High-contrast mode is reachable from the host top bar; canvas scenes get a
-  grayscale/contrast treatment, not a full paper retheme yet.
-
-## V4 — Reference game: Racing: NEXT
-
-## V5+ — Remaining existing games
-
-### 39-game checklist
-
-| Game | Skin | Renderer | Controller | Status |
-|---|---|---|---|---|
-| Archery | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Bluff | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Darts | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Golf | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Gravity Run | DONE | paper shell (shared kit) | paper shell | legacy/dropped |
-| Guess Who | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Hangman | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Knife Throw | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Most Likely To | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Poker | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Quiz | DONE | **paper DOM (V3)** | paper shell | DONE |
-| Racing | DONE | paper shell (shared kit) | paper shell | V4 next |
-| Sea Battle | DONE | paper shell (shared kit) | paper shell | legacy/dropped |
-| Slot Car | DONE | paper shell (shared kit) | paper shell | legacy/dropped |
-| Snakes | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Spin War | DONE | paper shell (shared kit) | paper shell | V5+ |
-| Traffic Jam | DONE | paper shell (shared kit) | paper shell | legacy/dropped |
-| Write & Vote | DONE | paper shell (shared kit) | paper shell | V5+ |
-
-### New games from DESIGN.md §9.2
-
-All 21 have a skin defined in the design table and are not built yet.
-
-Word Fraud · Fence Sitters · Gut Check · Fact or Fiction · Mind Meld · Dumb
-Inventions · Slide Roulette · Bracket Brawl · Twist It · Frankenanswers · Clue
-Crafters · Word Chain · Mind Reader · The Fake Out · Stowaway · Last Seat ·
-Blind Date Chat · Slingshot Arena · Sketch & Lie · Slogan Shirts · Mash-Up
-Monsters.
-
----
+- Per-game signature art and sound passes for the 22 enabled games (the shell is
+  in place; some playfields still use their old in-game art).
+- Retired games only if the human asks.
 
 # Historical: Synthwave visual overhaul (V0–V16)
 

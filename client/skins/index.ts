@@ -17,6 +17,21 @@ import slotcar from "./slotcar/skin.ts";
 import snakes from "./snakes/skin.ts";
 import spinwar from "./spinwar/skin.ts";
 import trafficjam from "./trafficjam/skin.ts";
+import splitroom from "./splitroom/skin.ts";
+import survive from "./survive/skin.ts";
+import frankenanswers from "./frankenanswers/skin.ts";
+import bracket from "./bracket/skin.ts";
+import dumbinventions from "./dumbinventions/skin.ts";
+import stowaway from "./stowaway/skin.ts";
+import fakin from "./fakin/skin.ts";
+import guessimposter from "./guessimposter/skin.ts";
+import blather from "./blather/skin.ts";
+import slideroulette from "./slideroulette/skin.ts";
+import drawful from "./drawful/skin.ts";
+import sloganshirts from "./sloganshirts/skin.ts";
+import mindmeld from "./mindmeld/skin.ts";
+import percentile from "./percentile/skin.ts";
+import arena from "./arena/skin.ts";
 import writevote from "./writevote/skin.ts";
 
 export const SKINS: Record<string, Skin> = {
@@ -37,6 +52,21 @@ export const SKINS: Record<string, Skin> = {
   snakes,
   spinwar,
   trafficjam,
+  splitroom,
+  survive,
+  frankenanswers,
+  bracket,
+  dumbinventions,
+  stowaway,
+  fakin,
+  guessimposter,
+  blather,
+  slideroulette,
+  drawful,
+  sloganshirts,
+  mindmeld,
+  percentile,
+  arena,
   writevote,
 };
 
