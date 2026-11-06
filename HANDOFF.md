@@ -33,7 +33,8 @@ Last gate: `npm test` 822/822 · typecheck clean · lint 0 errors (954 warnings)
   prompts and unrevealed answers stay off the TV payload in every hidden
   phase; a coverage matrix fails if a newly enabled game is not scanned.
 - Phase 6 docs: `docs/PLAYER_COUNTS.md` — every game's hard and ideal range,
-  generated from the catalog (22 enabled, 15 disabled, 37 total).
+  generated from the catalog (22 enabled, 15 disabled, 37 total), and two new
+  `docs/DECISIONS.md` rows for the Rumble TV/phone UI and the secret scanner.
 
 ## In progress
 Phase 6 verification.
