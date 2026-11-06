@@ -13,8 +13,9 @@
  * design targets, which the lobby shows as "best with 4-8".
  *
  * Timing values in `GameScale.timers` are whole seconds (games use ms
- * internally). `scale()` reports what the game does TODAY; `minutes.rumble`
- * uses the brief's shorter Rumble round counts, which Phase 5 will implement.
+ * internally). `scale()` reports what the game does TODAY; the Rumble start
+ * path injects the `scale(N, "rumble")` values, and every game honours
+ * `options.rounds`.
  */
 
 export type GameKind = "writing" | "drawing" | "deduction" | "trivia" | "skill" | "party" | "cards";
@@ -399,8 +400,10 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     minutes: { standalone: 3, rumble: 2 },
     dropoutPolicy: "continue",
     contentPacks: ["quiz-questions"],
-    // Standard standalone: 10 questions at 15 s. The Rumble's Fast mode:
-    // 6 questions at 10 s with four options. Both modes show four options.
+    // Standalone Standard: 10 questions at 15 s. The Rumble runs the catalog's
+    // 6 questions with four options, and the per-question timer follows the
+    // slot's own mode (fast 10 s / standard 15 s), so these timer numbers are
+    // the Fast Rumble target and are not read at runtime.
     scale: (_playerCount, mode) => ({
       rounds: mode === "rumble" ? 6 : 10,
       timers: { question: mode === "rumble" ? 10 : 15, reveal: 3 },

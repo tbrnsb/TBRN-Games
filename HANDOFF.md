@@ -57,13 +57,14 @@ only) · `npm run probe` 130 runs, 0 issues.
   brief's shorter Rumble lengths. Standalone play is unchanged.
 
 ## In progress
-Final verification: re-run the final-verifier (previous run rejected on the
-Rumble-mode gap) and the critic on the delta.
+None. Final verification passed: final-verifier ACCEPT, critic 9.5/10.
+Pre-existing minor follow-ups: startGameLoop spectator fallback, rounding
+divergence, local type re-declarations, `removeAllListeners("warning")`.
 
 ## Next three actions
-1. Final-verifier re-run; expect ACCEPT.
-2. Critic delta re-check (family differs from every author).
-3. Queued design-session handoff prompt; then the final report.
+1. Queued design-session handoff prompt (separate paper-overhaul worktree).
+2. Final report to the human.
+3. Human gates: review, push, merge.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: random starting letter with dictionary
