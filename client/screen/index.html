@@ -489,19 +489,50 @@
       font-size: 12px;
       color: var(--color-text-muted);
     }
-    .seg { display: inline-flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
-    .seg button {
-      height: 30px;
-      padding: 0 14px;
-      border: 0;
-      background: transparent;
-      color: var(--color-text-muted);
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 12px;
+    .setup-check { cursor: pointer; }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .preset-card {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 92px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--color-border);
+      background: rgba(27, 21, 69, 0.55);
+      color: var(--color-text);
+      font: inherit;
+      text-align: left;
       cursor: pointer;
     }
-    .seg button.on { background: var(--color-magenta); color: var(--ink); }
+    .preset-card:hover { border-color: rgba(255, 46, 151, 0.4); }
+    .preset-card.on {
+      border-color: var(--color-magenta);
+      background: rgba(255, 46, 151, 0.12);
+      box-shadow: 0 0 0 1px rgba(255, 46, 151, 0.35);
+    }
+    .preset-card .name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+    .preset-card .vibe {
+      font-size: 10px;
+      line-height: 1.3;
+      color: var(--color-text-muted);
+    }
+    .preset-card .range {
+      margin-top: auto;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 10px;
+      color: var(--color-amber);
+    }
     .setup-actions { display: flex; justify-content: flex-end; gap: 8px; }
     .ghost {
       height: 34px;
@@ -535,24 +566,47 @@
     .session-head .k { display: block; font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px; }
     .session-head strong { font-family: var(--font-display); font-size: 21px; }
     .session-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: 18px; }
-    .session-vote { min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+    .session-slots-wrap { min-height: 0; display: flex; flex-direction: column; gap: 8px; }
     .session-label { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--color-text-muted); }
-    .candidates { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
-    .candidate {
+    .session-slots { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 4px; }
+    .slot-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 3px 10px;
-      padding: 9px 12px;
-      border-radius: 10px;
-      background: rgba(27, 21, 69, 0.55);
+      grid-template-columns: 20px minmax(0, 1fr) auto;
+      gap: 2px 8px;
+      align-items: baseline;
+      padding: 7px 10px;
+      border-radius: 9px;
+      background: rgba(27, 21, 69, 0.5);
       border: 1px solid transparent;
     }
-    .candidate.leading { border-color: rgba(255, 46, 151, 0.55); background: rgba(255, 46, 151, 0.10); }
-    .candidate .nm { font-family: var(--font-display); font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .candidate .ct { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--color-text-muted); }
-    .candidate.leading .ct { color: var(--color-magenta); }
-    .candidate .bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-    .candidate .bar i { display: block; height: 100%; background: var(--color-magenta); }
+    .slot-row .mark {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 11px;
+      text-align: center;
+      color: var(--color-text-muted);
+    }
+    .slot-row .nm {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .slot-row .tag {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-muted);
+    }
+    .slot-row .note { grid-column: 2 / -1; font-size: 10px; line-height: 1.35; color: var(--color-amber); }
+    .slot-row.done .mark { color: var(--color-success); }
+    .slot-row.current { border-color: rgba(255, 46, 151, 0.55); background: rgba(255, 46, 151, 0.10); }
+    .slot-row.current .mark { color: var(--color-magenta); }
+    .slot-row.skipped .nm { color: var(--color-text-muted); text-decoration: line-through; }
     .session-standings { border-left: 1px solid var(--color-border); padding-left: 14px; overflow-y: auto; }
     .standing { display: flex; align-items: center; gap: 7px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
     .standing .badge {
@@ -570,7 +624,30 @@
     .standing .pts { font-family: var(--font-display); font-weight: 700; color: var(--color-amber); }
     .session-launch { display: flex; align-items: center; gap: 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
     .session-launch .hint { flex: 1; }
-    .session-final { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+    .session-actions { display: flex; align-items: center; gap: 8px; }
+    .session-actions select {
+      height: 34px;
+      max-width: 210px;
+      padding: 0 10px;
+      border-radius: 8px;
+      border: 1px solid var(--color-border);
+      background: rgba(27, 21, 69, 0.9);
+      color: var(--color-text);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .session-actions select:disabled { opacity: 0.45; }
+    .session-final {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      text-align: center;
+    }
     .champion { display: flex; flex-direction: column; gap: 4px; }
     .champion .k { font-size: 11px; color: var(--color-text-muted); }
     .champion strong { font-family: var(--font-display); font-size: 42px; line-height: 1.05; }
@@ -580,6 +657,54 @@
     .trophy .t { font-family: var(--font-display); font-weight: 700; font-size: 12px; color: var(--color-magenta); }
     .trophy .p { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
     .trophy .d { font-size: 11px; color: var(--color-text-muted); }
+    .podium { display: flex; align-items: flex-end; justify-content: center; gap: 12px; width: 100%; max-width: 720px; }
+    .podium-place {
+      flex: 1 1 0;
+      max-width: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 12px 10px;
+      border-radius: 12px;
+      background: rgba(27, 21, 69, 0.62);
+      border: 1px solid var(--color-border);
+    }
+    .podium-place.first {
+      min-height: 116px;
+      border-color: rgba(255, 179, 71, 0.6);
+      background: rgba(255, 179, 71, 0.10);
+    }
+    .podium-place.second { min-height: 88px; }
+    .podium-place.third { min-height: 74px; }
+    .podium-place .rank { font-family: var(--font-display); font-weight: 700; font-size: 11px; color: var(--color-text-muted); }
+    .podium-place.first .rank { color: var(--color-amber); }
+    .podium-place .nm { font-family: var(--font-display); font-weight: 700; font-size: 17px; line-height: 1.15; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .podium-place .pts { font-family: var(--font-display); font-weight: 700; font-size: 12px; color: var(--color-amber); }
+    .final-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; max-width: 900px; text-align: left; }
+    .final-block { min-width: 0; }
+    .final-block .session-label { margin-bottom: 6px; }
+    .leaderboard { display: flex; flex-direction: column; }
+    .leaderboard .standing .rank {
+      width: 18px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      text-align: right;
+    }
+    .leaderboard .standing:first-child .rank { color: var(--color-amber); }
+    .awards { display: flex; flex-direction: column; gap: 6px; }
+    .award {
+      padding: 8px 10px;
+      border-radius: 9px;
+      background: rgba(27, 21, 69, 0.62);
+      border: 1px solid var(--color-border);
+      border-left: 3px solid var(--color-magenta);
+    }
+    .award .t { display: block; font-family: var(--font-display); font-weight: 700; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-magenta); }
+    .award .p { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+    .award .d { display: block; font-size: 11px; color: var(--color-text-muted); }
     .picker {
       flex: 1;
       min-height: 0;
@@ -1113,21 +1238,12 @@
         </div>
 
         <div class="rumble-setup hidden" id="rumbleSetup">
-          <div class="setup-row">
-            <span>Rounds</span>
-            <div class="seg" id="rumbleLength">
-              <button type="button" data-len="5" class="on">5</button>
-              <button type="button" data-len="8">8</button>
-              <button type="button" data-len="18">All</button>
-            </div>
-          </div>
-          <div class="setup-row">
-            <span>Next game</span>
-            <div class="seg" id="rumbleMode">
-              <button type="button" data-mode="vote" class="on">Vote</button>
-              <button type="button" data-mode="random">Random</button>
-            </div>
-          </div>
+          <p class="session-label">Pick a playlist</p>
+          <div class="preset-grid" id="rumblePresets"></div>
+          <label class="setup-row setup-check">
+            <span>Last game double points</span>
+            <input class="switch" id="rumbleDouble" type="checkbox" checked>
+          </label>
           <div class="setup-actions">
             <button class="ghost" id="rumbleCancel" type="button">Cancel</button>
             <button class="primary" id="rumbleStart" type="button">Start rumble</button>
@@ -1139,14 +1255,14 @@
           <div class="session-head">
             <div>
               <span class="k">Royal Rumble</span>
-              <strong id="sessionRound">Round 1 of 5</strong>
+              <strong id="sessionRound">Game 1 of 8</strong>
             </div>
             <button class="ghost" id="sessionEnd" type="button">End rumble</button>
           </div>
           <div class="session-body">
-            <div class="session-vote">
-              <p class="session-label" id="sessionVoteLabel">Vote for the next game</p>
-              <div class="candidates" id="sessionCandidates"></div>
+            <div class="session-slots-wrap">
+              <p class="session-label">Playlist</p>
+              <div class="session-slots" id="sessionSlots"></div>
             </div>
             <aside class="session-standings">
               <p class="session-label">Rumble points</p>
@@ -1155,7 +1271,11 @@
           </div>
           <div class="session-launch">
             <span class="hint" id="sessionHint"></span>
-            <button class="primary" id="sessionStart" type="button" disabled>Waiting for votes</button>
+            <div class="session-actions">
+              <select id="sessionSwapGame" aria-label="Swap the next game"></select>
+              <button class="ghost" id="sessionSwap" type="button">Swap game</button>
+              <button class="primary" id="sessionNext" type="button" disabled>Start next game</button>
+            </div>
           </div>
         </div>
 
@@ -1164,6 +1284,17 @@
             <span class="k">Champion</span>
             <strong id="championName">—</strong>
             <span class="pts" id="championPoints"></span>
+          </div>
+          <div class="podium" id="sessionPodium"></div>
+          <div class="final-columns">
+            <section class="final-block">
+              <p class="session-label">Final standings</p>
+              <div class="leaderboard" id="sessionLeaderboard"></div>
+            </section>
+            <section class="final-block">
+              <p class="session-label">Awards</p>
+              <div class="awards" id="sessionAwards"></div>
+            </section>
           </div>
           <div class="trophies" id="sessionTrophies"></div>
           <div class="setup-actions">

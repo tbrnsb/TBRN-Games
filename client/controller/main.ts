@@ -28,8 +28,6 @@ let inGame = false;
 let roomStatus = "lobby";
 let sessionPayload: {
   session: SessionView | null;
-  yourVote: string | null;
-  canVote: boolean;
   yourPoints: number;
 } | null = null;
 let myPresence: PlayerPresence = "active";
@@ -269,8 +267,6 @@ function handleMessage(msg: ServerMessage) {
     case MESSAGE_TYPES.SESSION: {
       const payload = msg.payload as unknown as {
         session: SessionView | null;
-        yourVote: string | null;
-        canVote: boolean;
         yourPoints: number;
       };
       sessionPayload = payload;
@@ -548,7 +544,7 @@ leaveBtn.addEventListener("click", () => {
   renderSeatState(inGame);
 });
 
-/** Royal Rumble card: voting, live points, or the final trophy board. */
+/** Royal Rumble card: the between-games slot or the final standings. */
 function renderSessionCard(): void {
   const payload = sessionPayload;
   if (!payload?.session || inGame || payload.session.status === "playing") {
@@ -567,6 +563,19 @@ function renderSessionCard(): void {
   if (session.status === "finished") {
     const standings = session.standings;
     const me = standings.findIndex((s) => s.playerId === playerId);
+    const podium = standings.slice(0, 3);
+    const awards = session.awards.length > 0
+      ? session.awards.map((award) => ({
+          name: award.name,
+          playerName: award.playerName,
+          detail: award.detail,
+        }))
+      : session.trophies.map((trophy) => ({
+          name: trophy.name,
+          playerName: trophy.playerName,
+          detail: trophy.detail,
+        }));
+
     parts.push(`
       <div class="session-head">
         <span class="session-kicker">Royal Rumble</span>
@@ -578,86 +587,52 @@ function renderSessionCard(): void {
         <span class="pts">${session.champion ? `${session.champion.points} points` : ""}</span>
         ${me >= 0 ? `<span class="session-copy">You finished #${me + 1} with ${standings[me].points} points.</span>` : ""}
       </div>
+      <div class="session-podium">
+        ${podium.map((standing, index) => `
+          <div class="session-podium-row place-${index + 1}">
+            <span class="place">${index + 1}</span>
+            <span class="p">${esc(standing.name)}</span>
+            <span class="pts">${standing.points}</span>
+          </div>
+        `).join("")}
+      </div>
       <div class="session-trophies">
-        ${session.trophies.map((t) => `
+        ${awards.map((award) => `
           <div class="trophy-row">
-            <span class="t">${esc(t.name)}</span>
-            <span class="p">${esc(t.playerName)}</span>
-            <span class="d">${esc(t.detail)}</span>
+            <span class="t">${esc(award.name)}</span>
+            <span class="p">${esc(award.playerName)}</span>
+            <span class="d">${esc(award.detail)}</span>
           </div>
         `).join("")}
       </div>
     `);
   } else {
-    const leader = session.leadingGameId
-      ? session.candidates.find((g) => g.id === session.leadingGameId) ?? null
+    const slot = session.slots[session.slotIndex] ?? null;
+    const upcomingName = slot?.gameName ?? null;
+    const after = session.nextGameId
+      ? session.slots.find((entry) => entry.gameId === session.nextGameId)?.gameName ?? null
       : null;
-    const maxVotes = Math.max(1, ...session.votes.map((v) => v.count));
-
-    let voteBody = "";
-    if (session.selection === "vote") {
-      const rows = session.votes.map((candidate) => {
-        const yours = payload.yourVote === candidate.gameId;
-        const leading = candidate.gameId === session.leadingGameId && candidate.count > 0;
-        return `
-          <button class="vote-btn${leading ? " leading" : ""}${yours ? " yours" : ""}"
-                  type="button" data-vote="${esc(candidate.gameId)}"${payload.canVote ? "" : " disabled"}>
-            <span class="vote-top">
-              <span class="vote-name">${esc(candidate.name)}</span>
-              <span class="vote-count">${yours ? "your vote" : `${candidate.count}`}</span>
-            </span>
-            <span class="vote-bar"><i style="width:${Math.round((candidate.count / maxVotes) * 100)}%"></i></span>
-          </button>
-        `;
-      }).join("");
-      voteBody = `<div class="vote-list">${rows}</div>`;
-    }
-
-    const votedName = payload.yourVote
-      ? session.candidates.find((g) => g.id === payload.yourVote)?.name ?? "that game"
-      : null;
-    const copy =
-      session.selection === "random"
-        ? `The wheel picks each round.${leader ? ` Next up: ${esc(leader.name)}.` : ""}`
-        : payload.yourVote
-          ? `You voted ${esc(votedName)}. Waiting for the host.`
-          : payload.canVote
-            ? "Tap a game to vote. One vote each round."
-            : "Voting is closed. Waiting for the host.";
+    const gameNumber = Math.min(session.rounds.length + 1, session.length);
 
     parts.push(`
       <div class="session-head">
-        <span class="session-kicker">Royal Rumble</span>
-        <span class="session-round">Round ${Math.min(session.round, session.length)} of ${session.length}</span>
+        <span class="session-kicker">Between games</span>
+        <span class="session-round">Game ${gameNumber} of ${session.length}</span>
+      </div>
+      <div class="session-upcoming">
+        <span class="session-kicker">Up next</span>
+        <strong>${esc(upcomingName ?? "Next game")}</strong>
+        ${slot?.announcement ? `<span class="session-announce">${esc(slot.announcement)}</span>` : ""}
       </div>
       <div class="session-points">
         <strong>${payload.yourPoints}</strong>
         <span>points so far</span>
       </div>
-      <p class="session-copy">${copy}</p>
-      ${voteBody}
+      <p class="session-copy">${after ? `After that: ${esc(after)}.` : "Host controls are on the laptop."}</p>
     `);
   }
 
   sessionCard.innerHTML = parts.join("");
-  for (const button of sessionCard.querySelectorAll<HTMLButtonElement>("button[data-vote]")) {
-    button.addEventListener("click", () => {
-      const gameId = button.dataset.vote;
-      if (gameId) sendSessionVote(gameId);
-    });
-  }
-}
-
-function sendSessionVote(gameId: string): void {
-  if (!playerId || !ws || ws.readyState !== WebSocket.OPEN) return;
-  const msg: ClientMessage = {
-    type: MESSAGE_TYPES.SESSION_VOTE,
-    roomId,
-    playerId,
-    timestamp: Date.now(),
-    payload: { gameId },
-  };
-  ws.send(JSON.stringify(msg));
 }
 
 function escapeHtml(value: unknown): string {

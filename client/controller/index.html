@@ -481,36 +481,46 @@
       line-height: 1.45;
       color: var(--muted);
     }
-    .vote-list { display: flex; flex-direction: column; gap: 6px; }
-    .vote-btn {
-      min-height: 48px;
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: var(--text);
-      font: inherit;
-      text-align: left;
-      cursor: pointer;
+    .session-upcoming {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 3px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255,46,151,0.10);
+      border: 1px solid rgba(255,46,151,0.42);
     }
-    .vote-btn:disabled { cursor: default; opacity: 0.72; }
-    .vote-btn.leading { border-color: rgba(255,46,151,0.58); background: rgba(255,46,151,0.13); }
-    .vote-btn.yours { border-color: rgba(0,229,255,0.65); background: rgba(0,229,255,0.10); }
-    .vote-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-    .vote-name { font-family: var(--display); font-weight: 700; font-size: 14px; }
-    .vote-count { font-family: var(--display); font-weight: 700; font-size: 12px; color: var(--muted); }
-    .vote-btn.leading .vote-count { color: var(--magenta); }
-    .vote-bar {
-      height: 3px;
-      border-radius: 2px;
-      background: rgba(255,255,255,0.09);
-      overflow: hidden;
+    .session-upcoming strong {
+      font-family: var(--title);
+      font-size: 22px;
+      line-height: 1.15;
     }
-    .vote-bar i { display: block; height: 100%; background: var(--magenta); }
-    .vote-btn.yours .vote-bar i { background: var(--cyan); }
+    .session-announce {
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--amber);
+    }
+    .session-podium { display: flex; flex-direction: column; gap: 5px; }
+    .session-podium-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+    }
+    .session-podium-row .place {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--muted);
+      width: 14px;
+    }
+    .session-podium-row .p { flex: 1 1 auto; min-width: 0; font-family: var(--display); font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .session-podium-row .pts { font-family: var(--display); font-weight: 700; font-size: 12px; color: var(--amber); }
+    .session-podium-row.place-1 { border-color: rgba(255,179,71,0.55); background: rgba(255,179,71,0.10); }
+    .session-podium-row.place-1 .place { color: var(--amber); }
     .session-champion {
       display: flex;
       flex-direction: column;
