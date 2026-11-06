@@ -1,14 +1,13 @@
 # TBRN-Games Handoff — Paper & Ink on Games-expansion
 
 ## Current state
-`Games-expansion` is merged into `paper-overhaul` (81 commits). The platform now
-has **37 games: 22 enabled, 15 retired**. All 22 enabled games have a renderer
-and are skinned in the paper-and-ink system; the host board and phones use the
-new 8-seat, preset-Rumble structure.
+`Games-expansion` is merged into `paper-overhaul` (81 commits). The platform has
+**37 games: 22 enabled, 15 retired**. All 22 enabled games have a renderer and
+are skinned in the paper-and-ink system; the host board and phones use the new
+8-seat, preset-Rumble structure.
 
 ## Last commit
-`ab7db7e` — merge Games-expansion into paper-overhaul. The paper adaptation on
-top of the merge is uncommitted.
+`040259d` — spread paper-and-ink across the expanded game catalog.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
@@ -27,12 +26,18 @@ top of the merge is uncommitted.
   Dumb Inventions, Stowaway, Fakin' It, Blather Round, Slide Roulette, Drawful,
   Slogan Shirts, Slingshot Arena.
 - **Skins** added for the expansion IDs (33 skins total).
+- **Legacy tree removed**: `src/`, `test/` and `public/` (pre-expansion engine,
+  its tests and the synthwave `theme.css`) were dead paths, excluded from
+  `tsconfig`, CI and `npm test`. The live paths are `server/`, `tests/`,
+  `client/`. This also removed the stale 4-player `MAX_PLAYERS`.
 
 ## In progress
-- None. Committing the paper adaptation is the next action.
+- None. Working tree is clean at the last commit.
 
 ## Next three actions
-1. Commit the merged paper adaptation.
+1. Browser-verify the Rumble interlude, finale podium, full leaderboard, awards,
+   ticker/results/pause, and the new controller layouts (`slider`, `rank`,
+   `draw`, `chat`, `role`, `aim`, `numpad`).
 2. Per-game signature art/sound pass for the 22 enabled games; the shell is done,
    but several playfields still carry their old in-game art.
 3. Retired games only if asked.
@@ -67,3 +72,5 @@ Open `http://localhost:3101`.
    paper board.
 3. The legacy canvas kit is restyled to paper and is live for 11 games, not dead.
 4. All 22 enabled games are in scope; the 15 retired games are not.
+5. The pre-expansion `src/`/`test/`/`public/` trees are deleted rather than
+   restyled; git history keeps them.

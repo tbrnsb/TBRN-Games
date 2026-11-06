@@ -31,5 +31,5 @@
     "games/**/*.ts",
     "tests/**/*.ts"
   ],
-  "exclude": ["node_modules", "dist", "public", "src", "test"]
+  "exclude": ["node_modules", "dist"]
 }
