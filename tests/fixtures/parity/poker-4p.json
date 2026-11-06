@@ -1,0 +1,33 @@
+{
+  "game": "poker",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    1800,
+    1360,
+    400,
+    440
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 1800
+    },
+    {
+      "playerId": "p1",
+      "rank": 2,
+      "raw": 1360
+    },
+    {
+      "playerId": "p3",
+      "rank": 3,
+      "raw": 440
+    },
+    {
+      "playerId": "p2",
+      "rank": 4,
+      "raw": 400
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "game": "racing",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    1,
+    1,
+    1
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 1
+    },
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 1
+    },
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 1
+    }
+  ]
+}

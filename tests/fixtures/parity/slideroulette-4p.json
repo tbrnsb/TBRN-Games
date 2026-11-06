@@ -1,0 +1,33 @@
+{
+  "game": "slideroulette",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    1167,
+    1167,
+    1167,
+    1167
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 1167
+    },
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 1167
+    },
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 1167
+    },
+    {
+      "playerId": "p3",
+      "rank": 1,
+      "raw": 1167
+    }
+  ]
+}

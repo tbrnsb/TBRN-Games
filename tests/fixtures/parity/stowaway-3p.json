@@ -1,0 +1,27 @@
+{
+  "game": "stowaway",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    1500,
+    500,
+    2000
+  ],
+  "standings": [
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 2000
+    },
+    {
+      "playerId": "p0",
+      "rank": 2,
+      "raw": 1500
+    },
+    {
+      "playerId": "p1",
+      "rank": 3,
+      "raw": 500
+    }
+  ]
+}

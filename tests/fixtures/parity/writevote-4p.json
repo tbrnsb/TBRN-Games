@@ -1,0 +1,33 @@
+{
+  "game": "writevote",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    600,
+    300,
+    500,
+    600
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 600
+    },
+    {
+      "playerId": "p3",
+      "rank": 1,
+      "raw": 600
+    },
+    {
+      "playerId": "p2",
+      "rank": 3,
+      "raw": 500
+    },
+    {
+      "playerId": "p1",
+      "rank": 4,
+      "raw": 300
+    }
+  ]
+}

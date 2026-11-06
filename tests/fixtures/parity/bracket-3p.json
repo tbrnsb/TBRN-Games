@@ -1,0 +1,27 @@
+{
+  "game": "bracket",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    2000,
+    200,
+    1200
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 2000
+    },
+    {
+      "playerId": "p2",
+      "rank": 2,
+      "raw": 1200
+    },
+    {
+      "playerId": "p1",
+      "rank": 3,
+      "raw": 200
+    }
+  ]
+}

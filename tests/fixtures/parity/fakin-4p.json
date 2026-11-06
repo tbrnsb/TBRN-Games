@@ -1,0 +1,33 @@
+{
+  "game": "fakin",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    500,
+    500,
+    500,
+    0
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 500
+    },
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 500
+    },
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 500
+    },
+    {
+      "playerId": "p3",
+      "rank": 4,
+      "raw": 0
+    }
+  ]
+}

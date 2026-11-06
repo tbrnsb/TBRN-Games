@@ -1,0 +1,27 @@
+{
+  "game": "blather",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    0,
+    0,
+    0
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 0
+    },
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 0
+    },
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 0
+    }
+  ]
+}

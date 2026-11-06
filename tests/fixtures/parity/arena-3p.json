@@ -1,0 +1,27 @@
+{
+  "game": "arena",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    0,
+    2,
+    1
+  ],
+  "standings": [
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 2
+    },
+    {
+      "playerId": "p2",
+      "rank": 2,
+      "raw": 1
+    },
+    {
+      "playerId": "p0",
+      "rank": 3,
+      "raw": 0
+    }
+  ]
+}
