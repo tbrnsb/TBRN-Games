@@ -69,9 +69,10 @@ Last gate: `npm test` 999/999 · typecheck clean · lint 0 errors (1055 warnings
 - Phase 6 layout: `tests/layout-fit.test.ts` — every enabled game renderer
   at 1080p and 720p with 8 players and 12-character names, host-board
   geometry helpers, and a 360dp phone audit of tap targets (>=44px) and
-  fluid widths. Findings queued for a fix: rank controls unstyled
-  (Frankenanswers), draw swatches 30/34px (Drawful/Slogan Shirts),
-  single-column choice wrapping, and a 40px leave button.
+  fluid widths. The four reachable findings are fixed and asserted: rank
+  controls now styled at 48px (Frankenanswers), draw swatches 48px
+  (Drawful/Slogan Shirts), single-column choice wrapping added, and the
+  leave button raised to 48px.
 
 ## In progress
 Phase 6 verification.

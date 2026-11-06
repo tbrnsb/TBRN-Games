@@ -41,6 +41,13 @@
  *    - Every controller type in `controllerLayouts` is walked: its emitted
  *      classes must be covered by a tap-target row (or a documented modifier),
  *      and `getLayout(type).signature({})` must stay callable.
+ *    - Phase-6 reachable findings are fixed and asserted (not just recorded):
+ *      the rank controls used by Frankenanswers have 48px slots/items with
+ *      wrapping names, the Drawful/Slogan Shirts swatches and size chips are
+ *      48px, single-column choice buttons declare `overflow-wrap: anywhere`,
+ *      and the Leave button is 48px. These are `size`/`prop` rows checked
+ *      against the 44px floor. The remaining `gap` rows are layouts that no
+ *      enabled catalog game reaches (chat, numpad, board) and stay recorded.
  *
  * Documented margins
  *   TEXT_MARGIN  = 8px   - shadow blur around glyphs + fractional baselines and
@@ -2032,27 +2039,39 @@ const TAP_ROWS: TapRow[] = [
     },
     note: "the 600x600 bitmap is overridden by width: 100%",
   },
-  // --- known gaps (documented findings; changing the CSS fails these rows) ---
   {
     covers: ["canvas-swatch"],
     selector: ".canvas-swatch",
     types: ["canvas"],
-    kind: "gap",
-    measured: 30,
-    reason:
-      "30x30px colour swatch, 14px under the 44px floor. The canvas layout is used by the ENABLED games " +
-      "Drawful and Slogan Shirts, so real phones hit this — reported as a finding, not fixed by this test.",
+    kind: "size",
+    measured: 48,
+    note: "48x48px circular colour swatch; the palette wraps on a 360dp phone (Drawful, Slogan Shirts)",
   },
   {
     covers: ["canvas-size"],
     selector: ".canvas-size",
     types: ["canvas"],
-    kind: "gap",
-    measured: 34,
-    reason:
-      "34x34px brush-size button, 10px under the 44px floor; same enabled canvas games as .canvas-swatch — " +
-      "reported as a finding, not fixed by this test.",
+    kind: "size",
+    measured: 48,
+    note: "48x48px brush-size chip; three chips fit beside the wrapped palette",
   },
+  {
+    covers: ["rank-item"],
+    selector: ".rank-item",
+    types: ["rank"],
+    kind: "size",
+    measured: 48,
+    note: "full-width pool chip, 48px floor, wraps long Frankenanswers labels",
+  },
+  {
+    covers: ["rank-slot"],
+    selector: ".rank-slot",
+    types: ["rank"],
+    kind: "size",
+    measured: 48,
+    note: "full-width placed chip with a compact order badge, 48px floor",
+  },
+  // --- known gaps (documented findings; changing the CSS fails these rows) ---
   {
     covers: ["chat-contact"],
     selector: ".chat-contact",
@@ -2085,26 +2104,6 @@ const TAP_ROWS: TapRow[] = [
     reason:
       "computes to ~41px (10px padding + 16px inherited text + border), 3px under the 44px floor. No catalog " +
       "game emits the numpad controller type today (unreachable); raise the padding before enabling one.",
-  },
-  {
-    covers: ["rank-item"],
-    selector: ".rank-item",
-    types: ["rank"],
-    kind: "gap",
-    measured: 0,
-    reason:
-      "NO CSS RULE EXISTS — the rank layout's buttons rely on UA defaults (~20px). The rank layout is used by " +
-      "the ENABLED game Frankenanswers, so real phones get sub-floor buttons — reported as a finding, not fixed.",
-  },
-  {
-    covers: ["rank-slot"],
-    selector: ".rank-slot",
-    types: ["rank"],
-    kind: "gap",
-    measured: 0,
-    reason:
-      "NO CSS RULE EXISTS for the rank order slots (same unstyled rank layout as .rank-item, used by the " +
-      "ENABLED Frankenanswers). Recorded as a finding; this test refuses to paper over it with a fake value.",
   },
   // --- platform chrome (static HTML, not emitted by a controller layout) ----
   {
@@ -2143,11 +2142,9 @@ const TAP_ROWS: TapRow[] = [
     covers: [],
     selector: ".leave-btn",
     types: [],
-    kind: "gap",
-    measured: 40,
-    reason:
-      "40px min-height, 4px under the 44px floor, on the platform Leave-table button (chrome, not a controller " +
-      "layout). Reported as a finding; it is small text on a pill, so it is recorded rather than silently raised.",
+    kind: "size",
+    measured: 48,
+    note: "chrome: Leave-table pill raised to the 48px floor; stays centred in the 52px appbar",
   },
 ];
 
@@ -2350,11 +2347,11 @@ const WRAP_ROWS: WrapRow[] = [
   },
   {
     selector: ".choice-btn",
-    kind: "gap",
+    kind: "prop",
+    prop: "overflow-wrap",
     reason:
-      "single-column answer buttons carry NO overflow-wrap/word-break/ellipsis: they rely on word wrapping " +
-      "only, so an unbroken answer past ~25 characters at 1.5x text (24px) overflows the ~304px content box. " +
-      "The 7+ variant has overflow-wrap: anywhere, so this is an asymmetry — reported as a finding.",
+      "single-column answers declare overflow-wrap: anywhere like the two-column variant, so an unbroken " +
+      "long answer cannot overflow the button at 1.5x text",
   },
   {
     selector: ".text-input textarea",
@@ -2420,12 +2417,11 @@ const WRAP_ROWS: WrapRow[] = [
   },
   {
     selector: ".rank-name",
-    kind: "gap",
-    noRule: true,
+    kind: "prop",
+    prop: "overflow-wrap",
     reason:
-      "NO CSS RULE EXISTS for the rank layout's name span (the whole rank layout is unstyled): a 12-character " +
-      "label at default button metrics (~100px) can exceed the slot width. The ENABLED Frankenanswers uses " +
-      "this layout — recorded together with the rank tap-target gap as a finding.",
+      "the rank layout's name span declares overflow-wrap: anywhere and flex: 1 1 auto with min-width: 0, so " +
+      "a 12-character label or a long Frankenanswers chip wraps inside the slot",
   },
 ];
 
