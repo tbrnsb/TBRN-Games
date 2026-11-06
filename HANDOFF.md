@@ -84,6 +84,8 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   same-category decoys each, plus the game manifest skeleton.
 - Phase 4 engine: full Imposter role/round state machine, 13 settings,
   scoring, disconnects, secrecy, 39 tests, catalog + theme.
+- Phase 4 UI: custom Imposter TV renderer for every phase, host settings
+  panel in the lobby, phone hold-to-peek/DONE/vote/final-guess paths.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,
@@ -92,7 +94,7 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
 - Phase 4 (next): Guess the Imposter.
 
 ## In progress
-Phase 4: Guess the Imposter content pack, engine, screens.
+Phase 5: Royal Rumble presets, resolver and session integration.
 
 ## Next three actions
 1. Blather Round (3-8, speed-decayed guesses).

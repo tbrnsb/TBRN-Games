@@ -50,6 +50,17 @@ import {
   speechSupported,
 } from "./speech.ts";
 import type { SettingsStorage } from "./settings.ts";
+import {
+  LARPER_MIN_PLAYERS,
+  TWO_IMPOSTERS_MIN_PLAYERS,
+  imposterAvailability,
+  imposterStartOptions,
+  keepUnavailableChoices,
+  normaliseImposterSettings,
+  readImposterSettings,
+  writeImposterSettings,
+  type ImposterHostSettings,
+} from "./imposter-settings.ts";
 
 console.log("[Screen] Module loaded");
 
@@ -184,6 +195,24 @@ const soundToggle = document.getElementById("soundToggle") as HTMLInputElement;
 const speechToggle = document.getElementById("speechToggle") as HTMLInputElement;
 const speechNote = document.getElementById("speechNote")!;
 
+// Guess the Imposter host options (shown only while that game is selected).
+const guessSettingsPanel = document.getElementById("guessSettings")!;
+const guessRoundsEl = document.getElementById("guessRounds") as HTMLSelectElement;
+const guessClueModeEl = document.getElementById("guessClueMode") as HTMLSelectElement;
+const guessClueRoundsEl = document.getElementById("guessClueRounds") as HTMLSelectElement;
+const guessTurnTimerEl = document.getElementById("guessTurnTimer") as HTMLSelectElement;
+const guessDiscussionEl = document.getElementById("guessDiscussion") as HTMLSelectElement;
+const guessImpostersEl = document.getElementById("guessImposters") as HTMLSelectElement;
+const guessNotFirstEl = document.getElementById("guessNotFirst") as HTMLInputElement;
+const guessNotLastEl = document.getElementById("guessNotLast") as HTMLInputElement;
+const guessRerandomiseEl = document.getElementById("guessRerandomise") as HTMLInputElement;
+const guessLarperEl = document.getElementById("guessLarper") as HTMLInputElement;
+const guessAnnounceLarperEl = document.getElementById("guessAnnounceLarper") as HTMLInputElement;
+const guessSeesCategoryEl = document.getElementById("guessSeesCategory") as HTMLInputElement;
+const guessSkipVotesEl = document.getElementById("guessSkipVotes") as HTMLInputElement;
+const guessSpokenEl = document.getElementById("guessSpoken") as HTMLInputElement;
+const guessNotesEl = document.getElementById("guessNotes")!;
+
 /** localStorage can throw in private mode; settings then live for this page. */
 const settingsStorage: SettingsStorage | null = (() => {
   try {
@@ -260,6 +289,89 @@ speechToggle.addEventListener("change", () => {
 
 applySettingControls();
 
+// --- Guess the Imposter host options ---
+
+/**
+ * The host's saved choices. The panel is only a view: role counts are kept
+ * here even when the room is too small for them, so growing the table brings
+ * the saved setting back instead of silently rewriting it.
+ */
+let imposterSettings: ImposterHostSettings = readImposterSettings(settingsStorage);
+
+/** Paint the panel from the saved settings. */
+function applyImposterSettings(): void {
+  guessRoundsEl.value = String(imposterSettings.rounds);
+  guessClueModeEl.value = imposterSettings.clueMode;
+  guessClueRoundsEl.value = String(imposterSettings.clueRounds);
+  guessTurnTimerEl.value = String(imposterSettings.turnTimerSec);
+  guessDiscussionEl.value = String(imposterSettings.discussionSec);
+  guessImpostersEl.value = String(imposterSettings.imposters);
+  guessNotFirstEl.checked = imposterSettings.imposterNotFirst;
+  guessNotLastEl.checked = imposterSettings.imposterNotLast;
+  guessRerandomiseEl.checked = imposterSettings.rerandomiseOrder;
+  guessLarperEl.checked = imposterSettings.includeLarper;
+  guessAnnounceLarperEl.checked = imposterSettings.announceLarper;
+  guessSeesCategoryEl.checked = imposterSettings.imposterSeesCategory;
+  guessSkipVotesEl.checked = imposterSettings.allowSkipVotes;
+  guessSpokenEl.checked = imposterSettings.spokenAnnouncements;
+  syncImposterAvailability();
+}
+
+/** Enable what the table size allows and say why anything is locked. */
+function syncImposterAvailability(): void {
+  const { larper, twoImposters } = imposterAvailability(playerCount);
+  guessLarperEl.disabled = !larper;
+  guessAnnounceLarperEl.disabled = !larper || !guessLarperEl.checked;
+  const twoOption = guessImpostersEl.querySelector<HTMLOptionElement>('option[value="2"]');
+  if (twoOption) twoOption.disabled = !twoImposters;
+
+  const notes: string[] = [];
+  if (!larper) {
+    notes.push(`The Larper needs ${LARPER_MIN_PLAYERS} players (you have ${playerCount}).`);
+  }
+  if (!twoImposters) {
+    notes.push(`A second Imposter needs ${TWO_IMPOSTERS_MIN_PLAYERS} players (you have ${playerCount}).`);
+  }
+  guessNotesEl.textContent = notes.join(" ");
+}
+
+/** Read the visible panel; validation stays in the shared settings module. */
+function readImposterPanel(): ImposterHostSettings {
+  return normaliseImposterSettings({
+    rounds: guessRoundsEl.value,
+    clueMode: guessClueModeEl.value,
+    clueRounds: guessClueRoundsEl.value,
+    turnTimerSec: guessTurnTimerEl.value,
+    discussionSec: guessDiscussionEl.value,
+    imposterNotFirst: guessNotFirstEl.checked,
+    imposterNotLast: guessNotLastEl.checked,
+    rerandomiseOrder: guessRerandomiseEl.checked,
+    includeLarper: guessLarperEl.checked,
+    announceLarper: guessAnnounceLarperEl.checked,
+    imposterSeesCategory: guessSeesCategoryEl.checked,
+    imposters: guessImpostersEl.value,
+    allowSkipVotes: guessSkipVotesEl.checked,
+    spokenAnnouncements: guessSpokenEl.checked,
+  });
+}
+
+/** Copy the panel into the saved settings and persist it. */
+function captureImposterSettings(): void {
+  imposterSettings = keepUnavailableChoices(imposterSettings, readImposterPanel(), playerCount);
+  writeImposterSettings(settingsStorage, imposterSettings);
+}
+
+for (const control of guessSettingsPanel.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+  "input, select",
+)) {
+  control.addEventListener("change", () => {
+    captureImposterSettings();
+    syncImposterAvailability();
+  });
+}
+
+applyImposterSettings();
+
 let manifests: GameManifestLite[] = [];
 
 async function loadGames(): Promise<void> {
@@ -327,6 +439,10 @@ function updateLaunchBar(): void {
   // Poker and Quiz are the games with host-tunable settings so far.
   document.getElementById("stackField")?.classList.toggle("hidden", game?.id !== "poker");
   document.getElementById("quizField")?.classList.toggle("hidden", game?.id !== "quiz");
+  // Guess the Imposter's options sit under the picker while it is selected.
+  const imposterSelected = game?.id === "guessimposter" && sessionView === null;
+  guessSettingsPanel.classList.toggle("hidden", !imposterSelected);
+  if (imposterSelected) syncImposterAvailability();
 
   if (!game) {
     startBtn.textContent = "Pick a game";
@@ -357,6 +473,7 @@ function applySession(view: SessionView | null): void {
   const inSession = view !== null;
   picker.classList.toggle("hidden", inSession);
   launchBar.classList.toggle("hidden", inSession);
+  guessSettingsPanel.classList.toggle("hidden", inSession || selectedGameId !== "guessimposter");
   shelfHead.classList.toggle("hidden", inSession);
   rumbleBtn.classList.toggle("hidden", inSession);
   gameCountEl.classList.toggle("hidden", inSession);
@@ -509,6 +626,11 @@ function hostOptionsFor(gameId: string, rumble = false): Record<string, unknown>
     // The Rumble always runs Fast mode; the standalone lobby uses the toggle.
     const fast = rumble || (document.getElementById("quizFastInput") as HTMLInputElement | null)?.checked === true;
     return { mode: fast ? "fast" : "standard" };
+  }
+  if (gameId === "guessimposter") {
+    // Commit whatever the panel currently shows before the game starts.
+    captureImposterSettings();
+    return imposterStartOptions(imposterSettings, { rumble });
   }
   if (gameId !== "poker") return {};
   const stack = Number((document.getElementById("stackInput") as HTMLInputElement | null)?.value);

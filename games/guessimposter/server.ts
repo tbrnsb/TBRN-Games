@@ -17,6 +17,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { captionFor } from "../../shared/interlude.ts";
 import { secureChoice, secureShuffle } from "../../shared/secure-random.ts";
 import { playerStatKey } from "../../shared/results.ts";
 import {
@@ -1085,6 +1086,9 @@ function publicReveal(instance: ImposterInstance): unknown {
       name: instance.players[guess.seat].name,
       correct: guess.correct === true,
       choice: guess.choice,
+      // Safe here: the word is already public at the reveal, and the TV shows
+      // the six options with the guesser's pick and the real answer marked.
+      options: [...guess.options],
     })),
     roundScores: instance.players.map((player, seat) => ({
       id: player.id,
@@ -1161,6 +1165,35 @@ function waitingOn(instance: ImposterInstance): string[] {
 
 function isRevealed(phase: Phase): boolean {
   return phase === "reveal" || phase === "finished";
+}
+
+/**
+ * One sound cue per beat. The screen plays a cue list only when its signature
+ * changes, so a phase can hold the same cue without replaying it every frame.
+ */
+function screenSound(state: ImposterState): string | null {
+  switch (state.phase) {
+    case "countdown":
+      return "whoosh";
+    case "voteReveal":
+      return "vote";
+    case "reveal":
+      return "reveal";
+    case "finished":
+      return "win";
+    default:
+      return null;
+  }
+}
+
+/**
+ * A short public caption after the word is out. It comes from the fixed
+ * `shared/interlude.ts` bank, which only interpolates a public name and count,
+ * so no word, lookalike or role can ride the caption to the TV.
+ */
+function screenCaption(state: ImposterState): string | null {
+  if (state.phase !== "reveal" || !state.wordResult) return null;
+  return captionFor({ kind: "reveal", seed: state.round });
 }
 
 function publicEjections(instance: ImposterInstance, revealed: boolean): unknown[] {
@@ -1347,6 +1380,9 @@ const plugin: GamePlugin = {
           selected: false,
         }))
       : [];
+    // Counts only: who voted for whom stays off the TV until the reveal.
+    const voters = state.phase === "vote" ? eligibleVoters(inst) : [];
+    const votesCast = voters.filter((seat) => state.votes[seat] !== null).length;
     const finalReveal = revealed ? publicReveal(inst) : null;
 
     return {
@@ -1406,6 +1442,9 @@ const plugin: GamePlugin = {
             options,
             optionColumns: options.length >= 7 ? 2 : 1,
             showVoteCounts: false,
+            // A progress count for the TV, never a per-candidate tally.
+            cast: votesCast,
+            total: voters.length,
           }
         : null,
       voteReveal: state.phase === "voteReveal" || state.phase === "finalGuess" || revealed
@@ -1431,6 +1470,9 @@ const plugin: GamePlugin = {
         name: player.name,
         score: state.scores[seat],
       })),
+      // Generic screen hooks (brief 3.8); both stay public in every phase.
+      caption: screenCaption(state),
+      sound: screenSound(state),
       finished: state.phase === "finished",
       winner: state.phase === "finished" ? inst.players[leaderSeat(state.scores)]?.name ?? null : null,
     };
@@ -1474,7 +1516,7 @@ const plugin: GamePlugin = {
     }
 
     if (state.phase === "countdown") {
-      return { ...base, mode: "wait", controllerType: "choice", options: [], info: "Look at your phone." };
+      return { ...base, mode: "wait", controllerType: "choice", options: [], info: "Get ready — your card is coming." };
     }
 
     if (state.phase === "peek") {

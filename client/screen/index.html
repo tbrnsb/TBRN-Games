@@ -744,6 +744,80 @@
       width: 84px; padding: 8px 10px; border-radius: 10px; font-size: 15px;
       background: rgba(255,255,255,.08); color: inherit; border: 1px solid rgba(255,255,255,.16);
     }
+    /* ---- Guess the Imposter host options ---- */
+    .guess-settings {
+      flex: 0 0 auto;
+      margin-top: 10px;
+      padding: 9px 12px 7px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      animation: rise 180ms ease both;
+    }
+    .guess-title {
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      margin-bottom: 5px;
+    }
+    .guess-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 3px 16px;
+    }
+    .guess-opt {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      font-size: 12px;
+      line-height: 1.35;
+      cursor: pointer;
+    }
+    .guess-opt > span {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .guess-opt.check {
+      justify-content: flex-start;
+      gap: 7px;
+    }
+    .guess-opt select {
+      flex: 0 0 auto;
+      max-width: 112px;
+      padding: 3px 4px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      color: inherit;
+      font: inherit;
+      font-size: 11px;
+    }
+    .guess-opt input[type="checkbox"] {
+      flex: 0 0 auto;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      accent-color: var(--color-magenta);
+    }
+    .guess-opt:has(input:disabled),
+    .guess-opt:has(select:disabled) { opacity: 0.45; cursor: not-allowed; }
+    .guess-opt select:focus-visible,
+    .guess-opt input:focus-visible {
+      outline: 2px solid var(--color-cyan);
+      outline-offset: 1px;
+    }
+    .guess-notes {
+      min-height: 13px;
+      margin-top: 4px;
+      font-size: 10px;
+      color: var(--color-amber);
+    }
+    .guess-notes:empty { min-height: 0; margin-top: 0; }
     /* ---- Below-minimum pause ---- */
     .pause-overlay {
       position: fixed;
@@ -1099,6 +1173,95 @@
         </div>
 
         <div class="picker" id="gamePicker"></div>
+        <section class="guess-settings hidden" id="guessSettings" aria-labelledby="guessSettingsTitle">
+          <p class="guess-title" id="guessSettingsTitle">Guess the Imposter options</p>
+          <div class="guess-grid">
+            <label class="guess-opt">
+              <span>Rounds</span>
+              <select id="guessRounds">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </label>
+            <label class="guess-opt">
+              <span>Clues</span>
+              <select id="guessClueMode">
+                <option value="spoken">Spoken</option>
+                <option value="typed">Typed</option>
+              </select>
+            </label>
+            <label class="guess-opt">
+              <span>Clue rounds</span>
+              <select id="guessClueRounds">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </label>
+            <label class="guess-opt">
+              <span>Turn timer</span>
+              <select id="guessTurnTimer">
+                <option value="10">10 s</option>
+                <option value="20">20 s</option>
+                <option value="30">30 s</option>
+                <option value="0">Off</option>
+              </select>
+            </label>
+            <label class="guess-opt">
+              <span>Discussion</span>
+              <select id="guessDiscussion">
+                <option value="30">30 s</option>
+                <option value="60">60 s</option>
+                <option value="90">90 s</option>
+                <option value="120">120 s</option>
+                <option value="180">180 s</option>
+              </select>
+            </label>
+            <label class="guess-opt">
+              <span>Imposters</span>
+              <select id="guessImposters" aria-describedby="guessNotes">
+                <option value="1">1</option>
+                <option value="2">2 (7+ players)</option>
+              </select>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessNotFirst" />
+              <span>Imposter can't go first</span>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessNotLast" />
+              <span>Imposter can't go last</span>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessRerandomise" />
+              <span>Re-randomise order</span>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessLarper" aria-describedby="guessNotes" />
+              <span>Include Larper (5+ players)</span>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessAnnounceLarper" />
+              <span>Announce a Larper is in play</span>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessSeesCategory" />
+              <span>Imposter sees the category</span>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessSkipVotes" />
+              <span>Allow skip votes</span>
+            </label>
+            <label class="guess-opt check">
+              <input type="checkbox" id="guessSpoken" />
+              <span>Spoken turn announcements</span>
+            </label>
+          </div>
+          <p class="guess-notes" id="guessNotes" role="status"></p>
+        </section>
         <div class="launch" id="launchBar">
           <div class="sel">
             <span class="k">Selected</span>
