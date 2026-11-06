@@ -58,6 +58,9 @@ Last gate: `npm test` 902/902 · typecheck clean · lint 0 errors (1020 warnings
   directions. Observed design: an away clue-holder in Guess the Imposter
   forfeits the turn to the next seat on the next tick (the rejoined phone
   acts when its turn returns).
+- CI: `.github/workflows/ci.yml` now runs `npm run probe` after the test
+  suite on both Ubuntu and Windows, so the 130-run every-game/every-N gate
+  is enforced on push and pull request.
 
 ## In progress
 Phase 6 verification.
