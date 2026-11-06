@@ -131,10 +131,47 @@ export interface SessionAwardView {
   detail: string;
 }
 
+/** One preset slot as the TV sees it, including a swap announcement. */
+export interface SessionSlotView {
+  /** The game the preset asked for. */
+  originalId: string;
+  originalName: string;
+  /** The game that will actually be played, or null when the slot was skipped. */
+  gameId: string | null;
+  gameName: string | null;
+  /** Start options already gated for the player count. */
+  options?: Record<string, unknown>;
+  /** One-line TV announcement when a slot was substituted. */
+  announcement: string | null;
+}
+
+/** One completed round, safe to show on the TV between games. */
+export interface SessionRoundView {
+  gameId: string;
+  gameName: string;
+  results: Array<{ playerId: string; name: string; place: number; points: number }>;
+  raw: Record<string, number>;
+  stats?: Record<string, Record<string, number>>;
+}
+
 export interface SessionView {
+  // --- Preset mode (the Rumble) ---
+  presetId: string;
+  presetName: string;
+  slots: SessionSlotView[];
+  /** Index of the current slot; equals `slots.length` when finished. */
+  slotIndex: number;
+  /** The game after the current slot, when one is already resolved. */
+  nextGameId: string | null;
+  /** Completed rounds so far. */
+  rounds: SessionRoundView[];
+  /** Whether the final surviving slot pays double placement points. */
+  lastGameDouble: boolean;
+
+  // --- Shared / kept stable for the current client ---
   length: number;
-  selection: "vote" | "random";
-  status: "voting" | "playing" | "finished";
+  selection: "vote" | "random" | "preset";
+  status: "voting" | "playing" | "interlude" | "finished";
   round: number;
   played: string[];
   currentGameId: string | null;

@@ -97,7 +97,7 @@ export interface InterludeGameInfo {
 
 /** The slice of `SessionView` the card needs; keeps this module decoupled. */
 export interface InterludeSessionLike {
-  status?: "voting" | "playing" | "finished";
+  status?: "voting" | "playing" | "interlude" | "finished";
   currentGameId?: string | null;
   leadingGameId?: string | null;
   candidates?: readonly InterludeGameInfo[];
