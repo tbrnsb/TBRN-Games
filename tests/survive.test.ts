@@ -336,7 +336,7 @@ describe("survive: scoring", () => {
     assert.strictEqual(result.stats["p2:votesReceived"], 0);
   });
 
-  test("maximum single-round score stays within 1500 at every N from 3 to 6", () => {
+  test("the 1500 round cap applies from five players; 3-4 keep the uncapped totals", () => {
     for (let count = 3; count <= 6; count++) {
       const instance = startPinned(count);
       submitAnswers(instance);
@@ -358,15 +358,26 @@ describe("survive: scoring", () => {
       const writerPayout = scalePayout(700, count);
       const quotedPayout = scalePayout(300, count);
       const expected = (count - 2) * writerPayout + quotedPayout;
+      const capped = count >= 5;
       assert.strictEqual(
         instance.state.scores[focus],
-        Math.min(expected, MAX_ROUND_SCORE),
-        `${count}: capped round gain`,
+        capped ? Math.min(expected, MAX_ROUND_SCORE) : expected,
+        `${count}: ${capped ? "capped" : "uncapped"} round gain`,
       );
 
-      const max = Math.max(...instance.state.scores);
-      assert.ok(max <= MAX_ROUND_SCORE, `${count}: ${max} exceeds ${MAX_ROUND_SCORE}`);
-      assert.ok(withinRoundBound(max), `${count}: sanity helper rejected ${max}`);
+      if (capped) {
+        const max = Math.max(...instance.state.scores);
+        assert.ok(max <= MAX_ROUND_SCORE, `${count}: ${max} exceeds ${MAX_ROUND_SCORE}`);
+        assert.ok(withinRoundBound(max), `${count}: sanity helper rejected ${max}`);
+      } else {
+        // 3-4 parity: the exact stacked total, with no cap applied.
+        const expectedScores = new Array<number>(count).fill(0);
+        expectedScores[focus] = expected;
+        expectedScores[1] = (count - 2) * quotedPayout;
+        expectedScores[count - 1] = writerPayout;
+        assert.deepStrictEqual(instance.state.scores, expectedScores, `${count}: exact uncapped scores`);
+      }
+
       assert.strictEqual(instance.state.stats["p0:votesReceived"], count - 2, `${count}: writer votes`);
       assert.strictEqual(instance.state.stats["p0:quotedVotes"], 1, `${count}: quoted votes`);
     }

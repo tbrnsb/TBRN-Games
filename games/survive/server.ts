@@ -254,10 +254,12 @@ function surviveSettle(instance: SurviveInstance): void {
     bumpStat(s, instance.players[author].id, "quotedVotes", votes);
   });
 
-  // A player can be paid in both roles in one round. The platform's round
-  // sanity rule (brief 3.3) caps their total round gain at 1500.
+  // A player can be paid in both roles in one round. From five players up the
+  // platform's round sanity rule (brief 3.3) caps their total round gain at
+  // 1500; 3 and 4 players keep the uncapped gain so their totals stay identical
+  // to the pre-change game, matching the other stacked-scoring games.
   roundGain.forEach((gain, index) => {
-    s.scores[index] += Math.min(gain, MAX_ROUND_SCORE);
+    s.scores[index] += count >= 5 ? Math.min(gain, MAX_ROUND_SCORE) : gain;
   });
 
   s.reveal = tally.map((votes, writer) => ({

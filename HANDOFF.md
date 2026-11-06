@@ -41,16 +41,19 @@ Last gate: `npm test` 822/822 · typecheck clean · lint 0 errors (954 warnings)
   Fakin' It (3), Frankenanswers (2) and Stowaway (4), keeping brief-ordered
   rule changes at all counts with the deviation logged. Tests corrected to
   the count-aware rule; a `Parity` row records the decision.
+- Phase 6 cap alignment: Survive's 1500 round-gain cap now applies only from
+  five players up, like Frankenanswers/Dumb Inventions/Bracket/Slogan Shirts;
+  3-4 keep uncapped totals for parity (a stacked 4-player round pays 1700).
+  Tests assert the exact uncapped vector at 3-4 and the cap at 5-6.
 
 ## In progress
 Phase 6 verification.
 
 ## Next three actions
-1. Survive's 1500 cap to N>=5 only (decision 41 was inconsistent with the
-   cap pattern in decisions 43/47/51/71).
-2. Rework the parity test with the fail-closed exemption list (7 games,
+1. Rework the parity test with the fail-closed exemption list (7 games,
    written reasons, still asserting round counts/caps/formulas).
-3. Disconnect/rejoin matrix, scaling bounds, layout checks, final critic.
+2. Disconnect/rejoin matrix, scaling bounds, layout checks.
+3. Final critic (family differs from authors).
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and
