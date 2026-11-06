@@ -8,3 +8,10 @@ coverage/
 Thumbs.db
 .playwright-mcp/
 .screenshots/
+
+design/shots/
+
+design/review/
+
+design/shots-*/
+design/all-games*.png

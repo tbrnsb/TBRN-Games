@@ -136,175 +136,110 @@ export function drawVictoryScreen(
 ): void {
   const scale = scaleForViewport(width, height);
   const centerX = width / 2;
+  const { winner, rankings, gameName } = screen.config;
+  const { winnerCard, rankings: rankAnims, gameName: nameAnim } = screen.animations;
 
-  // Darken the playfield so the result reads instantly from across a room.
   if (screen.animations.background.alpha > 0) {
     ctx.save();
-    ctx.fillStyle = `rgba(11, 8, 32, ${Math.min(0.94, screen.animations.background.alpha)})`;
+    ctx.fillStyle = `rgba(29, 27, 38, ${Math.min(0.9, screen.animations.background.alpha)})`;
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }
-
-  // Draw confetti particles
   drawParticles(ctx);
-
-  const { winner, rankings, gameName } = screen.config;
-  const { winnerCard, rankings: rankAnims, gameName: nameAnim } = screen.animations;
 
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // Game name
   if (nameAnim.alpha > 0) {
-    const size = scaledSize(24, scale);
-    ctx.font = `700 ${size}px ${fonts.title.family}`;
-    ctx.fillStyle = colors.textMuted;
     ctx.globalAlpha = nameAnim.alpha;
-    ctx.fillText(gameName.toUpperCase(), centerX, scaledSize(64, scale));
+    ctx.font = `700 ${scaledSize(24, scale)}px ${fonts.body.family}`;
+    ctx.fillStyle = "#FFF7E8";
+    ctx.fillText(gameName.toUpperCase(), centerX, scaledSize(52, scale));
   }
 
-  // Winner card
-  const cardWidth = Math.min(width * 0.74, scaledSize(720, scale));
-  const cardHeight = scaledSize(196, scale);
+  const cardWidth = Math.min(width * 0.72, scaledSize(760, scale));
+  const cardHeight = scaledSize(190, scale);
   const cardX = centerX - cardWidth / 2;
 
   if (winnerCard.alpha > 0) {
-    const cardY = height * 0.28 + winnerCard.y;
+    const cardY = height * 0.25 + winnerCard.y;
     const winnerColor = getPlayerColor(winner.playerIndex);
-
     ctx.globalAlpha = winnerCard.alpha;
     ctx.save();
     ctx.translate(centerX, cardY + cardHeight / 2);
     ctx.scale(winnerCard.scale, winnerCard.scale);
     ctx.translate(-centerX, -(cardY + cardHeight / 2));
 
-    const grad = ctx.createLinearGradient(cardX, cardY, cardX + cardWidth, cardY + cardHeight);
-    grad.addColorStop(0, winnerColor + "3D");
-    grad.addColorStop(1, winnerColor + "0D");
-    ctx.fillStyle = grad;
-    ctx.strokeStyle = winnerColor;
-    ctx.lineWidth = Math.max(2, scaledSize(3, scale));
-    roundRect(ctx, cardX, cardY, cardWidth, cardHeight, scaledSize(20, scale));
-    ctx.fill();
-    ctx.stroke();
+    ctx.shadowColor = colors.border;
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 10;
+    ctx.shadowOffsetY = 10;
+    ctx.fillStyle = colors.bg0;
+    ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
+    ctx.shadowColor = "transparent";
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.strokeStyle = colors.border;
+    ctx.lineWidth = Math.max(3, scaledSize(4, scale));
+    ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
 
-    ctx.shadowColor = winnerColor;
-    ctx.shadowBlur = scaledSize(28, scale);
-
-    ctx.font = `700 ${scaledSize(18, scale)}px ${fonts.title.family}`;
+    // Winner ink bar, not a gradient.
     ctx.fillStyle = winnerColor;
+    ctx.fillRect(cardX, cardY, cardWidth, scaledSize(12, scale));
+
     ctx.textAlign = "center";
+    ctx.font = `800 ${scaledSize(18, scale)}px ${fonts.title.family}`;
+    ctx.fillStyle = colors.border;
     ctx.fillText("WINNER", centerX, cardY + scaledSize(38, scale));
 
-    ctx.font = `700 ${scaledSize(56, scale)}px ${fonts.display.family}`;
+    ctx.font = `800 ${scaledSize(56, scale)}px ${fonts.display.family}`;
     ctx.fillStyle = colors.text;
     ctx.fillText(winner.name, centerX, cardY + scaledSize(96, scale));
-    ctx.shadowBlur = 0;
 
     const suffix = screen.config.scoreSuffix ? ` ${screen.config.scoreSuffix}` : "";
-    ctx.font = `500 ${scaledSize(22, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = colors.textMuted;
-    ctx.fillText(`${winner.score}${suffix}`, centerX, cardY + scaledSize(146, scale));
-
+    ctx.font = `700 ${scaledSize(22, scale)}px ${fonts.body.family}`;
+    ctx.fillStyle = colors.danger;
+    ctx.fillText(`${winner.score}${suffix}`, centerX, cardY + scaledSize(142, scale));
     ctx.restore();
   }
 
-  // Rankings panel — sized to its content so it never looks half empty.
-  const panelTop = Math.min(height * 0.56, height * 0.28 + cardHeight + scaledSize(24, scale));
-  const panelBottom = height - scaledSize(44, scale);
-  const pad = scaledSize(20, scale);
-  const maxRowH = scaledSize(58, scale);
-  const contentRowH = Math.min(maxRowH, (panelBottom - panelTop - pad * 2) / Math.max(1, rankings.length));
-  const panelHeight = Math.min(panelBottom - panelTop, pad * 2 + contentRowH * rankings.length);
-
-  ctx.globalAlpha = nameAnim.alpha;
-  ctx.fillStyle = "rgba(18,13,46,0.86)";
-  ctx.strokeStyle = colors.border;
-  ctx.lineWidth = 1;
-  roundRect(ctx, cardX, panelTop, cardWidth, panelHeight, scaledSize(18, scale));
-  ctx.fill();
-  ctx.stroke();
   ctx.globalAlpha = 1;
+  const panelTop = Math.min(height * 0.56, height * 0.25 + cardHeight + scaledSize(28, scale));
+  const rowH = Math.min(scaledSize(48, scale), (height - panelTop - scaledSize(30, scale)) / Math.max(1, rankings.length));
+  const panelW = Math.min(width * 0.58, scaledSize(620, scale));
+  const panelX = centerX - panelW / 2;
 
-  const rowH = contentRowH;
-
-  for (let i = 0; i < rankings.length; i++) {
-    const entry = rankings[i];
+  rankings.forEach((entry, i) => {
     const anim = rankAnims[i];
-    if (anim.alpha === 0) continue;
-
-    const y = panelTop + pad + rowH * i + rowH / 2 + anim.y;
-    const color = getPlayerColor(entry.playerIndex);
-
+    if (!anim || anim.alpha <= 0) return;
+    const y = panelTop + i * rowH + anim.y;
     ctx.globalAlpha = anim.alpha;
-    ctx.save();
+    ctx.fillStyle = "rgba(244,235,217,0.94)";
+    ctx.fillRect(panelX, y, panelW, rowH - scaledSize(5, scale));
+    ctx.strokeStyle = colors.border;
+    ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+    ctx.strokeRect(panelX, y, panelW, rowH - scaledSize(5, scale));
 
-    if (entry.isWinner) {
-      ctx.fillStyle = colors.success + "1F";
-      roundRect(ctx, cardX + pad * 0.5, y - rowH / 2 + scaledSize(2, scale), cardWidth - pad, rowH - scaledSize(4, scale), scaledSize(10, scale));
-      ctx.fill();
-    }
+    ctx.fillStyle = getPlayerColor(entry.playerIndex);
+    ctx.fillRect(panelX + scaledSize(10, scale), y + scaledSize(7, scale), scaledSize(28, scale), rowH - scaledSize(19, scale));
+    ctx.strokeStyle = colors.border;
+    ctx.strokeRect(panelX + scaledSize(10, scale), y + scaledSize(7, scale), scaledSize(28, scale), rowH - scaledSize(19, scale));
 
-    // Rank badge
-    const badgeSize = Math.min(scaledSize(32, scale), rowH * 0.62);
-    const badgeX = cardX + pad;
-    ctx.fillStyle = entry.isWinner ? colors.success : color;
-    roundRect(ctx, badgeX, y - badgeSize / 2, badgeSize, badgeSize, scaledSize(8, scale));
-    ctx.fill();
-    ctx.font = `700 ${Math.max(scaledSize(11, scale), badgeSize * 0.46)}px ${fonts.display.family}`;
-    ctx.fillStyle = colors.bg0;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(entry.rank), badgeX + badgeSize / 2, y + 1);
-
-    // Name
-    const nameX = badgeX + badgeSize + scaledSize(16, scale);
-    ctx.font = `600 ${scaledSize(20, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = entry.isWinner ? colors.success : colors.text;
     ctx.textAlign = "left";
-    ctx.fillText(entry.name, nameX, y);
+    ctx.font = `700 ${scaledSize(18, scale)}px ${fonts.body.family}`;
+    ctx.fillStyle = colors.text;
+    ctx.fillText(`${entry.rank}. ${entry.name}`, panelX + scaledSize(50, scale), y + (rowH - scaledSize(5, scale)) / 2);
 
-    // Score
-    const suffix = screen.config.scoreSuffix ? ` ${screen.config.scoreSuffix}` : "";
-    ctx.font = `700 ${scaledSize(20, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = entry.isWinner ? colors.success : colors.textMuted;
     ctx.textAlign = "right";
-    ctx.fillText(`${entry.score}${suffix}`, cardX + cardWidth - pad, y);
-
-    ctx.restore();
-  }
+    ctx.font = `800 ${scaledSize(22, scale)}px ${fonts.display.family}`;
+    ctx.fillStyle = colors.danger;
+    ctx.fillText(String(entry.score), panelX + panelW - scaledSize(14, scale), y + (rowH - scaledSize(5, scale)) / 2);
+  });
 
   ctx.restore();
 }
 
-export function isVictoryScreenDone(screen: VictoryScreen): boolean {
-  return screen.state === "exiting";
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-): void {
-  const radius = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
-// --- Helper to build ranked entries from game state ---
 export function buildRankedEntries(
   players: Array<{ name: string; score: number }>,
   winnerName: string | null

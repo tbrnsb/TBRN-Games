@@ -1,79 +1,81 @@
 # TBRN-Games Handoff
 
 ## Current Phase
-Visual overhaul and Royal Rumble sessions are complete. All 18 game renderers,
-the host lobby and the phone controller share one visual language, and a room
-can play a 5/8/all-game series with phone votes or random picks.
+Visual language v2 (paper-and-ink) is in an isolated worktree. V0 foundation,
+V1 table/lobby, V2 controller shell and V3 Quiz are implemented. Next is V4
+Racing, then the remaining existing games.
 
 ## Last Commit
-`1266aeb` (Royal Rumble sessions) — all commits are local; nothing is pushed.
+`5c7bfff` on `visual-overhaul`. The paper overhaul is uncommitted on branch
+`paper-overhaul` in
+`/home/sulav/.local/share/opencode/worktree/c248ff/paper-overhaul`.
 
 ## Done
-- **Royal Rumble engine** (`server/session.ts`): eligible-game candidates,
-  vote/random selection, 10/6/3/1 placement points, round abort, champion
-  tie-break (points → wins → best single round → name), and trophies: Most Wins,
-  Podium Regular, Wooden Spoon, High Roller, Most Accurate (quiz answers).
-- **Session transport** (`server/index.ts`): per-room `roomSessions`, `session` /
-  `session-vote` messages, host-token `POST /session/start`, `/session/end`,
-  `/end-game`; scoring on game finish; abort without points; cleanup on room
-  deletion and disconnect; new seats blocked while a rumble is active.
-- **Host screen**: Royal Rumble setup (5 / 8 / All, Vote / Random), live vote
-  board, standings, Start round, End rumble, final champion/trophy board, and a
-  double-confirm End game button in the top bar.
-- **Phone controller**: votable session card with live counts, your points,
-  final champion/trophies and "you finished #n"; returns to voting when a game
-  finishes; rejoin restores the session view.
-- **18 game plugins** under `games/*/server.ts`; all pass the automated
-  playthrough, manifest, garbage-input and privacy probes.
-- **Server hardening**: host-token start auth, unique room names, per-game
-  try/catch, result hold, local QR generation, optional TLS, local fonts.
-- **Tests**: 101/101 pass, including 11 pure session-engine tests and a real
-  socket/HTTP session flow (vote → start → abort → play → score → clear).
+- **Kit** (`client/kit/`): paper/ink tokens, textures, props, text-fit, sound
+  manager, motion, player tokens, Mox host, box art, shelf, ratchet counter,
+  flecks, victory podium.
+- **Assets**: 22 Latin font faces, 10 papers, wood, grain, halftone, 10 generated
+  props; `ASSETS.md` covers 344 files; `npm run assets:check` passes.
+- **Skins**: 18 existing game skins in `client/skins/<game>/skin.ts`.
+- **Lobby**: wood table, paper join ticket, luggage-tag code, QR sticker, player
+  tokens, Mox, audio gate, credits sheet, 18 game boxes with per-game paper/inks.
+- **Controller**: paper app bar with player token, status ribbon, stamped
+  one-button/left-right/dpad/choice/text/card/grid controls, paper session card,
+  haptics, tape/pin/scribble details.
+- **All 18**: the shared legacy canvas kit now paints paper backgrounds, paper
+  score cards, hard shadows, per-game paper/inks/display fonts, paper title and
+  victory screens. Per-game playfield art is still the next pass.
+- **Quiz (V3)**: DOM-only paper renderer (old canvas path deleted); question,
+  answers, score tags, timer, reveal stamps, Mox host lines, final champion.
+- **Compliance**: removed obsolete synthwave controller font-face/gradient/glow
+  rules; generic fallback and player colours moved to paper tokens; token faces
+  seeded by player id; high-contrast toggle; `?debug=1` FPS overlay.
+- **Royal Rumble** sheets restyled as paper; logic untouched.
+- **Tooling**: `npm run shots` (start/live/controller), `assets:check`,
+  `check:design` (contrast, text-fit, overflow, console, 4× CPU, reload heap).
 
 ## In Progress
-- None.
+- None. Racing and the remaining 13 active game renderers still use the old
+  synthwave kit. The four dropped games are legacy.
+- Phase discipline: V0–V3 were bundled in this worktree; V4 onward is one
+  phase/game per session.
 
 ## Next Three Actions
-1. Playtest a full rumble on real phones on the same LAN.
-2. Decide whether sessions should survive a server restart (currently in-memory).
-3. Consider pruning candidates if enough players leave that a candidate no
-   longer fits; the roster is otherwise frozen for the life of a rumble.
+1. Build V4 Racing as the action-game reference (canvas + DOM overlay).
+2. Rebuild the remaining existing game renderers one per pass: Poker, Snakes,
+   Golf, Darts, Archery, Write & Vote, Bluff, Most Likely To, Guess Who,
+   Hangman, Spin War, Knife Throw.
+3. Delete the old synthwave kit/fonts after the last migration.
 
 ## How to Run & Test
 ```bash
-cd /home/sulav/Projects/TBRN-Games
-npm run typecheck   # 0 errors
-npm run lint        # 0 errors (93 warnings)
-npm test            # 101/101 pass
-npm run probe       # 0 issues
-PORT=3100 npm start # server
+cd /home/sulav/.local/share/opencode/worktree/c248ff/paper-overhaul
+npm run typecheck     # 0 errors
+npm run lint          # 0 errors, 93 warnings
+npm test              # 101/101 pass
+npm run assets:check  # 344 files covered
+npm run check:design  # PASS
+npm run shots         # SHOT_GAMES=quiz for one game
+PORT=3101 npm start
 ```
-Open `http://localhost:3100` on the laptop; phones open `/controller?room=<CODE>`
-or scan the QR code.
+Open `http://localhost:3101`.
 
 ## Failing Tests / Known Issues
 - No failing tests.
-- Independent critic review: 9/10, no blockers. The `reviewer` subagent could
-  not run (model usage limit), so the critic also served as the read-only review.
-- Rumble state is in memory; a server restart clears the series.
-- The session roster is fixed at start; a player who leaves and does not rejoin
-  stays in the standings with their existing points.
-- Browser UI was exercised manually with Playwright (host + two phone contexts),
-  but that flow is not part of `npm test`.
-- Legacy scaffold (`public/`, `src/`, `test/`, `dist/`) stays excluded from
-  typecheck.
+- Unmigrated game renderers still draw synthwave scenes. Do not demo them next
+  to the new lobby/controller/Quiz until V4/V5.
+- The controller has the paper shell but not the new slider/rank/draw/chat/role/
+  aim primitives from `GAMES-SPEC-2.md`; those belong to the new-game stream.
+- `npm run check:design` does not yet do the memory/restart check from the spec.
+- The four dropped games have skins but will not be migrated.
 
 ## Decisions Made
-1. Rumble lengths are 5, 8 or all eligible games.
-2. Points are 10 / 6 / 3 / 1 by placement; champion ties break by wins, then best
-   single round, then name.
-3. Each round is chosen by one private phone vote per player or by random pick.
-4. End game aborts the round without points and reopens voting for the same round.
-5. New phones cannot take a fresh seat mid-rumble; rejoin tokens still work.
-6. Trophies are honorary: Most Wins, Podium Regular, Wooden Spoon, High Roller,
-   and Most Accurate when a quiz round was played.
-7. The server remains the only authority for votes, points and hidden state.
+1. Paper + 2 spot inks + ink-black; no gradients, glow, blur or soft shadows.
+2. House fonts: Bricolage Grotesque, Atkinson Hyperlegible, Permanent Marker.
+3. Canvas for action; DOM/CSS/SVG for text-heavy games (`renderDom`).
+4. One skin file per game; skins are data.
+5. Worktree isolation keeps the concurrent Game Feel/new-game stream separate.
 
 ## Open Questions for Human
-1. Should a rumble survive a server restart?
-2. Should game-point weights change for longer series?
+1. Review V1/V2/V3 before V4; especially Mox placement and Quiz option density.
+2. Confirm whether the dropped four games keep skins at all.

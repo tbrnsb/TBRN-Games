@@ -88,8 +88,15 @@ async function loadPlugin(gameId: string): Promise<GamePlugin> {
 
 async function loadRenderer(gameId: string): Promise<((...args: unknown[]) => void) | null> {
   const mod = (await import(join(gamesDir, gameId, "screen.ts"))) as Record<string, unknown>;
-  const names = Object.keys(mod).filter((name) => name.startsWith("render") && typeof mod[name] === "function");
+  const names = Object.keys(mod).filter(
+    (name) => name.startsWith("render") && typeof mod[name] === "function" && name !== "renderDom" && name !== "renderDOM",
+  );
   return names.length === 1 ? (mod[names[0]] as (...args: unknown[]) => void) : null;
+}
+
+async function hasDomRenderer(gameId: string): Promise<boolean> {
+  const mod = (await import(join(gamesDir, gameId, "screen.ts"))) as Record<string, unknown>;
+  return typeof mod.renderDom === "function" || typeof mod.renderDOM === "function";
 }
 
 describe("screen renderers: draw real state at both target resolutions", () => {
@@ -97,7 +104,9 @@ describe("screen renderers: draw real state at both target resolutions", () => {
     test(`${gameId}: renders without throwing`, async () => {
       const plugin = await loadPlugin(gameId);
       const renderer = await loadRenderer(gameId);
-      assert.ok(renderer, `${gameId}: expected exactly one render* export`);
+      const domOnly = await hasDomRenderer(gameId);
+      assert.ok(renderer || domOnly, `${gameId}: expected a canvas render or a renderDom export`);
+      if (!renderer) return; // DOM-only renderer is covered by browser shots.
 
       const players = makePlayers(Math.max(2, plugin.manifest.minPlayers));
       const instance = plugin.onStart(makeRoom(players, gameId), players);

@@ -3,685 +3,472 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="TBRN-Games — Shared Screen">
+  <meta name="description" content="TBRN-Games — Game Night table">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <title>TBRN-Games</title>
+  <link rel="stylesheet" href="/assets/fonts/fonts.css">
+  <link rel="stylesheet" href="/client/kit/kit.css">
+  <script type="importmap">
+    {"imports":{"@kit/":"/client/kit/","@legacy-kit/":"/client/screen/kit/"}}
+  </script>
+  <title>TBRN Games — Game Night</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    @font-face {
-      font-family: "Space Grotesk";
-      src: url("/assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2");
-      font-weight: 500; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Space Grotesk";
-      src: url("/assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
-      font-weight: 700; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Inter";
-      src: url("/assets/fonts/inter-latin-400-normal.woff2") format("woff2");
-      font-weight: 400; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Inter";
-      src: url("/assets/fonts/inter-latin-600-normal.woff2") format("woff2");
-      font-weight: 600; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Orbitron";
-      src: url("/assets/fonts/orbitron-latin-700-normal.woff2") format("woff2");
-      font-weight: 700; font-style: normal; font-display: swap;
-    }
-    :root {
-      --ink: #07050F;
-      --color-bg0: #0B0820;
-      --color-bg1: #140F33;
-      --color-surface: #1B1545;
-      --color-surface-hi: #2A1F6B;
-      --color-border: rgba(255,255,255,0.08);
-      --color-text: #F5F3FF;
-      --color-text-muted: #A29BCF;
-      --color-magenta: #FF2E97;
-      --color-cyan: #00E5FF;
-      --color-violet: #8B5CF6;
-      --color-amber: #FFB347;
-      --color-success: #3DFFA2;
-      --color-danger: #FF4D6D;
-      --font-display: "Space Grotesk", sans-serif;
-      --font-body: "Inter", sans-serif;
-      --font-title: "Orbitron", sans-serif;
-      --radius-card: 16px;
-      --radius-chip: 10px;
-      --radius-pill: 9999px;
-    }
+    :root { --stage-w: 1280px; --stage-h: 666px; }
     html, body { height: 100%; }
     body {
-      font-family: var(--font-body);
-      background: var(--ink);
-      color: var(--color-text);
-      overflow: hidden;
       display: flex;
       flex-direction: column;
-      position: relative;
+      min-height: 100dvh;
+      background-color: #3a2418;
+      background-image: var(--wood);
+      background-size: 512px 512px;
     }
-    /* One glow, one grid. Everything else stays quiet. */
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -20% 40% 40% -20%;
-      background: radial-gradient(circle at 30% 35%, rgba(255,46,151,0.20), transparent 62%);
-      pointer-events: none;
-      z-index: 0;
-    }
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
-      background-size: 64px 64px;
-      mask-image: linear-gradient(to bottom, black, transparent 88%);
-      pointer-events: none;
-      z-index: 0;
-    }
+    main { flex: 1; min-height: 0; display: flex; }
+
     .topbar {
-      flex: 0 0 auto;
-      height: clamp(54px, 3.9vw, 66px);
+      height: 64px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0 clamp(20px, 1.9vw, 30px);
-      border-bottom: 1px solid var(--color-border);
+      gap: 18px;
+      padding: 0 24px;
       position: relative;
-      z-index: 1;
+      z-index: 20;
+      color: #fff7e8;
     }
-    .wordmark {
-      font-family: var(--font-title);
-      font-size: clamp(13px, 0.95vw, 18px);
-      letter-spacing: 0.18em;
-      color: var(--color-text);
+    .brand {
+      font-family: var(--font-house-display);
+      font-weight: 800;
+      font-size: 24px;
+      letter-spacing: -.02em;
       display: flex;
-      gap: 8px;
       align-items: baseline;
+      gap: 7px;
+      padding: 5px 12px 6px;
+      background: #f4ebd9;
+      color: var(--ink);
+      border: 3px solid var(--ink);
+      box-shadow: 4px 4px 0 rgba(0,0,0,.5);
+      rotate: -1deg;
     }
-    .wordmark b { color: var(--color-magenta); font-weight: 700; }
-    .live {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: clamp(11px, 0.8vw, 15px);
-      letter-spacing: 0.02em;
-      color: var(--color-text-muted);
+    .brand span { color: var(--ink-1); font-size: 15px; letter-spacing: .04em; }
+    .topbar-spacer { flex: 1; }
+    .top-tag {
+      display: flex; align-items: center; gap: 10px;
+      color: #fff7e8; font-weight: 700; font-size: 17px;
     }
-    .live .dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--color-success);
-      box-shadow: 0 0 10px var(--color-success);
-      animation: pulse 2.6s ease-in-out infinite;
+    .top-tag .dot { width: 10px; height: 10px; border-radius: 50%; background: #2fb56a; border: 2px solid var(--ink); }
+    .top-tag .dot.off { background: #8a7a66; }
+    .topbtn {
+      appearance: none; border: 2px solid #f4ebd9; background: transparent; color: #fff7e8;
+      font-family: var(--font-house-body); font-weight: 700; font-size: 15px;
+      padding: 7px 12px; cursor: pointer; box-shadow: 3px 3px 0 rgba(0,0,0,.4);
     }
-    main {
-      flex: 1;
-      min-height: 0;
-      position: relative;
-      z-index: 1;
-      display: flex;
+    .topbtn:hover { background: #f4ebd9; color: var(--ink); }
+    .topbtn.confirm { background: var(--ink-1); color: #fff7e8; border-color: var(--ink); }
+
+    html.high-contrast .paper-surface,
+    html.high-contrast .paper-card,
+    html.high-contrast .join,
+    html.high-contrast .shelf,
+    html.high-contrast .game-box,
+    html.high-contrast .controllerArea,
+    html.high-contrast .qz-paper {
+      --paper: #FFFFFF !important;
+      --paper-ink: #1D1B26 !important;
+      --ink-1: #1D1B26 !important;
+      --ink-2: #1D1B26 !important;
+      --paper-texture: none !important;
+      background-image: none !important;
     }
-    .lobby {
-      flex: 1;
-      min-height: 0;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
+    html.high-contrast .room-tag,
+    html.high-contrast .tape-label,
+    html.high-contrast .sticky-note { background: #FFFFFF !important; }
+    html.high-contrast .shelf {
+      background: #FFFFFF !important;
+      background-image: none !important;
     }
-    /* Fixed 16:9 design stage, scaled to fit — the same trick as the game
-       canvas, so the composition survives 720p and a TV. */
+    html.high-contrast .box-art-svg,
+    html.high-contrast .game-box,
+    html.high-contrast .mox-figure,
+    html.high-contrast .brand { filter: grayscale(1); }
+    html.high-contrast .body,
+    html.high-contrast body { background-image: none !important; background-color: #1D1B26; }
+    html.high-contrast .game-box.disabled { opacity: .55; }
+
+    .lobby { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
     .lobby-stage {
-      flex: 0 0 auto;
-      width: 1280px;
-      height: 666px;
-      padding: 22px 28px 24px;
+      width: var(--stage-w); height: var(--stage-h);
+      padding: 18px 22px 22px;
       display: grid;
-      grid-template-columns: 356px minmax(0, 1fr);
-      gap: 34px;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 24px;
       transform-origin: center center;
-    }
-    .join {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      padding-left: 18px;
-      border-left: 3px solid var(--color-magenta);
-      animation: rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    }
-    .join-kicker {
-      font-size: 12px;
-      color: var(--color-text-muted);
-      letter-spacing: 0.01em;
-    }
-    .room-code {
-      font-family: var(--font-title);
-      font-size: clamp(44px, 5.4vw, 76px);
-      line-height: 1;
-      letter-spacing: 0.05em;
-      color: var(--color-text);
-      text-shadow: 0 0 26px rgba(255, 46, 151, 0.5);
-      margin: 8px 0 16px;
-    }
-    .ticket {
-      width: min(100%, 238px);
-      background: #F5F3FF;
-      color: #0B0820;
-      border-radius: 12px;
-      padding: 12px;
       position: relative;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
     }
-    .ticket::before {
-      content: "";
-      position: absolute;
-      inset: 6px 6px 42px 6px;
-      border: 1px dashed rgba(11, 8, 32, 0.28);
-      border-radius: 8px;
-      pointer-events: none;
+
+    .join {
+      position: relative;
+      display: flex; flex-direction: column;
+      padding: 18px 18px 14px;
+      border: 3px solid var(--ink);
+      border-radius: 7px 10px 5px 9px;
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      box-shadow: 8px 8px 0 rgba(0,0,0,.55);
+      rotate: -0.8deg;
+      min-height: 0;
     }
-    .ticket img {
-      width: 100%;
-      aspect-ratio: 1;
-      display: block;
-      border-radius: 4px;
+    .join-kicker { font-size: 16px; font-weight: 700; margin: 0; }
+    .join-prop { position: absolute; pointer-events: none; z-index: 0; }
+    .join-coffee { width: 130px; right: -14px; bottom: 86px; opacity: .34; rotate: 7deg; }
+    .join-pin { width: 24px; right: 10px; top: -9px; rotate: 12deg; }
+    .join > *:not(.join-prop) { position: relative; z-index: 1; }
+    .room-tag {
+      position: relative;
+      align-self: flex-start;
+      margin: 7px 0 12px 4px;
+      padding: 6px 18px 7px 14px;
+      background: #fbe7a1;
+      border: 3px solid var(--ink);
+      box-shadow: 4px 4px 0 rgba(29,27,38,.35);
+      font-family: var(--font-house-display);
+      font-size: 44px;
+      line-height: 1;
+      letter-spacing: .06em;
+      rotate: 1deg;
     }
-    .ticket .url {
-      font-family: var(--font-body);
-      font-size: 11.5px;
-      line-height: 1.45;
-      color: #3A2E63;
-      word-break: break-all;
-      margin-top: 9px;
-      text-align: center;
+    .room-tag::before {
+      content: ""; position: absolute; left: -10px; top: 50%; width: 8px; height: 8px;
+      border: 3px solid var(--ink); border-radius: 50%; background: var(--paper); transform: translateY(-50%);
     }
-    .scan-note {
-      margin-top: 9px;
-      font-size: 12px;
-      color: var(--color-text-muted);
+    .room-tag::after {
+      content: ""; position: absolute; left: -48px; top: 50%; width: 40px; height: 3px;
+      background: var(--ink); transform: translateY(-50%) rotate(6deg);
     }
-    .scan-note b { color: var(--color-text); font-weight: 600; }
-    .roster {
-      margin-top: auto;
-      padding-top: 18px;
+    .qr-sticker {
+      position: relative;
+      width: 206px;
+      align-self: center;
+      padding: 10px 10px 8px;
+      background: #fffdf5;
+      border: 3px solid var(--ink);
+      box-shadow: 5px 5px 0 rgba(29,27,38,.35);
+      rotate: 1.6deg;
     }
-    .roster h2 {
-      font-family: var(--font-display);
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--color-text-muted);
-      margin-bottom: 9px;
+    .qr-sticker img { width: 100%; aspect-ratio: 1; display: block; }
+    .qr-sticker .scan-arrow {
+      position: absolute; right: -48px; top: 18px; width: 54px; rotate: 4deg;
     }
-    .seats { display: flex; flex-direction: column; gap: 6px; }
+    .url {
+      margin: 8px 0 0; font-size: 12px; line-height: 1.25; text-align: center;
+      font-family: var(--font-house-body); color: var(--ink); opacity: .78;
+      overflow-wrap: anywhere;
+    }
+    .scan-note { margin: 9px 0 0; font-size: 14px; line-height: 1.2; text-align: center; }
+
+    .roster { margin-top: auto; padding-top: 8px; }
+    .roster h2 { margin: 0 0 7px; font-family: var(--font-house-display); font-size: 18px; font-weight: 800; }
+    .seats { display: flex; gap: 4px; align-items: flex-end; min-height: 76px; }
     .seat {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 38px;
-      padding: 6px 9px;
-      border-radius: 8px;
-      border: 1px solid transparent;
+      width: 72px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
+      position: relative;
     }
-    .seat.filled {
-      background: rgba(27, 21, 69, 0.62);
-      border-color: rgba(255, 255, 255, 0.07);
-    }
-    .seat .swatch {
-      width: 26px; height: 26px;
-      border-radius: 6px;
-      display: grid;
-      place-items: center;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 12px;
-      color: var(--ink);
-      flex: 0 0 auto;
-    }
-    .seat .nm {
-      font-family: var(--font-display);
-      font-weight: 500;
-      font-size: 15px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .seat .st {
-      margin-left: auto;
-      font-size: 11px;
-      color: var(--color-text-muted);
-      white-space: nowrap;
-    }
-    .seat.empty {
-      border: 1px dashed rgba(255, 255, 255, 0.11);
-      color: rgba(162, 155, 207, 0.55);
-    }
+    .seat .player-token { width: 64px; height: 74px; }
+    .seat .nm { font-size: 12px; font-weight: 700; line-height: 1.1; text-align: center; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .seat .st { font-size: 10px; opacity: .65; text-transform: lowercase; }
+    .seat.empty { justify-content: flex-end; padding-bottom: 8px; }
     .seat.empty .swatch {
-      background: transparent;
-      border: 1px dashed rgba(255, 255, 255, 0.16);
-      color: rgba(162, 155, 207, 0.6);
-      font-weight: 500;
+      width: 44px; height: 54px; border: 2px dashed rgba(29,27,38,.38); border-radius: 4px;
+      display: grid; place-items: center; font-size: 24px; opacity: .55;
     }
+    .seat.empty .nm { opacity: .55; }
+
     .shelf {
-      display: flex;
-      flex-direction: column;
+      position: relative;
       min-height: 0;
+      display: flex; flex-direction: column;
+      padding: 12px 14px 10px;
+      border: 3px solid var(--ink);
+      border-radius: 6px 9px 5px 8px;
+      background: #e7e0cc;
+      background-image: url("/assets/paper/newsprint.webp");
+      background-size: 512px 512px;
+      box-shadow: 8px 8px 0 rgba(0,0,0,.55);
+      rotate: 0.35deg;
     }
-    .shelf-head {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    .shelf-head h2 {
-      font-family: var(--font-display);
-      font-size: 21px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-    }
-    .shelf-head .count { font-size: 12px; color: var(--color-text-muted); }
-    .topbar-right { display: flex; align-items: center; gap: 14px; }
-    .top-action {
-      height: 32px;
-      padding: 0 13px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 77, 109, 0.45);
-      background: rgba(255, 77, 109, 0.08);
-      color: var(--color-danger);
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .top-action.confirm { background: var(--color-danger); color: var(--ink); }
-    .shelf-tools { display: flex; align-items: center; gap: 12px; }
+    .shelf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .shelf-head h2 { margin: 0; font-family: var(--font-house-display); font-size: 34px; font-weight: 800; line-height: .95; }
+    .shelf-tools { display: flex; align-items: center; gap: 10px; }
+    .count { font-size: 15px; font-weight: 700; opacity: .7; }
     .rumble-btn {
-      height: 30px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 46, 151, 0.45);
-      background: rgba(255, 46, 151, 0.08);
-      color: var(--color-magenta);
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 11px;
-      cursor: pointer;
+      appearance: none; border: 3px solid var(--ink); background: var(--ink-2); color: #fff7e8;
+      font-family: var(--font-house-display); font-weight: 800; font-size: 16px;
+      padding: 6px 12px; cursor: pointer; box-shadow: 3px 3px 0 var(--ink); rotate: 1deg;
     }
-    .rumble-setup {
-      margin: 8px 0 10px;
-      padding: 14px 16px;
-      border: 1px solid var(--color-border);
-      border-radius: 12px;
-      background: rgba(27, 21, 69, 0.72);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .setup-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      font-size: 12px;
-      color: var(--color-text-muted);
-    }
-    .seg { display: inline-flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
-    .seg button {
-      height: 30px;
-      padding: 0 14px;
-      border: 0;
-      background: transparent;
-      color: var(--color-text-muted);
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 12px;
-      cursor: pointer;
-    }
-    .seg button.on { background: var(--color-magenta); color: var(--ink); }
-    .setup-actions { display: flex; justify-content: flex-end; gap: 8px; }
-    .ghost {
-      height: 34px;
-      padding: 0 14px;
-      border-radius: 8px;
-      border: 1px solid var(--color-border);
-      background: transparent;
-      color: var(--color-text);
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 12px;
-      cursor: pointer;
-    }
-    .primary {
-      height: 36px;
-      padding: 0 18px;
-      border: 0;
-      border-radius: 8px;
-      background: var(--color-magenta);
-      color: var(--ink);
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .primary:disabled { background: rgba(255, 255, 255, 0.08); color: rgba(245, 243, 255, 0.35); cursor: not-allowed; }
-    .hint { font-size: 11px; color: var(--color-text-muted); }
-    .hint.error { color: var(--color-danger); }
-    .session { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-    .session-head { display: flex; align-items: flex-end; justify-content: space-between; }
-    .session-head .k { display: block; font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px; }
-    .session-head strong { font-family: var(--font-display); font-size: 21px; }
-    .session-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: 18px; }
-    .session-vote { min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-    .session-label { font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--color-text-muted); }
-    .candidates { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
-    .candidate {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 3px 10px;
-      padding: 9px 12px;
-      border-radius: 10px;
-      background: rgba(27, 21, 69, 0.55);
-      border: 1px solid transparent;
-    }
-    .candidate.leading { border-color: rgba(255, 46, 151, 0.55); background: rgba(255, 46, 151, 0.10); }
-    .candidate .nm { font-family: var(--font-display); font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .candidate .ct { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--color-text-muted); }
-    .candidate.leading .ct { color: var(--color-magenta); }
-    .candidate .bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-    .candidate .bar i { display: block; height: 100%; background: var(--color-magenta); }
-    .session-standings { border-left: 1px solid var(--color-border); padding-left: 14px; overflow-y: auto; }
-    .standing { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-    .standing .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .standing .pts { font-family: var(--font-display); font-weight: 700; color: var(--color-amber); }
-    .session-launch { display: flex; align-items: center; gap: 14px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
-    .session-launch .hint { flex: 1; }
-    .session-final { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
-    .champion { display: flex; flex-direction: column; gap: 4px; }
-    .champion .k { font-size: 11px; color: var(--color-text-muted); }
-    .champion strong { font-family: var(--font-display); font-size: 42px; line-height: 1.05; }
-    .champion .pts { font-family: var(--font-display); font-weight: 700; color: var(--color-amber); font-size: 18px; }
-    .trophies { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; width: 100%; max-width: 720px; }
-    .trophy { padding: 10px 12px; border-radius: 10px; background: rgba(27, 21, 69, 0.62); border: 1px solid var(--color-border); text-align: left; }
-    .trophy .t { font-family: var(--font-display); font-weight: 700; font-size: 12px; color: var(--color-magenta); }
-    .trophy .p { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
-    .trophy .d { font-size: 11px; color: var(--color-text-muted); }
-    .picker {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      grid-auto-rows: min-content;
-      align-content: safe center;
-      column-gap: 26px;
-      row-gap: 2px;
-      padding-right: 6px;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255, 46, 151, 0.35) transparent;
-    }
-    .picker::-webkit-scrollbar { width: 6px; }
-    .picker::-webkit-scrollbar-thumb { background: rgba(255, 46, 151, 0.35); border-radius: 3px; }
-    .game-tile {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 3px 10px;
-      align-items: center;
-      text-align: left;
-      background: transparent;
-      border: 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-      border-left: 3px solid transparent;
-      padding: 8px 8px 8px 11px;
-      color: inherit;
-      font: inherit;
-      cursor: pointer;
-      transition: background 120ms ease, border-color 120ms ease;
-    }
-    .game-tile:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.035);
-      border-left-color: rgba(255, 46, 151, 0.38);
-    }
-    .game-tile:focus-visible {
-      outline: 2px solid var(--color-cyan);
-      outline-offset: -2px;
-    }
-    .game-tile.selected {
-      background: rgba(27, 21, 69, 0.9);
-      border-left-color: var(--color-magenta);
-    }
-    .game-tile:disabled { opacity: 0.34; cursor: not-allowed; }
-    .game-tile .name {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 18px;
-      line-height: 1.18;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .game-tile .meta {
-      font-size: 12px;
-      color: var(--color-text-muted);
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .game-tile.selected .meta { color: var(--color-magenta); }
-    .game-tile .desc {
-      grid-column: 1 / -1;
-      font-size: 14px;
-      line-height: 1.35;
-      color: var(--color-text-muted);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .dots { display: inline-flex; gap: 3px; }
-    .dots i {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2);
-    }
-    .dots i.on { background: var(--color-magenta); }
+    .rumble-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+
+    .picker { flex: 1; min-height: 0; overflow-y: auto; margin-top: 9px; padding: 3px 4px 8px; }
+    .picker .shelf-strip { background: transparent; border: 0; box-shadow: none; padding: 2px 0 6px; gap: 14px 12px; grid-template-columns: repeat(6, minmax(0,1fr)); }
+    .game-box { min-height: 140px; }
+    .box-lid { min-height: 132px; padding: 7px 7px 5px; }
+    .box-title { font-size: 18px; }
+    .box-kicker { font-size: 8.5px; min-height: 25px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .box-art { min-height: 52px; }
+    .box-meta { font-size: 10px; }
+
     .launch {
       flex: 0 0 auto;
-      margin-top: 12px;
-      padding-top: 13px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      display: flex; align-items: center; gap: 14px;
+      margin-top: 8px; padding: 9px 270px 0 4px;
+      border-top: 2px dashed rgba(29,27,38,.3);
     }
-    .launch .sel { min-width: 0; }
-    .launch .k {
-      display: block;
-      font-size: 10px;
-      color: var(--color-text-muted);
-      margin-bottom: 2px;
-    }
-    .launch .v {
-      display: block;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 18px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .launch .sel { min-width: 0; flex: 1; }
+    .launch .k { display: block; font-size: 12px; font-weight: 700; opacity: .62; }
+    .launch .v { display: block; font-family: var(--font-house-display); font-size: 25px; font-weight: 800; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #startGameBtn {
-      margin-left: auto;
-      flex: 0 0 auto;
-      min-width: 196px;
-      height: 46px;
-      padding: 0 22px;
-      border: 0;
-      border-radius: 8px;
-      background: var(--color-magenta);
-      color: var(--ink);
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
-      transition: background 120ms ease, transform 120ms ease;
+      flex: 0 0 auto; min-width: 190px; padding: 12px 18px;
+      font-size: 20px;
     }
-    #startGameBtn:hover:not(:disabled) { background: #FF54A8; }
-    #startGameBtn:active:not(:disabled) { transform: translateY(1px); }
-    #startGameBtn:disabled {
-      background: rgba(255, 255, 255, 0.07);
-      color: rgba(245, 243, 255, 0.32);
-      cursor: not-allowed;
+
+    /* Rumble sheets sit on top of the shelf like clipped paper. */
+    .rumble-setup, .session, .session-final {
+      position: absolute; inset: 58px 12px 10px 12px; z-index: 10;
+      display: flex; flex-direction: column;
+      padding: 16px 16px 12px;
+      border: 3px solid var(--ink);
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      box-shadow: 8px 8px 0 rgba(0,0,0,.5);
+      rotate: -.4deg;
+      overflow: auto;
     }
-    canvas { display: block; border-radius: 16px; }
+    .setup-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; font-weight: 700; font-size: 17px; }
+    .seg { display: inline-flex; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+    .seg button { appearance: none; border: 0; background: transparent; padding: 8px 15px; font-family: var(--font-house-display); font-size: 17px; font-weight: 800; cursor: pointer; color: var(--ink); }
+    .seg button.on { background: var(--ink-1); color: #fff7e8; }
+    .setup-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: auto; }
+    .ghost, .primary { font-family: var(--font-house-display); font-weight: 800; border: 3px solid var(--ink); cursor: pointer; padding: 9px 16px; font-size: 18px; box-shadow: 3px 3px 0 var(--ink); }
+    .ghost { background: transparent; color: var(--ink); }
+    .primary { background: var(--ink-1); color: #fff7e8; }
+    .primary:disabled { opacity: .5; cursor: not-allowed; }
+    .hint { font-size: 14px; opacity: .72; margin: 8px 0 0; }
+    .hint.error { color: #b3261e; font-weight: 700; }
+
+    .session-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .session-head .k { display: block; font-size: 12px; font-weight: 700; opacity: .7; }
+    .session-head strong { font-family: var(--font-house-display); font-size: 28px; line-height: .95; }
+    .session-body { display: grid; grid-template-columns: minmax(0,1fr) 230px; gap: 16px; flex: 1; min-height: 0; margin-top: 8px; }
+    .session-vote { min-height: 0; display: flex; flex-direction: column; }
+    .session-label { font-size: 13px; font-weight: 700; opacity: .7; margin: 0 0 5px; }
+    .candidates { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+    .candidate { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 2px 8px; padding: 5px 8px; border: 2px solid transparent; }
+    .candidate.leading { border-color: var(--ink-1); background: rgba(240,69,58,.1); box-shadow: 2px 2px 0 rgba(29,27,38,.2); }
+    .candidate .nm { font-family: var(--font-house-display); font-size: 16px; font-weight: 800; }
+    .candidate .ct { font-weight: 700; font-size: 14px; }
+    .candidate .bar { grid-column: 1 / -1; height: 3px; background: rgba(29,27,38,.15); }
+    .candidate .bar i { display: block; height: 100%; background: var(--ink-1); }
+    .session-standings { border-left: 2px dashed rgba(29,27,38,.25); padding-left: 12px; overflow: auto; }
+    .standing { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed rgba(29,27,38,.2); font-size: 15px; }
+    .standing .pts { font-weight: 700; }
+    .session-launch { display: flex; align-items: center; gap: 12px; padding-top: 8px; border-top: 2px dashed rgba(29,27,38,.25); }
+    .session-launch .hint { flex: 1; margin: 0; }
+
+    .session-final { align-items: center; justify-content: center; text-align: center; }
+    .champion { display: flex; flex-direction: column; gap: 2px; }
+    .champion .k { font-size: 12px; font-weight: 700; opacity: .65; }
+    .champion strong { font-family: var(--font-house-display); font-size: 62px; line-height: .9; }
+    .champion .pts { font-weight: 700; color: var(--ink-1); font-size: 19px; }
+    .trophies { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 8px; width: 100%; max-width: 760px; margin: 10px 0; }
+    .trophy { padding: 8px 10px; border: 2px solid var(--ink); background: rgba(255,255,255,.28); box-shadow: 3px 3px 0 rgba(29,27,38,.25); text-align: left; }
+    .trophy .t { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-1); }
+    .trophy .p { display: block; font-family: var(--font-house-display); font-size: 20px; font-weight: 800; }
+    .trophy .d { display: block; font-size: 13px; opacity: .72; }
+
+    .playing { width: 100%; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+    .dom-game { position: absolute; inset: 0; display: none; }
+    .playing.dom-mode .dom-game { display: block; }
+    .playing.dom-mode #gameCanvas { display: none; }
+    canvas { display: block; max-width: 100%; max-height: 100%; box-shadow: 8px 8px 0 rgba(0,0,0,.55); }
+    #gameCanvas { width: 100%; height: 100%; }
+
+    .mox-dock {
+      position: fixed; right: 12px; bottom: 0; z-index: 8;
+      width: 370px; height: 190px;
+      transform: scale(.66); transform-origin: bottom right;
+      pointer-events: none;
+    }
+    .mox-dock .mox { max-width: 370px; flex-direction: row-reverse; gap: 8px; }
+    .mox-dock .mox-figure { width: 150px; height: 145px; }
+    .mox-dock .mox-caption { font-size: 15px; min-height: 38px; padding: 9px 11px; max-width: 210px; }
+
+    .audio-gate {
+      position: fixed; inset: 0; z-index: 1000;
+      display: grid; place-items: center;
+      background: rgba(58,36,24,.9);
+    }
+    .audio-ticket {
+      width: min(88vw, 600px);
+      padding: 34px;
+      text-align: center;
+      border: 4px solid var(--ink);
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      box-shadow: 12px 12px 0 rgba(0,0,0,.55);
+      rotate: -1deg;
+    }
+    .audio-ticket h1 { margin: 0; font-family: var(--font-house-display); font-size: clamp(38px,5vw,62px); line-height: .9; }
+    .audio-ticket p { font-size: 20px; line-height: 1.3; margin: 12px auto 22px; max-width: 430px; }
+
+    .credits {
+      position: fixed; inset: 0; z-index: 1001; display: grid; place-items: center;
+      background: rgba(29,27,38,.75);
+    }
+    .credits-card { width: min(90vw, 720px); max-height: 82vh; overflow: auto; padding: 28px; border: 4px solid var(--ink); background: var(--paper); background-image: var(--paper-texture); box-shadow: 10px 10px 0 rgba(0,0,0,.5); }
+    .credits-card h2 { margin: 0 0 10px; font-family: var(--font-house-display); font-size: 42px; }
+    .credits-card p, .credits-card li { font-size: 17px; line-height: 1.45; }
+    .credits-card ul { padding-left: 20px; }
+
     .hidden { display: none !important; }
-    .playing {
-      width: 100%;
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    @keyframes rise {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: none; }
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-    @media (max-width: 1080px) {
-      .picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 780px) {
-      body { overflow: auto; }
-      .ticket { width: 190px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .join { animation: none; }
-      .live .dot { animation: none; }
-      .game-tile, #startGameBtn { transition: none; }
+
+    @media (max-width: 900px) {
+      .lobby-stage { transform: none !important; width: 100%; height: auto; grid-template-columns: 1fr; }
+      .lobby { overflow: auto; display: block; }
+      .shelf-strip, .picker .shelf-strip { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .mox-dock { display: none; }
+      .launch { padding-right: 0; }
     }
   </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="wordmark"><span>TBRN</span><b>GAMES</b></div>
-    <div class="topbar-right">
-      <button class="top-action hidden" id="endGameBtn" type="button">End game</button>
-      <div class="live"><span class="dot"></span><span><span id="playerCount">0</span> phones at the table</span></div>
-    </div>
+    <div class="brand">TBRN <span>GAME NIGHT</span></div>
+    <div class="topbar-spacer"></div>
+    <button class="topbtn" id="contrastBtn" type="button">Contrast</button>
+    <button class="topbtn hidden" id="endGameBtn" type="button">End game</button>
+    <button class="topbtn" id="creditsBtn" type="button">Credits</button>
+    <button class="topbtn" id="muteBtn" type="button">Sound on</button>
+    <div class="top-tag"><span class="dot off" id="liveDot"></span><span><span id="playerCount">0</span> <span id="playerWord">phones</span></span></div>
   </header>
+
   <main>
     <section class="lobby" id="lobby">
       <div class="lobby-stage" id="lobbyStage">
-        <aside class="join">
-        <p class="join-kicker">Join the room</p>
-        <div class="room-code" id="roomCode">----</div>
-        <div class="ticket">
-          <img id="qrCode" src="" alt="QR code to join the room" class="hidden">
-          <p class="url" id="urlFallback">Waiting for the room…</p>
-        </div>
-        <p class="scan-note">Scan with your phone, or open the address above.</p>
-
-        <div class="roster">
-          <h2>At the table</h2>
-          <div class="seats" id="playersList"></div>
-        </div>
-      </aside>
-
-      <section class="shelf">
-        <div class="shelf-head" id="shelfHead">
-          <h2>Pick a game</h2>
-          <div class="shelf-tools">
-            <button class="rumble-btn" id="rumbleBtn" type="button">Royal Rumble</button>
-            <span class="count" id="gameCount">Loading games…</span>
+        <aside class="join" id="joinCard">
+          <img class="join-prop join-coffee" src="/assets/props/coffee-ring.svg" alt="" aria-hidden="true">
+          <img class="join-prop join-pin" src="/assets/props/pin.svg" alt="" aria-hidden="true">
+          <p class="join-kicker">Tonight at the table</p>
+          <div class="room-tag" id="roomCode">-----</div>
+          <div class="qr-sticker">
+            <img id="qrCode" src="" alt="QR code to join the room" class="hidden">
+            <img class="scan-arrow" src="/assets/props/arrow.svg" alt="">
+            <p class="url" id="urlFallback">Waiting for the room…</p>
           </div>
-        </div>
+          <p class="scan-note">Scan the sticker, or type the code above.</p>
+          <div class="roster">
+            <h2>At the table</h2>
+            <div class="seats" id="playersList"></div>
+          </div>
+        </aside>
 
-        <div class="rumble-setup hidden" id="rumbleSetup">
-          <div class="setup-row">
-            <span>Rounds</span>
-            <div class="seg" id="rumbleLength">
-              <button type="button" data-len="5" class="on">5</button>
-              <button type="button" data-len="8">8</button>
-              <button type="button" data-len="18">All</button>
+        <section class="shelf">
+          <div class="shelf-head" id="shelfHead">
+            <h2>Pick a box</h2>
+            <div class="shelf-tools">
+              <span class="count" id="gameCount">Loading…</span>
+              <button class="rumble-btn" id="rumbleBtn" type="button">Royal Rumble</button>
             </div>
           </div>
-          <div class="setup-row">
-            <span>Next game</span>
-            <div class="seg" id="rumbleMode">
-              <button type="button" data-mode="vote" class="on">Vote</button>
-              <button type="button" data-mode="random">Random</button>
+
+          <div class="rumble-setup hidden" id="rumbleSetup">
+            <div class="setup-row"><span>Rounds</span>
+              <div class="seg" id="rumbleLength">
+                <button type="button" data-len="5" class="on">5</button>
+                <button type="button" data-len="8">8</button>
+                <button type="button" data-len="18">All</button>
+              </div>
+            </div>
+            <div class="setup-row"><span>Next game</span>
+              <div class="seg" id="rumbleMode">
+                <button type="button" data-mode="vote" class="on">Vote</button>
+                <button type="button" data-mode="random">Random</button>
+              </div>
+            </div>
+            <div class="setup-actions">
+              <button class="ghost" id="rumbleCancel" type="button">Cancel</button>
+              <button class="primary" id="rumbleStart" type="button">Start rumble</button>
+            </div>
+            <p class="hint" id="rumbleError" role="alert"></p>
+          </div>
+
+          <div class="session hidden" id="sessionPanel">
+            <div class="session-head">
+              <div><span class="k">Royal Rumble</span><strong id="sessionRound">Round 1 of 5</strong></div>
+              <button class="ghost" id="sessionEnd" type="button">End rumble</button>
+            </div>
+            <div class="session-body">
+              <div class="session-vote">
+                <p class="session-label" id="sessionVoteLabel">Phones vote for the next game</p>
+                <div class="candidates" id="sessionCandidates"></div>
+              </div>
+              <aside class="session-standings">
+                <p class="session-label">Rumble points</p>
+                <div id="sessionStandings"></div>
+              </aside>
+            </div>
+            <div class="session-launch">
+              <span class="hint" id="sessionHint"></span>
+              <button class="primary" id="sessionStart" type="button" disabled>Waiting for votes</button>
             </div>
           </div>
-          <div class="setup-actions">
-            <button class="ghost" id="rumbleCancel" type="button">Cancel</button>
-            <button class="primary" id="rumbleStart" type="button">Start rumble</button>
-          </div>
-          <p class="hint" id="rumbleError" role="alert"></p>
-        </div>
 
-        <div class="session hidden" id="sessionPanel">
-          <div class="session-head">
-            <div>
-              <span class="k">Royal Rumble</span>
-              <strong id="sessionRound">Round 1 of 5</strong>
+          <div class="session-final hidden" id="sessionFinal">
+            <div class="champion"><span class="k">Champion</span><strong id="championName">—</strong><span class="pts" id="championPoints"></span></div>
+            <div class="trophies" id="sessionTrophies"></div>
+            <div class="setup-actions">
+              <button class="ghost" id="sessionClose" type="button">Back to the table</button>
+              <button class="primary" id="sessionNew" type="button">New rumble</button>
             </div>
-            <button class="ghost" id="sessionEnd" type="button">End rumble</button>
           </div>
-          <div class="session-body">
-            <div class="session-vote">
-              <p class="session-label" id="sessionVoteLabel">Vote for the next game</p>
-              <div class="candidates" id="sessionCandidates"></div>
-            </div>
-            <aside class="session-standings">
-              <p class="session-label">Rumble points</p>
-              <div id="sessionStandings"></div>
-            </aside>
-          </div>
-          <div class="session-launch">
-            <span class="hint" id="sessionHint"></span>
-            <button class="primary" id="sessionStart" type="button" disabled>Waiting for votes</button>
-          </div>
-        </div>
 
-        <div class="session-final hidden" id="sessionFinal">
-          <div class="champion">
-            <span class="k">Champion</span>
-            <strong id="championName">—</strong>
-            <span class="pts" id="championPoints"></span>
+          <div class="picker" id="gamePicker"></div>
+          <div class="launch" id="launchBar">
+            <div class="sel"><span class="k">Selected box</span><span class="v" id="selectedGame">No box picked</span></div>
+            <button class="btn-stamp" id="startGameBtn" type="button" disabled>Pick a box</button>
           </div>
-          <div class="trophies" id="sessionTrophies"></div>
-          <div class="setup-actions">
-            <button class="ghost" id="sessionClose" type="button">Back to lobby</button>
-            <button class="primary" id="sessionNew" type="button">New rumble</button>
-          </div>
-        </div>
-
-        <div class="picker" id="gamePicker"></div>
-        <div class="launch" id="launchBar">
-          <div class="sel">
-            <span class="k">Selected</span>
-            <span class="v" id="selectedGame">No game picked</span>
-          </div>
-          <button id="startGameBtn" type="button" disabled>Pick a game</button>
-        </div>
-      </section>
+        </section>
       </div>
     </section>
 
     <section class="playing hidden" id="playing">
       <canvas id="gameCanvas" width="1280" height="720"></canvas>
+      <div class="dom-game hidden" id="domGame"></div>
     </section>
   </main>
+
+  <div class="mox-dock" id="moxDock"></div>
+
+  <div class="audio-gate" id="audioGate">
+    <div class="audio-ticket">
+      <p class="tape-label">Game night starts here</p>
+      <h1>Click to start the party.</h1>
+      <p>Sound is part of the table. Turn it up, then pick a box.</p>
+      <button class="btn-stamp" id="audioStart" type="button">Start the party</button>
+    </div>
+  </div>
+
+  <div class="credits hidden" id="creditsPanel">
+    <div class="credits-card">
+      <h2>Credits</h2>
+      <p>TBRN Games is built with original code, generated paper textures and open-source fonts. No assets are copied from commercial games.</p>
+      <p><strong>Fonts:</strong> Bricolage Grotesque, Atkinson Hyperlegible, Permanent Marker, Pirata One, Rye, Caveat Brush, Lilita One, Bangers, Special Elite, Patrick Hand, Bowlby One, DM Serif Display, Alfa Slab One, Titan One, Anton, Bungee, Shrikhand, Modak, Rubik Mono One, Oswald — SIL Open Font License.</p>
+      <p><strong>Libraries:</strong> PixiJS (MIT), qrcode (MIT), ws (MIT).</p>
+      <p><strong>Art and sound:</strong> generated locally by TBRN scripts (paper, grain, tape, pins, stamps, Mox, tokens, synth sounds).</p>
+      <button class="btn-stamp" id="creditsClose" type="button">Back to the table</button>
+    </div>
+  </div>
+
   <script type="module" src="/screen/main.ts"></script>
 </body>
 </html>

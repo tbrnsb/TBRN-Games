@@ -416,6 +416,10 @@ function serveStatic(pathname: string, res: ServerResponse): boolean {
     rel = "shared/" + pathname.slice("/shared/".length);
   } else if (pathname.startsWith("/games/")) {
     rel = "games/" + pathname.slice("/games/".length);
+  } else if (pathname.startsWith("/kit/")) {
+    rel = "client/kit/" + pathname.slice("/kit/".length);
+  } else if (pathname.startsWith("/skins/")) {
+    rel = "client/skins/" + pathname.slice("/skins/".length);
   } else if (pathname.startsWith("/client/")) {
     // Browser-side modules (screen renderers import the shared kit from here).
     rel = pathname.slice(1);

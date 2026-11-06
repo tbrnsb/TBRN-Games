@@ -8,51 +8,11 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#07050F">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/fonts/fonts.css">
+  <link rel="stylesheet" href="/client/kit/kit.css">
   <title>TBRN-Games Controller</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    @font-face {
-      font-family: "Space Grotesk";
-      src: url("/assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2");
-      font-weight: 500; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Space Grotesk";
-      src: url("/assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
-      font-weight: 700; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Inter";
-      src: url("/assets/fonts/inter-latin-400-normal.woff2") format("woff2");
-      font-weight: 400; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Inter";
-      src: url("/assets/fonts/inter-latin-600-normal.woff2") format("woff2");
-      font-weight: 600; font-style: normal; font-display: swap;
-    }
-    @font-face {
-      font-family: "Orbitron";
-      src: url("/assets/fonts/orbitron-latin-700-normal.woff2") format("woff2");
-      font-weight: 700; font-style: normal; font-display: swap;
-    }
-    :root {
-      --ink: #07050F;
-      --bg: #0B0820;
-      --surface: #1B1545;
-      --surface-hi: #251C5A;
-      --border: rgba(255,255,255,0.09);
-      --text: #F5F3FF;
-      --muted: #A29BCF;
-      --magenta: #FF2E97;
-      --cyan: #00E5FF;
-      --amber: #FFB347;
-      --success: #3DFFA2;
-      --danger: #FF4D6D;
-      --display: "Space Grotesk", sans-serif;
-      --body: "Inter", sans-serif;
-      --title: "Orbitron", sans-serif;
-    }
     html, body { height: 100%; }
     body {
       font-family: var(--body);
@@ -70,26 +30,6 @@
         env(safe-area-inset-right, 0)
         env(safe-area-inset-bottom, 0)
         env(safe-area-inset-left, 0);
-    }
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(120% 90% at 25% 15%, rgba(255,46,151,0.20), transparent 68%);
-      pointer-events: none;
-      z-index: 0;
-    }
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-      background-size: 44px 44px;
-      mask-image: linear-gradient(to bottom, transparent, black 70%);
-      pointer-events: none;
-      z-index: 0;
     }
     .appbar {
       flex: 0 0 auto;
@@ -129,12 +69,10 @@
     }
     .dot.on {
       background: var(--success);
-      box-shadow: 0 0 10px var(--success);
-    }
+          }
     .dot.off {
       background: var(--danger);
-      box-shadow: 0 0 10px var(--danger);
-    }
+          }
     main {
       flex: 1;
       min-height: 0;
@@ -196,8 +134,7 @@
     .code-input:focus,
     .name-field input:focus {
       border-color: var(--cyan);
-      box-shadow: 0 0 0 3px rgba(0,229,255,0.12);
-    }
+          }
     .name-field { display: flex; flex-direction: column; gap: 6px; }
     .linked {
       display: flex;
@@ -267,8 +204,7 @@
     }
     .coach.your-turn .dot {
       background: var(--magenta);
-      box-shadow: 0 0 10px var(--magenta);
-      animation: breathe 1.6s ease-in-out infinite;
+            animation: breathe 1.6s ease-in-out infinite;
     }
     .game-label {
       flex: 0 0 auto;
@@ -312,8 +248,7 @@
       height: 14px;
       border-radius: 50%;
       background: var(--magenta);
-      box-shadow: 0 0 18px var(--magenta);
-    }
+          }
     .idle-title {
       font-family: var(--display);
       font-weight: 700;
@@ -334,7 +269,7 @@
       gap: 11px;
       padding: 14px;
       border-radius: 14px;
-      background: linear-gradient(160deg, rgba(37,28,90,0.88), rgba(27,21,69,0.72));
+      background: var(--ink-2);
       border: 1px solid var(--border);
       text-align: left;
     }
@@ -466,7 +401,6 @@
       border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.18);
       background:
-        radial-gradient(circle at 35% 30%, #FF6FB6, transparent 55%),
         var(--magenta);
       color: var(--ink);
       font-family: var(--display);
@@ -478,17 +412,11 @@
       justify-content: center;
       gap: 4px;
       cursor: pointer;
-      box-shadow:
-        0 0 0 8px rgba(255,46,151,0.10),
-        0 18px 50px rgba(255,46,151,0.35);
       transition: transform 90ms ease, box-shadow 90ms ease;
       user-select: none;
     }
     .btn-one:active {
       transform: scale(0.94);
-      box-shadow:
-        0 0 0 12px rgba(255,46,151,0.16),
-        0 10px 36px rgba(255,46,151,0.5);
     }
     .btn-one:disabled { opacity: 0.4; transform: none; box-shadow: none; }
     .btn-label { font-size: 24px; letter-spacing: 0.02em; }
@@ -594,8 +522,7 @@
     }
     .text-input textarea:focus {
       border-color: var(--cyan);
-      box-shadow: 0 0 0 3px rgba(0,229,255,0.12);
-    }
+          }
     .text-input button { width: 100%; }
     .char-count {
       text-align: right;
@@ -750,8 +677,7 @@
     .grid-cell.v-picked {
       border-color: var(--cyan);
       background: rgba(0,229,255,0.20);
-      box-shadow: 0 0 0 1px rgba(0,229,255,0.45);
-    }
+          }
     .grid-actions {
       position: sticky;
       bottom: 0;
@@ -763,8 +689,7 @@
       border-radius: 12px;
       background: rgba(11,8,32,0.95);
       border: 1px solid var(--border);
-      backdrop-filter: blur(6px);
-    }
+          }
     .grid-actions .pick {
       flex: 1;
       font-family: var(--display);
@@ -817,8 +742,7 @@
       justify-content: center;
       gap: 2px;
       font-family: var(--display);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
-      cursor: pointer;
+            cursor: pointer;
       user-select: none;
       touch-action: manipulation;
       transition: transform 90ms ease;
@@ -827,8 +751,7 @@
     .card.red { color: #D6204E; }
     .card.face-down {
       background:
-        repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 6px, transparent 6px 12px),
-        var(--magenta);
+        repeating-var(--ink-2);
       color: rgba(245,243,255,0.85);
       font-size: 24px;
     }
@@ -856,11 +779,314 @@
       .primary, .btn-one, .btn-lr, .choice-btn, .card, .dpad-btn { transition: none; }
     }
   </style>
+  <style>
+    /* Paper-and-ink controller shell. Overrides the old synthwave layer. */
+    :root {
+      --ink: #1D1B26;
+      --bg: #F4EBD9;
+      --surface: #F4EBD9;
+      --surface-hi: #E7E0CC;
+      --border: #1D1B26;
+      --text: #1D1B26;
+      --muted: #5B5448;
+      --magenta: #F0453A;
+      --cyan: #0E8C8C;
+      --amber: #FFC21A;
+      --success: #2FB56A;
+      --danger: #F0453A;
+      --display: "Bricolage Grotesque", "Arial Black", sans-serif;
+      --body: "Atkinson Hyperlegible", "Trebuchet MS", sans-serif;
+      --title: "Bricolage Grotesque", "Arial Black", sans-serif;
+    }
+    body {
+      background-color: #3A2418;
+      background-image: var(--wood);
+      background-size: 512px 512px;
+      color: var(--ink);
+    }
+    .appbar {
+      height: 58px;
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      border-bottom: 3px solid var(--ink);
+      color: var(--ink);
+      padding: 0 14px;
+    }
+    .brand { font-family: var(--display); font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+    .brand b { color: var(--ink-1); }
+    .who { color: var(--ink); font-size: 14px; font-weight: 700; max-width: 72vw; }
+    .head-token { width: 34px; height: 40px; display: none; flex: 0 0 auto; }
+    .head-token.on { display: block; }
+    .head-token .token-svg { width: 100%; height: 100%; }
+    .dot { box-shadow: none; }
+    .dot.on { background: var(--success); }
+    .dot.off { background: var(--muted); }
+    main { padding: 0; }
+    .join {
+      position: relative;
+      margin: 18px auto 0;
+      padding: 20px 18px;
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      border: 3px solid var(--ink);
+      border-radius: 7px 10px 6px 9px;
+      box-shadow: 7px 7px 0 rgba(29,27,38,.55);
+      rotate: -.5deg;
+    }
+    .join::before {
+      content: "";
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      width: 120px;
+      height: 30px;
+      transform: translateX(-50%) rotate(-3deg);
+      background: url("/assets/props/tape.svg") center/contain no-repeat;
+      pointer-events: none;
+    }
+    .join::after {
+      content: "";
+      position: absolute;
+      top: -9px;
+      right: 18px;
+      width: 26px;
+      height: 62px;
+      transform: rotate(9deg);
+      background: url("/assets/props/paperclip.svg") center/contain no-repeat;
+      pointer-events: none;
+      opacity: .8;
+    }
+    .kick {
+      display: inline-block;
+      padding-bottom: 7px;
+      background: url("/assets/props/scribble.svg") bottom left / 100% 7px no-repeat;
+    }
+    .kick { font-family: var(--display); font-size: 24px; font-weight: 800; color: var(--ink); }
+    .code-field label, .name-field span { color: var(--muted); font-size: 14px; font-weight: 700; }
+    .code-input, .name-field input {
+      background: #FFFDF5;
+      color: var(--ink);
+      border: 3px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      border-radius: 5px 7px 4px 6px;
+    }
+    .code-input { font-family: var(--display); font-size: 30px; height: 58px; }
+    .name-field input { font-family: var(--body); font-size: 18px; height: 54px; }
+    .linked { background: #D9F0E8; border: 2px solid var(--ink); color: var(--ink-2); border-radius: 5px; }
+    .primary {
+      background: var(--ink-1);
+      color: #FFF7E8;
+      border: 3px solid var(--ink);
+      border-radius: 6px 8px 5px 7px;
+      box-shadow: 4px 4px 0 var(--ink);
+      font-family: var(--display);
+      font-size: 20px;
+      font-weight: 800;
+      height: 58px;
+    }
+    .primary:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); background: var(--ink-1); }
+    .primary:disabled { background: #D8CCB8; color: #8A7A66; box-shadow: 2px 2px 0 var(--ink); }
+    .hint { color: var(--muted); font-size: 14px; }
+    .play {
+      position: relative;
+      gap: 10px;
+      padding: 14px 14px 18px;
+      margin: 10px auto 0;
+      max-width: 440px;
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      border: 3px solid var(--ink);
+      border-radius: 6px 9px 5px 8px;
+      box-shadow: 6px 6px 0 rgba(29,27,38,.5);
+      rotate: -.35deg;
+    }
+    .play::before {
+      content: "";
+      position: absolute;
+      top: -12px;
+      right: 30px;
+      width: 96px;
+      height: 25px;
+      transform: rotate(4deg);
+      background: url("/assets/props/tape.svg") center/contain no-repeat;
+      pointer-events: none;
+    }
+    .play::after {
+      content: "";
+      position: absolute;
+      top: -8px;
+      left: 18px;
+      width: 22px;
+      height: 22px;
+      transform: rotate(-8deg);
+      background: url("/assets/props/star.svg") center/contain no-repeat;
+      pointer-events: none;
+    }
+    .game-label {
+      display: inline-block;
+      padding-bottom: 6px;
+      font-family: var(--display);
+      font-size: 26px;
+      color: var(--ink);
+      background: url("/assets/props/scribble.svg") bottom left / 100% 7px no-repeat;
+    }
+    .coach {
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      border: 2px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      color: var(--ink);
+      font-size: 15px;
+      border-radius: 5px 8px 4px 7px;
+    }
+    .coach .dot { background: var(--muted); }
+    .coach.your-turn { background: var(--amber); border-color: var(--ink); color: var(--ink); }
+    .coach.your-turn .dot { background: var(--ink-1); box-shadow: none; animation: none; }
+    .idle {
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      border: 3px solid var(--ink);
+      box-shadow: 5px 5px 0 var(--ink);
+      rotate: -.7deg;
+    }
+    .idle-mark { border: 3px dashed var(--ink); }
+    .idle-mark::before { display: none; }
+    .idle-mark span { background: var(--ink-1); box-shadow: none; }
+    .idle-title { font-family: var(--display); font-size: 24px; }
+    .idle-copy { color: var(--muted); font-size: 15px; }
+    .btn-one {
+      background: var(--ink-1);
+      border: 4px solid var(--ink);
+      box-shadow: 8px 8px 0 var(--ink);
+      color: #FFF7E8;
+      font-family: var(--display);
+      font-size: 28px;
+    }
+    .btn-one:active { transform: translate(4px,4px) scale(.98); box-shadow: 2px 2px 0 var(--ink); }
+    .btn-one:disabled { opacity: .5; box-shadow: 4px 4px 0 var(--ink); }
+    .btn-lr {
+      background: var(--paper);
+      border: 3px solid var(--ink);
+      box-shadow: 5px 5px 0 var(--ink);
+      color: var(--ink);
+      font-family: var(--display);
+    }
+    .btn-lr.left::before { color: var(--ink-2); }
+    .btn-lr.right::before { color: var(--ink-1); }
+    .btn-lr:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); background: var(--amber); }
+    .dpad-btn {
+      background: var(--paper);
+      border: 3px solid var(--ink);
+      box-shadow: 4px 4px 0 var(--ink);
+      color: var(--ink);
+    }
+    .dpad-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); background: var(--amber); border-color: var(--ink); }
+    .dpad-btn .glyph { color: var(--ink); }
+    .dpad-btn .cap { color: var(--muted); }
+    .text-input textarea {
+      background: #FFFDF5;
+      color: var(--ink);
+      border: 3px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      border-radius: 5px 7px 4px 6px;
+      font-family: var(--body);
+    }
+    .choice-btn {
+      background: var(--paper);
+      border: 3px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      color: var(--ink);
+      border-radius: 5px 7px 4px 6px;
+      font-family: var(--body);
+      font-size: 18px;
+    }
+    .choice-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+    .choice-btn.selected { background: var(--amber); border-color: var(--ink); color: var(--ink); }
+    .choice-btn:disabled { opacity: .5; }
+    .card {
+      background: #FFFDF5;
+      color: var(--ink);
+      border: 3px solid var(--ink);
+      box-shadow: 4px 4px 0 var(--ink);
+    }
+    .card.red { color: var(--ink-1); }
+    .card.face-down { background: var(--ink-2); color: #FFF7E8; }
+    .session-card {
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      border: 3px solid var(--ink);
+      box-shadow: 5px 5px 0 var(--ink);
+      color: var(--ink);
+      border-radius: 6px 9px 5px 8px;
+    }
+    .session-kicker { color: var(--ink-1); font-family: var(--display); }
+    .session-round { color: var(--muted); }
+    .session-points { border-bottom: 2px dashed rgba(29,27,38,.28); }
+    .session-points strong { font-family: var(--display); color: var(--ink-1); }
+    .session-points span, .session-copy { color: var(--muted); font-size: 14px; }
+    .vote-btn {
+      background: #FFFDF5;
+      border: 2px solid var(--ink);
+      box-shadow: 2px 2px 0 var(--ink);
+      color: var(--ink);
+    }
+    .vote-btn.leading { background: var(--amber); border-color: var(--ink); }
+    .vote-btn.yours { background: #D9F0E8; border-color: var(--ink-2); }
+    .vote-name { font-size: 16px; }
+    .vote-count { font-size: 13px; color: var(--muted); }
+    .vote-bar { background: rgba(29,27,38,.18); }
+    .vote-bar i { background: var(--ink-1); }
+    .vote-btn.yours .vote-bar i { background: var(--ink-2); }
+    .trophy-row {
+      background: #FFFDF5;
+      border-left: 5px solid var(--ink-1);
+      border-radius: 4px;
+    }
+    .trophy-row .t { color: var(--ink-1); }
+    .trophy-row .p { color: var(--ink); }
+    .trophy-row .d { color: var(--muted); }
+    .grid-frame {
+      background: var(--paper);
+      background-image: var(--paper-texture);
+      background-size: 512px 512px;
+      border: 3px solid var(--ink);
+      box-shadow: 4px 4px 0 var(--ink);
+      border-radius: 5px 8px 4px 7px;
+    }
+    .grid-label { font-size: 12px; color: var(--muted); }
+    .grid-cell {
+      background: #FFFDF5;
+      border: 1px solid var(--ink);
+      color: var(--ink);
+      border-radius: 2px;
+    }
+    .grid-cell.v-fill { background: #D8CCB8; }
+    .grid-cell.v-X { background: var(--ink-1); color: #FFF7E8; border-color: var(--ink); }
+    .grid-cell.v-o { color: var(--muted); }
+    .grid-cell.v-S { background: #D9F0E8; color: var(--ink-2); }
+    .grid-cell.v-selected { background: var(--amber); border-color: var(--ink); }
+    .grid-cell.v-picked { background: #D9F0E8; border-color: var(--ink-2); box-shadow: 2px 2px 0 var(--ink); }
+    .grid-actions {
+      background: var(--paper);
+      border: 3px solid var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      backdrop-filter: none;
+    }
+    .grid-actions .pick { color: var(--muted); }
+    .grid-actions .pick.ready { color: var(--ink); }
+    .error-toast { background: var(--ink-1) !important; color: #FFF7E8 !important; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+  </style>
 </head>
 <body>
   <header class="appbar">
     <div class="brand"><span>TBRN</span><b>GAMES</b></div>
-    <div class="who"><span class="dot" id="connDot"></span><span id="playerName">Not joined</span></div>
+    <div class="who"><span class="head-token" id="playerToken"></span><span class="dot" id="connDot"></span><span id="playerName">Not joined</span></div>
   </header>
   <main>
     <section class="join" id="joinForm">

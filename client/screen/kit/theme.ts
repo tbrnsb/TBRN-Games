@@ -1,118 +1,78 @@
 /**
- * TBRN-Games Visual Overhaul — Design Tokens
- * Synthwave + Bento Grid + Swiss Typography
- * All values from DESIGN.md — single source of truth.
+ * Legacy canvas theme, now paper-and-ink.
+ *
+ * The old renderers still call these tokens; `setLegacySkin()` swaps the paper,
+ * two inks and display font to the active game skin before each frame. No
+ * gradients, glow or soft shadows live here.
  */
 
-// --- Color Palette ---
+import { INKS, PAPERS, PLAYERS, TYPE } from "../../kit/theme.ts";
+import type { Skin } from "../../kit/types.ts";
+
 export const colors = {
-  // Base
-  bg0: "#0B0820",           // page background
-  bg1: "#140F33",           // panels
-  surface: "#1B1545",       // bento cards
-  surfaceHi: "#2A1F6B",     // raised/active cards
-  border: "rgba(255,255,255,0.08)", // card edges
-
-  // Text
-  text: "#F5F3FF",          // primary text
-  textMuted: "#A29BCF",     // labels, secondary
-
-  // Accents
-  magenta: "#FF2E97",       // primary accent
-  cyan: "#00E5FF",          // secondary accent
-  violet: "#8B5CF6",        // tertiary, gradients
-  amber: "#FFB347",         // sun, warnings
-  success: "#3DFFA2",       // correct, win
-  danger: "#FF4D6D",        // wrong, lose
-
-  // Player colors (always paired with number badge/shape)
-  player: [
-    "#FF2E97",  // P1 magenta
-    "#00E5FF",  // P2 cyan
-    "#FFE45E",  // P3 amber
-    "#3DFFA2",  // P4 success
-  ],
-
-  // Gradient stops
+  bg0: PAPERS.cream.hex,
+  bg1: PAPERS.newsprint.hex,
+  surface: "#FFFDF5",
+  surfaceHi: "#F4EBD9",
+  border: INKS.ink,
+  text: INKS.ink,
+  textMuted: "#5B5448",
+  cardText: "#1D1B26",
+  cardMuted: "#5B5448",
+  magenta: INKS.tomato,
+  cyan: INKS.teal,
+  violet: INKS.grape,
+  amber: INKS.sun,
+  success: INKS.grass,
+  danger: INKS.tomato,
+  paperTexture: PAPERS.cream.texture,
+  player: PLAYERS.map((p) => p.hex) as string[],
   gradient: {
-    bgStart: "#0B0820",
-    bgEnd: "#1A0B3B",
-    gridLine: "rgba(255,46,151,0.15)", // magenta at 15%
-    sunStart: "#FFB347",  // amber
-    sunEnd: "#FF2E97",    // magenta
+    bgStart: PAPERS.cream.hex,
+    bgEnd: PAPERS.cream.hex,
+    gridLine: "rgba(29,27,38,0.12)",
+    sunStart: INKS.sun,
+    sunEnd: INKS.tomato,
   },
-} as const;
+};
 
-// --- Typography ---
 export const fonts = {
-  // Space Grotesk 500/700: headings, scores, names
   display: {
-    family: '"Space Grotesk", sans-serif',
-    weights: { medium: 500, bold: 700 },
+    family: TYPE.display as string,
+    weights: { medium: 700, bold: 800 },
   },
-  // Inter 400/600: labels and body
   body: {
-    family: '"Inter", sans-serif',
-    weights: { regular: 400, medium: 500, semibold: 600 },
+    family: TYPE.body as string,
+    weights: { regular: 400, medium: 700, semibold: 700 },
   },
-  // Orbitron 700: ONLY logo, room code, title cards
   title: {
-    family: '"Orbitron", sans-serif',
-    weights: { bold: 700 },
+    family: '"Bricolage Grotesque", sans-serif' as string,
+    weights: { bold: 800 },
   },
+  minSize: { body: 28, label: 22, score: 64, title: 96 },
+};
 
-  // Minimum on-screen sizes (at 1920x1080 logical)
-  // Scale down proportionally for smaller viewports
-  minSize: {
-    body: 28,
-    label: 22,
-    score: 64,
-    title: 96,
-  },
-} as const;
-
-// --- Spacing Scale (px) ---
 export const spacing = [4, 8, 12, 16, 24, 32, 48] as const;
 
-// --- Border Radius ---
-export const radius = {
-  card: 16,
-  chip: 10,
-  pill: 999,
-} as const;
+export const radius = { card: 7, chip: 4, pill: 999 } as const;
+export const bento = { columns: 12, gap: 20, outerMargin: 44 } as const;
 
-// --- Bento Grid ---
-export const bento = {
-  columns: 12,
-  gap: 24,
-  outerMargin: 48,
-} as const;
-
-// --- Glow & Depth ---
 export const glow = {
-  cardActive: (accent: string) => `0 0 24px ${accent}4D`, // 30% alpha
-  textLayers: 2, // max glow layers on text
-  maxCompeting: 3, // max glowing elements at once
+  cardActive: () => `4px 4px 0 ${INKS.ink}`,
+  textLayers: 0,
+  maxCompeting: 0,
 } as const;
 
-// --- Motion ---
 export const motion = {
-  enter: { duration: 240, easing: "easeOutCubic" },
+  enter: { duration: 280, easing: "easeOutCubic" },
   pop: { duration: 320, easing: "easeOutBack" },
-  stagger: 40,
-  shake: { maxOffset: 6, decayMs: 250 },
-  reducedMotion: false, // set from prefers-reduced-motion
+  stagger: 50,
+  shake: { maxOffset: 6, decayMs: 200 },
+  reducedMotion: false,
 } as const;
 
-// --- Viewport ---
-export const viewport = {
-  designWidth: 1920,
-  designHeight: 1080,
-  minWidth: 1280,
-  minHeight: 720,
-} as const;
+export const viewport = { designWidth: 1920, designHeight: 1080, minWidth: 1280, minHeight: 720 } as const;
 
-// --- Helpers ---
 export function getPlayerColor(index: number): string {
   return colors.player[index % colors.player.length];
 }
@@ -131,7 +91,36 @@ export function tabularFigures(ctx: CanvasRenderingContext2D): void {
   ctx.font = ctx.font.replace(/^(\d+px)/, "tabular-nums $1");
 }
 
-// CSS custom properties for HTML/CSS layers (if needed)
+/** Swap the legacy tokens to the current game's printed skin. */
+export function setLegacySkin(skin: Skin): void {
+  if (typeof window !== "undefined") (window as unknown as { __paperSkin?: string }).__paperSkin = skin.id;
+  const paper = PAPERS[skin.paper];
+  colors.bg0 = paper.hex;
+  colors.bg1 = paper.hex;
+  colors.surface = "#FFFDF5";
+  colors.surfaceHi = paper.hex;
+  colors.border = INKS.ink;
+  colors.text = paper.onPaper;
+  colors.textMuted = paper.onPaper === INKS.ink ? "#5B5448" : "#E7E0CC";
+  colors.magenta = INKS[skin.inks[0]];
+  colors.cyan = INKS[skin.inks[1]];
+  colors.violet = INKS.grape;
+  colors.amber = INKS.sun;
+  colors.success = INKS.grass;
+  colors.danger = INKS.tomato;
+  colors.paperTexture = paper.texture;
+  colors.gradient = {
+    bgStart: paper.hex,
+    bgEnd: paper.hex,
+    gridLine: "rgba(29,27,38,0.12)",
+    sunStart: INKS.sun,
+    sunEnd: INKS.tomato,
+  };
+  fonts.display.family = TYPE.display;
+  fonts.body.family = TYPE.body;
+  fonts.title.family = skin.fonts.display;
+}
+
 export const cssVars = {
   "--color-bg0": colors.bg0,
   "--color-bg1": colors.bg1,
@@ -146,8 +135,8 @@ export const cssVars = {
   "--color-amber": colors.amber,
   "--color-success": colors.success,
   "--color-danger": colors.danger,
-  "--font-display": fonts.display.family,
-  "--font-body": fonts.body.family,
+  "--font-display": TYPE.display,
+  "--font-body": TYPE.body,
   "--font-title": fonts.title.family,
   "--radius-card": `${radius.card}px`,
   "--radius-chip": `${radius.chip}px`,
@@ -155,4 +144,4 @@ export const cssVars = {
   "--spacing-unit": "4px",
   "--bento-gap": `${bento.gap}px`,
   "--bento-margin": `${bento.outerMargin}px`,
-} as const;
+};

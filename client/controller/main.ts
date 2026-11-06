@@ -11,6 +11,8 @@ import type { ClientMessage, ServerMessage, ControllerType, SessionView } from "
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { getLayout } from "../../shared/controllers.ts";
 import type { ControllerLayout } from "../../shared/controllers.ts";
+import { tokenMarkup } from "../kit/tokens.ts";
+import { sound } from "../kit/sound.ts";
 
 const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
 const wsUrl = `${wsProtocol}://${location.host}`;
@@ -24,6 +26,7 @@ let lastSignature = "";
 let gameName = "";
 let inGame = false;
 let roomStatus = "lobby";
+let lastTurn = false;
 let sessionPayload: {
   session: SessionView | null;
   yourVote: string | null;
@@ -41,6 +44,7 @@ const joinError = document.getElementById("joinError")!;
 const joinHint = document.getElementById("joinHint")!;
 const joinBtn = document.getElementById("joinBtn") as HTMLButtonElement;
 const playerNameEl = document.getElementById("playerName")!;
+const playerTokenEl = document.getElementById("playerToken")!;
 const connDot = document.getElementById("connDot")!;
 const gameLabel = document.getElementById("gameLabel")!;
 const coach = document.getElementById("coach")!;
@@ -93,6 +97,9 @@ function handleMessage(msg: ServerMessage) {
         console.warn("[Controller] Could not persist rejoin token", e);
       }
       playerNameEl.textContent = seatName;
+      const seatIndex = Math.max(0, msg.payload.roomState.players.findIndex((p) => p.id === playerId));
+      playerTokenEl.innerHTML = tokenMarkup(seatIndex, seatName, playerId);
+      playerTokenEl.classList.add("on");
       connDot.className = "dot on";
       inGame = false;
       sessionPayload = null;
@@ -120,6 +127,7 @@ function handleMessage(msg: ServerMessage) {
         currentLayout = getLayout(currentControllerType);
         statusEl.textContent = "Waiting for the host to start…";
         coach.classList.remove("your-turn");
+        lastTurn = false;
         renderSessionCard();
       }
       break;
@@ -169,6 +177,8 @@ function handleMessage(msg: ServerMessage) {
         controller.yourTurn === true ||
         controller.isYourTurn === true ||
         controller.yourTime === true;
+      if (isTurn && !lastTurn) sound.haptic([10, 40, 10]);
+      lastTurn = isTurn;
       coach.classList.toggle("your-turn", isTurn);
       statusEl.textContent = statusFrom(controller);
       break;
@@ -314,6 +324,7 @@ function renderSessionCard(): void {
 
 function sendSessionVote(gameId: string): void {
   if (!playerId || !ws || ws.readyState !== WebSocket.OPEN) return;
+  sound.haptic(8);
   const msg: ClientMessage = {
     type: MESSAGE_TYPES.SESSION_VOTE,
     roomId,
@@ -468,5 +479,12 @@ if (!roomId) {
 } else if (linkedFromQr) {
   nameInput.focus();
 }
+
+// Every physical control gets a small confirmation tap. The layouts are
+// intentionally big; the haptic is what makes them feel like objects.
+document.addEventListener("pointerdown", (event) => {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("button, .card, .grid-cell")) sound.haptic(8);
+}, { passive: true });
 
 connect();

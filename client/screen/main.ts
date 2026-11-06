@@ -11,6 +11,19 @@
 import type { ServerMessage, RoomState, SessionView } from "../../shared/types.ts";
 import { MESSAGE_TYPES } from "../../shared/constants.js";
 import { stageScale } from "./layout.ts";
+import { setLegacySkin } from "@legacy-kit/theme.ts";
+import { skinFor } from "../skins/index.ts";
+import {
+  createMox,
+  createShelf,
+  createToken,
+  enter,
+  HOUSE_SKIN,
+  moxLine,
+  paperVars,
+  sound,
+  type MoxElement,
+} from "@kit/index.ts";
 
 console.log("[Screen] Module loaded");
 
@@ -40,6 +53,7 @@ interface GameManifestLite {
 
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
+const domGame = document.getElementById("domGame")!;
 const lobby = document.getElementById("lobby")!;
 const lobbyStage = document.getElementById("lobbyStage")!;
 const playing = document.getElementById("playing")!;
@@ -77,6 +91,24 @@ const championPoints = document.getElementById("championPoints")!;
 const sessionTrophiesEl = document.getElementById("sessionTrophies")!;
 const sessionCloseBtn = document.getElementById("sessionClose") as HTMLButtonElement;
 const sessionNewBtn = document.getElementById("sessionNew") as HTMLButtonElement;
+const playerWordEl = document.getElementById("playerWord")!;
+const liveDot = document.getElementById("liveDot")!;
+const moxDock = document.getElementById("moxDock")!;
+const audioGate = document.getElementById("audioGate")!;
+const audioStart = document.getElementById("audioStart") as HTMLButtonElement;
+const creditsBtn = document.getElementById("creditsBtn") as HTMLButtonElement;
+const creditsPanel = document.getElementById("creditsPanel")!;
+const creditsClose = document.getElementById("creditsClose") as HTMLButtonElement;
+const muteBtn = document.getElementById("muteBtn") as HTMLButtonElement;
+const contrastBtn = document.getElementById("contrastBtn") as HTMLButtonElement;
+
+const houseVars = paperVars(HOUSE_SKIN.paper, HOUSE_SKIN.inks);
+for (const [key, value] of Object.entries(houseVars)) {
+  document.documentElement.style.setProperty(key, value);
+}
+
+const mox = createMox({ outfit: "bowtie", pitch: 1 }) as MoxElement;
+moxDock.appendChild(mox);
 
 function getPlayersList(): HTMLElement {
   return _playersList;
@@ -106,50 +138,29 @@ async function loadGames(): Promise<void> {
 
 function renderPicker(): void {
   picker.innerHTML = "";
-
-  for (const g of manifests) {
-    const enough = playerCount >= g.minPlayers;
-    const selected = selectedGameId === g.id;
-
-    const tile = document.createElement("button");
-    tile.type = "button";
-    tile.className = `game-tile${selected ? " selected" : ""}`;
-    tile.disabled = !enough;
-    tile.dataset.game = g.id;
-    if (!enough) tile.title = `Needs ${g.minPlayers} players — ${playerCount} at the table`;
-
-    const dots = Array.from(
-      { length: g.maxPlayers },
-      (_, i) => `<i class="${i < g.minPlayers ? "on" : ""}"></i>`,
-    ).join("");
-
-    const meta = enough
-      ? `<span class="dots" aria-hidden="true">${dots}</span><span>${g.minPlayers}–${g.maxPlayers}</span>`
-      : `<span>Needs ${g.minPlayers}</span>`;
-
-    tile.innerHTML = `
-      <span class="name">${escapeHtml(g.name)}</span>
-      <span class="meta">${meta}</span>
-      <span class="desc">${escapeHtml(g.description)}</span>
-    `;
-
-    tile.addEventListener("click", () => {
-      selectedGameId = g.id;
+  if (manifests.length === 0) return;
+  const shelf = createShelf(manifests, {
+    selectedId: selectedGameId,
+    playerCount,
+    onSelect: (id) => {
+      selectedGameId = id;
+      sound.play("click");
       renderPicker();
       updateLaunchBar();
-    });
-    picker.appendChild(tile);
-  }
+    },
+  });
+  picker.appendChild(shelf);
+  enter(shelf, "slide-tilt");
 }
 
 function updateLaunchBar(): void {
   const game = manifests.find((m) => m.id === selectedGameId) ?? null;
   const reachable = selectedGameReachable();
 
-  selectedGameEl.textContent = game ? game.name : "No game picked";
+  selectedGameEl.textContent = game ? game.name : "No box picked";
 
   if (!game) {
-    startBtn.textContent = "Pick a game";
+    startBtn.textContent = "Pick a box";
     startBtn.disabled = true;
     return;
   }
@@ -160,7 +171,7 @@ function updateLaunchBar(): void {
     return;
   }
 
-  startBtn.textContent = `Start ${game.name}`;
+  startBtn.textContent = `Open ${game.name}`;
   startBtn.disabled = false;
 }
 
@@ -460,9 +471,10 @@ function handleMessage(msg: ServerMessage) {
           qrImg.src = `/api/qr?data=${encodeURIComponent(joinUrl)}`;
           qrImg.classList.remove("hidden");
           qrGenerated = true;
-          // Show the address without the scheme; the room code above already
-          // carries the part a person needs to read out loud.
-          urlFallback.textContent = joinUrl.replace(/^https?:\/\//, "");
+          // The QR carries the room; the card shows a short, readable address.
+          // The room code above is the part a person reads aloud.
+          const short = joinUrl.replace(/\/controller\?.*$/, "/controller");
+          urlFallback.textContent = short.replace(/^https?:\/\//, "");
         }
       }).catch(e => console.error("[Screen] LAN URL fetch failed", e));
     }
@@ -495,6 +507,7 @@ function handleMessage(msg: ServerMessage) {
     else clearResultsHold();
 
     showPlaying();
+    if (finished) endGameBtn.classList.add("hidden");
     renderGame();
   } else if (msg.type === MESSAGE_TYPES.SESSION) {
     const m = msg as ServerMessage & { type: "session"; payload: { session: SessionView | null } };
@@ -525,8 +538,11 @@ function updatePlayers(
   status: string,
   gameId: string | null,
 ): void {
+  const previousCount = playerCount;
   playerCount = players.length;
   playerCountEl.textContent = String(playerCount);
+  playerWordEl.textContent = playerCount === 1 ? "phone" : "phones";
+  liveDot.classList.toggle("off", playerCount === 0);
 
   const list = getPlayersList();
   list.innerHTML = "";
@@ -535,18 +551,26 @@ function updatePlayers(
     const p = players[i];
     const el = document.createElement("div");
     if (p) {
-      const color = getPlayerColor(i);
       el.className = "seat filled";
-      el.innerHTML = `
-        <span class="swatch" style="background:${color}">${escapeHtml(p.name.charAt(0).toUpperCase())}</span>
-        <span class="nm">${escapeHtml(p.name)}</span>
-        <span class="st">${p.connected ? "connected" : "away"}</span>
-      `;
+      const token = createToken(i, p.name, p.connected ? "idle" : "sleeping", p.id);
+      const name = document.createElement("span");
+      name.className = "nm";
+      name.textContent = p.name;
+      const state = document.createElement("span");
+      state.className = "st";
+      state.textContent = p.connected ? "ready" : "away";
+      el.append(token, name, state);
     } else {
       el.className = "seat empty";
-      el.innerHTML = `<span class="swatch">+</span><span class="nm">Empty seat</span>`;
+      el.innerHTML = `<span class="swatch">+</span><span class="nm">Empty</span>`;
     }
     list.appendChild(el);
+  }
+
+  if (playerCount > previousCount && previousCount > 0) {
+    sound.play("join");
+    const newest = players[players.length - 1];
+    if (newest) mox.mox.say(moxLine("join", {}, newest.id), { holdMs: 3000 });
   }
 
   // The screen owns the room: it can start a game whenever the lobby is open
@@ -559,8 +583,8 @@ function updatePlayers(
   if (manifests.length > 0) {
     gameCountEl.textContent =
       playerCount === 0
-        ? `${manifests.length} games. Scan to unlock.`
-        : `${manifests.length} installed`;
+        ? `${manifests.length} boxes · scan in`
+        : `${manifests.length} boxes`;
   }
   if (status === "lobby") {
     renderPicker();
@@ -577,6 +601,7 @@ function selectedGameReachable(): boolean {
 function showLobby() {
   lobby.classList.remove("hidden");
   playing.classList.add("hidden");
+  moxDock.classList.remove("hidden");
   endGameBtn.classList.add("hidden");
   resetEndGameButton();
   fitLobby();
@@ -593,12 +618,16 @@ function showPlaying() {
   const wasHidden = playing.classList.contains("hidden");
   lobby.classList.add("hidden");
   playing.classList.remove("hidden");
+  moxDock.classList.add("hidden");
   endGameBtn.classList.remove("hidden");
   if (wasHidden) resizeCanvas();
 }
 
 startBtn.addEventListener("click", async () => {
   if (!selectedGameId || !roomId) return;
+  const game = manifests.find((m) => m.id === selectedGameId);
+  sound.play("slide");
+  if (game) mox.mox.say(moxLine("gameStart", { game: game.name }, game.id), { expression: "smug" });
   startBtn.disabled = true;
   try {
     const res = await fetch(`/api/rooms/${roomId}/start`, {
@@ -616,6 +645,49 @@ startBtn.addEventListener("click", async () => {
     startBtn.disabled = false;
   }
 });
+
+// --- Audio, credits, mute ---
+audioStart.addEventListener("click", () => {
+  sound.unlock();
+  sound.play("join");
+  audioGate.classList.add("hidden");
+  mox.mox.say(moxLine("join"), { expression: "celebrate" });
+});
+
+creditsBtn.addEventListener("click", () => {
+  sound.play("click");
+  creditsPanel.classList.remove("hidden");
+});
+creditsClose.addEventListener("click", () => creditsPanel.classList.add("hidden"));
+creditsPanel.addEventListener("click", (event) => {
+  if (event.target === creditsPanel) creditsPanel.classList.add("hidden");
+});
+
+function updateMuteLabel() {
+  muteBtn.textContent = sound.muted ? "Sound off" : "Sound on";
+  muteBtn.setAttribute("aria-pressed", sound.muted ? "true" : "false");
+}
+
+function applyContrast(on: boolean) {
+  document.documentElement.classList.toggle("high-contrast", on);
+  contrastBtn.textContent = on ? "Contrast on" : "Contrast";
+  contrastBtn.setAttribute("aria-pressed", on ? "true" : "false");
+  try { localStorage.setItem("tbrn_high_contrast", on ? "1" : "0"); } catch { /* ignore */ }
+}
+
+try { applyContrast(localStorage.getItem("tbrn_high_contrast") === "1"); } catch { applyContrast(false); }
+
+contrastBtn.addEventListener("click", () => {
+  applyContrast(!document.documentElement.classList.contains("high-contrast"));
+  sound.play("click");
+});
+
+muteBtn.addEventListener("click", () => {
+  sound.setMuted(!sound.muted);
+  updateMuteLabel();
+  if (!sound.muted) sound.play("click");
+});
+updateMuteLabel();
 
 // --- Rumble controls ---
 rumbleBtn.addEventListener("click", () => {
@@ -667,14 +739,21 @@ endGameBtn.addEventListener("click", () => {
 
 // --- Rendering ---
 type ScreenRenderer = (ctx: CanvasRenderingContext2D, width: number, height: number, state: unknown) => void;
-const rendererCache = new Map<string, ScreenRenderer | null>();
+type DomRenderer = (root: HTMLElement, state: unknown) => void;
+interface RendererEntry {
+  canvas: ScreenRenderer | null;
+  dom: DomRenderer | null;
+}
+const rendererCache = new Map<string, RendererEntry>();
 const rendererLoading = new Set<string>();
 
-async function loadCustomRenderer(gameId: string): Promise<ScreenRenderer | null> {
-  if (rendererCache.has(gameId)) return rendererCache.get(gameId) ?? null;
+async function loadCustomRenderer(gameId: string): Promise<RendererEntry> {
+  const cached = rendererCache.get(gameId);
+  if (cached) return cached;
   try {
     const mod = (await import(`/games/${gameId}/screen.ts`)) as Record<string, unknown>;
     const cap = gameId.charAt(0).toUpperCase() + gameId.slice(1);
+    const dom = (mod.renderDom ?? mod.renderDOM) as DomRenderer | undefined;
     const candidates = ["render", `render${cap}`];
     let fn: ScreenRenderer | null = null;
     for (const name of candidates) {
@@ -687,20 +766,22 @@ async function loadCustomRenderer(gameId: string): Promise<ScreenRenderer | null
     // directory name; accept the module's single `render*` export instead.
     if (!fn) {
       const renderExports = Object.entries(mod).filter(
-        ([name, value]) => name.startsWith("render") && typeof value === "function",
+        ([name, value]) => name.startsWith("render") && typeof value === "function" && name !== "renderDom" && name !== "renderDOM",
       );
       if (renderExports.length === 1) {
         fn = renderExports[0][1] as ScreenRenderer;
       }
     }
-    rendererCache.set(gameId, fn);
-    return fn;
+    const entry: RendererEntry = { canvas: fn, dom: typeof dom === "function" ? dom : null };
+    rendererCache.set(gameId, entry);
+    return entry;
   } catch (e) {
     // Most games legitimately have no custom renderer; log at debug level so
     // real failures stay visible without flooding the console.
     console.debug(`[Screen] No custom renderer for ${gameId}`, e);
-    rendererCache.set(gameId, null);
-    return null;
+    const entry: RendererEntry = { canvas: null, dom: null };
+    rendererCache.set(gameId, entry);
+    return entry;
   }
 }
 
@@ -718,7 +799,29 @@ function renderGame(): void {
     void loadCustomRenderer(gameId).finally(() => rendererLoading.delete(gameId));
   }
 
-  const fn = currentGameId ? (rendererCache.get(currentGameId) ?? null) : null;
+  const entry = currentGameId ? (rendererCache.get(currentGameId) ?? null) : null;
+
+  if (entry?.dom && currentScreen !== null) {
+    playing.classList.add("dom-mode");
+    domGame.classList.remove("hidden");
+    try {
+      entry.dom(domGame, currentScreen);
+    } catch (e) {
+      if (currentGameId && !renderErrors.has(currentGameId)) {
+        renderErrors.add(currentGameId);
+        console.error(`[Screen] DOM renderer for ${currentGameId} failed`, e);
+      }
+    }
+    return;
+  }
+
+  playing.classList.remove("dom-mode");
+  domGame.classList.add("hidden");
+  const fn = entry?.canvas ?? null;
+  if (currentGameId) {
+    const skin = skinFor(currentGameId);
+    if (skin) setLegacySkin(skin);
+  }
 
   // Always draw in CSS-pixel space. Renderers may translate for shake and may
   // throw halfway through, so the DPR transform is restored for every frame and
@@ -744,9 +847,29 @@ function renderGame(): void {
 }
 
 /** Continuous frame loop so particles, cards and victory screens animate smoothly. */
+let debugEl: HTMLElement | null = null;
+let debugFrames = 0;
+let debugLast = performance.now();
+if (new URLSearchParams(location.search).has("debug")) {
+  debugEl = document.createElement("div");
+  debugEl.id = "fps-debug";
+  debugEl.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99999;padding:4px 7px;background:#1D1B26;color:#F4EBD9;font:12px monospace;border:2px solid #F4EBD9;";
+  debugEl.textContent = "fps …";
+  document.body.appendChild(debugEl);
+}
 function frameLoop(): void {
   if (!playing.classList.contains("hidden")) {
     renderGame();
+  }
+  if (debugEl) {
+    debugFrames++;
+    const now = performance.now();
+    if (now - debugLast >= 500) {
+      const fps = Math.round((debugFrames * 1000) / (now - debugLast));
+      debugEl.textContent = `fps ${fps} · ${(1000 / Math.max(1, fps)).toFixed(1)} ms`;
+      debugFrames = 0;
+      debugLast = now;
+    }
   }
   requestAnimationFrame(frameLoop);
 }
@@ -754,7 +877,7 @@ requestAnimationFrame(frameLoop);
 
 /** Generic renderer: works with every game's standard screen-state fields. */
 function renderGeneric(width: number, height: number): void {
-  ctx.fillStyle = "#0F172A";
+  ctx.fillStyle = "#F4EBD9";
   ctx.fillRect(0, 0, width, height);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
@@ -763,12 +886,12 @@ function renderGeneric(width: number, height: number): void {
   let y = 24;
 
   // Header: game name + phase/round + timer.
-  ctx.fillStyle = "#F8FAFC";
-  ctx.font = "600 32px Inter, sans-serif";
+  ctx.fillStyle = "#1D1B26";
+  ctx.font = '800 32px "Bricolage Grotesque", sans-serif';
   ctx.fillText(currentGameName || "TBRN-Games", 32, y);
   y += 44;
-  ctx.font = "400 20px Inter, sans-serif";
-  ctx.fillStyle = "#94A3B8";
+  ctx.font = '400 20px "Atkinson Hyperlegible", sans-serif';
+  ctx.fillStyle = "#5B5448";
   const meta: string[] = [];
   if (typeof state.phase === "string") meta.push(String(state.phase));
   if (typeof state.round === "number" && typeof state.totalRounds === "number") {
@@ -796,8 +919,8 @@ function renderGeneric(width: number, height: number): void {
     (t) => typeof t === "string" && t.length > 0,
   ) as string | undefined;
   if (bigText) {
-    ctx.fillStyle = "#F8FAFC";
-    ctx.font = "600 26px Inter, sans-serif";
+    ctx.fillStyle = "#1D1B26";
+    ctx.font = '700 26px "Atkinson Hyperlegible", sans-serif';
     y = drawWrapped(ctx, bigText, 32, y, width - 64, 32) + 16;
   }
 
@@ -809,7 +932,7 @@ function renderGeneric(width: number, height: number): void {
   // Scores / players table.
   const players = Array.isArray(state.players) ? (state.players as Array<Record<string, unknown>>) : [];
   if (players.length) {
-    ctx.font = "400 22px Inter, sans-serif";
+    ctx.font = '400 22px "Atkinson Hyperlegible", sans-serif';
     for (let i = 0; i < players.length && y < height - 120; i++) {
       const p = players[i];
       const name = String(p.name ?? `Player ${i + 1}`);
@@ -822,7 +945,10 @@ function renderGeneric(width: number, height: number): void {
       if (p.alive === false) bits.push("out");
       ctx.fillStyle = getPlayerColor(i);
       ctx.fillRect(32, y + 4, 14, 14);
-      ctx.fillStyle = "#F8FAFC";
+      ctx.strokeStyle = "#1D1B26";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(32, y + 4, 14, 14);
+      ctx.fillStyle = "#1D1B26";
       ctx.fillText(`${name}  ${bits.join("  ")}`, 56, y);
       y += 30;
     }
@@ -831,11 +957,14 @@ function renderGeneric(width: number, height: number): void {
   // Winner banner.
   if (state.finished === true) {
     const winner = state.winner as { name?: string; score?: number } | null;
-    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    ctx.fillStyle = "#FBE7A1";
     ctx.fillRect(0, height / 2 - 90, width, 180);
+    ctx.strokeStyle = "#1D1B26";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(0, height / 2 - 90, width, 180);
     ctx.textAlign = "center";
-    ctx.fillStyle = "#F59E0B";
-    ctx.font = "700 56px Inter, sans-serif";
+    ctx.fillStyle = "#F0453A";
+    ctx.font = '800 56px "Bricolage Grotesque", sans-serif';
     ctx.fillText(winner?.name ? `${winner.name} wins!` : "Game over!", width / 2, height / 2 - 50);
     ctx.textAlign = "left";
   }
@@ -884,10 +1013,13 @@ function drawCellGrid(
       const value = String(cells[r]?.[col] ?? "");
       const cx = x + col * size;
       const cy = y + r * size;
-      c.fillStyle = value ? "#334155" : "#1E293B";
+      c.fillStyle = value ? "#E7E0CC" : "#FFFDF5";
       c.fillRect(cx, cy, size - 2, size - 2);
+      c.strokeStyle = "#1D1B26";
+      c.lineWidth = 1;
+      c.strokeRect(cx, cy, size - 2, size - 2);
       if (value) {
-        c.fillStyle = value === "X" ? "#EF4444" : value === "o" ? "#94A3B8" : "#F8FAFC";
+        c.fillStyle = value === "X" ? "#F0453A" : value === "o" ? "#5B5448" : "#1D1B26";
         c.fillText(value, cx + 4, cy + 4);
       }
     }
@@ -921,9 +1053,8 @@ function resizeCanvas() {
 }
 
 function getPlayerColor(index: number): string {
-  // Same palette the game renderers use, so a player keeps their colour from
-  // the lobby into the game.
-  const colors = ["#FF2E97", "#00E5FF", "#FFE45E", "#3DFFA2"];
+  // Paper-and-ink player tokens, same order as the table.
+  const colors = ["#FF5BA7", "#FFC21A", "#0E8C8C", "#3AA7E8"];
   return colors[index % colors.length];
 }
 

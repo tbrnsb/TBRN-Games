@@ -18,7 +18,9 @@
       "@shared/*": ["shared/*"],
       "@server/*": ["server/*"],
       "@games/*": ["games/*"],
-      "@client/*": ["client/*"]
+      "@client/*": ["client/*"],
+      "@kit/*": ["client/kit/*"],
+      "@legacy-kit/*": ["client/screen/kit/*"]
     }
   },
   "include": [

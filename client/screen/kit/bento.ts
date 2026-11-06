@@ -66,11 +66,8 @@ export function drawBentoCard(
   options: CardOptions = {}
 ): void {
   const {
-    fill = colors.surface,
-    stroke = colors.border,
-    lineWidth = 1,
+    lineWidth = 3,
     radius: r = radius.card,
-    glow,
     padding = 0,
   } = options;
 
@@ -81,24 +78,31 @@ export function drawBentoCard(
 
   ctx.save();
 
-  // Glow shadow for active cards
-  if (glow) {
-    ctx.shadowColor = glow;
-    ctx.shadowBlur = 24;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-  }
+  // Hard offset shadow; no blur, no glow.
+  ctx.shadowColor = colors.border;
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 6;
+  ctx.shadowOffsetY = 6;
 
-  // Rounded rect
   roundRect(ctx, x, y, w, h, r);
-  ctx.fillStyle = fill;
+  ctx.fillStyle = colors.surface;
   ctx.fill();
 
-  if (stroke) {
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-  }
+  ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+
+  // Tape corner, one of the three handmade details on every game screen.
+  ctx.save();
+  ctx.translate(x + 18, y - 8);
+  ctx.rotate(-0.05);
+  ctx.fillStyle = "#E9D7A8";
+  ctx.globalAlpha = 0.9;
+  ctx.fillRect(0, 0, Math.min(120, w * 0.28), 20);
+  ctx.restore();
 
   ctx.restore();
 }
@@ -156,7 +160,7 @@ export function drawScoreboard(
   // Title
   if (title) {
     ctx.font = titleFont ?? `700 ${scaledSize(22, scale)}px ${fonts.title.family}`;
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardText;
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.fillText(title, rect.x + padding, y + scaledSize(20, scale));
@@ -178,9 +182,9 @@ export function drawScoreboard(
     Math.min(maxEntry, (available - gap * (entries.length - 1)) / entries.length),
   );
 
-  const nameSize = Math.max(scaledSize(13, scale), Math.min(scaledSize(24, scale), entryHeight * 0.32));
-  const scoreSize = Math.max(scaledSize(16, scale), Math.min(scaledSize(34, scale), entryHeight * 0.5));
-  const badgeSize = Math.min(scaledSize(32, scale), entryHeight * 0.62);
+  const nameSize = Math.max(scaledSize(16, scale), Math.min(scaledSize(26, scale), entryHeight * 0.34));
+  const scoreSize = Math.max(scaledSize(26, scale), Math.min(scaledSize(42, scale), entryHeight * 0.56));
+  const badgeSize = Math.max(scaledSize(24, scale), Math.min(scaledSize(34, scale), entryHeight * 0.64));
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
@@ -194,15 +198,13 @@ export function drawScoreboard(
     };
 
     // Highlight current player / winner.
-    if (entry.isCurrent) {
-      ctx.fillStyle = color + "26";
+    if (entry.isCurrent || entry.isWinner) {
       roundRect(ctx, entryRect.x, entryRect.y, entryRect.width, entryRect.height, radius.chip);
+      ctx.fillStyle = entry.isWinner ? colors.amber : "#FBE7A1";
       ctx.fill();
-    }
-    if (entry.isWinner) {
-      ctx.fillStyle = colors.success + "2E";
-      roundRect(ctx, entryRect.x, entryRect.y, entryRect.width, entryRect.height, radius.chip);
-      ctx.fill();
+      ctx.strokeStyle = colors.border;
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
 
     // Rank badge (number, not colour alone).
@@ -213,7 +215,7 @@ export function drawScoreboard(
       roundRect(ctx, badgeX, badgeY, badgeSize, badgeSize, radius.chip);
       ctx.fill();
       ctx.font = `700 ${Math.max(scaledSize(10, scale), badgeSize * 0.44)}px ${fonts.display.family}`;
-      ctx.fillStyle = colors.bg0;
+      ctx.fillStyle = "#FFF7E8";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(String(i + 1), badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 1);
@@ -227,7 +229,7 @@ export function drawScoreboard(
     const nameMax = entryRect.x + entryRect.width - scaledSize(8, scale) - scoreWidth - scaledSize(12, scale);
 
     ctx.font = entryFont ?? `500 ${nameSize}px ${fonts.display.family}`;
-    ctx.fillStyle = entry.isCurrent ? color : colors.text;
+    ctx.fillStyle = colors.cardText;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(
@@ -238,7 +240,7 @@ export function drawScoreboard(
 
     // Score (animated).
     ctx.font = scoreFont ?? `700 ${scoreSize}px ${fonts.display.family}`;
-    ctx.fillStyle = entry.isWinner ? colors.success : entry.isCurrent ? color : colors.text;
+    ctx.fillStyle = entry.isWinner ? colors.danger : colors.cardText;
     ctx.textAlign = "right";
     ctx.fillText(scoreText, entryRect.x + entryRect.width - scaledSize(6, scale), entryRect.y + entryRect.height / 2);
   }

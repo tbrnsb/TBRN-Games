@@ -110,46 +110,55 @@ export function drawTitleCard(ctx: CanvasRenderingContext2D, width: number, heig
   const scale = scaleForViewport(width, height);
   const centerX = width / 2;
   const centerY = height / 2;
-
   const { title, subtitle } = card.config;
   const { title: titleAnim, subtitle: subAnim } = card.animations;
 
   ctx.save();
+  // Flat ink wash, no blur.
+  ctx.fillStyle = "rgba(29,27,38,0.55)";
+  ctx.fillRect(0, 0, width, height);
+
+  const cardW = Math.min(width * 0.78, scaledSize(980, scale));
+  const cardH = Math.min(height * 0.40, scaledSize(330, scale));
+  const x = centerX - cardW / 2;
+  const y = centerY - cardH / 2;
+
+  ctx.translate(centerX, centerY + titleAnim.y);
+  ctx.rotate(-0.012);
+  ctx.scale(titleAnim.scale, titleAnim.scale);
+  ctx.translate(-centerX, -centerY);
+
+  ctx.shadowColor = colors.border;
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 8;
+  ctx.shadowOffsetY = 8;
+  ctx.fillStyle = colors.bg0;
+  ctx.fillRect(x, y, cardW, cardH);
+  ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(3, scaledSize(4, scale));
+  ctx.strokeRect(x, y, cardW, cardH);
+
+  // Tape corners.
+  ctx.fillStyle = "#E9D7A8";
+  ctx.fillRect(x + cardW * 0.10, y - 11, 120 * scale, 24 * scale);
+  ctx.fillRect(x + cardW * 0.72, y + cardH - 13, 120 * scale, 24 * scale);
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  ctx.globalAlpha = titleAnim.alpha;
+  const titleSize = Math.max(scaledSize(48, scale), Math.min(scaledSize(96, scale), cardH * 0.28));
+  ctx.font = `800 ${titleSize}px ${fonts.title.family}`;
+  ctx.fillStyle = colors.magenta;
+  ctx.fillText(title, centerX, centerY - titleSize * 0.08);
 
-  // Dim the playfield so the card reads clearly over the synthwave sun.
-  if (titleAnim.alpha > 0) {
-    ctx.fillStyle = `rgba(11,8,32,${(0.55 * titleAnim.alpha).toFixed(3)})`;
-    ctx.fillRect(0, 0, width, height);
-  }
-
-  // Title (Orbitron, huge)
-  const titleSize = scaledSize(96, scale);
-  ctx.font = `700 ${titleSize}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
-
-  // Glow effect
-  if (titleAnim.alpha > 0) {
-    ctx.shadowColor = colors.magenta;
-    ctx.shadowBlur = 30 * titleAnim.alpha;
-    ctx.globalAlpha = titleAnim.alpha;
-    ctx.save();
-    ctx.translate(centerX, centerY + titleAnim.y);
-    ctx.scale(titleAnim.scale, titleAnim.scale);
-    ctx.fillText(title, 0, 0);
-    ctx.restore();
-  }
-
-  // Subtitle (Space Grotesk)
   if (subtitle && subAnim.alpha > 0) {
-    const subSize = scaledSize(28, scale);
-    ctx.font = `500 ${subSize}px ${fonts.display.family}`;
-    ctx.fillStyle = colors.textMuted;
-    ctx.shadowColor = colors.cyan;
-    ctx.shadowBlur = 20 * subAnim.alpha;
     ctx.globalAlpha = subAnim.alpha;
-    ctx.fillText(subtitle, centerX, centerY + titleSize * 0.7 + subAnim.y);
+    ctx.font = `700 ${scaledSize(24, scale)}px ${fonts.body.family}`;
+    ctx.fillStyle = colors.text;
+    ctx.fillText(subtitle, centerX, centerY + titleSize * 0.62);
   }
 
   ctx.restore();
@@ -231,29 +240,34 @@ export function updateCountdown(card: CountdownCard, now: number): void {
 
 export function drawCountdown(ctx: CanvasRenderingContext2D, width: number, height: number, card: CountdownCard): void {
   if (card.state === "done" && card.alpha === 0) return;
-
   const scale = scaleForViewport(width, height);
   const centerX = width / 2;
   const centerY = height / 2;
-
   const text = card.state === "go" ? "GO!" : String(card.numbers[card.currentIndex] ?? "");
-
-  const size = scaledSize(140, scale);
+  const radius = scaledSize(120, scale);
 
   ctx.save();
   ctx.translate(centerX, centerY);
   ctx.scale(card.scale, card.scale);
   ctx.globalAlpha = card.alpha;
-
-  ctx.font = `700 ${size}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  ctx.shadowColor = colors.border;
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 8;
+  ctx.shadowOffsetY = 8;
+  ctx.fillStyle = card.state === "go" ? colors.amber : colors.bg0;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(3, scaledSize(4, scale));
+  ctx.stroke();
+  ctx.font = `800 ${scaledSize(96, scale)}px ${fonts.title.family}`;
+  ctx.fillStyle = colors.magenta;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-
-  // Glow
-  ctx.shadowColor = card.state === "go" ? colors.success : colors.magenta;
-  ctx.shadowBlur = 40 * card.alpha;
-
-  ctx.fillText(text, 0, 0);
+  ctx.fillText(text, 0, 3);
   ctx.restore();
 }
