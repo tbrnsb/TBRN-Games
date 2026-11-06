@@ -740,7 +740,7 @@
     }
     .stack-field { display: flex; align-items: center; gap: 8px; }
     .stack-field.hidden { display: none; }
-    .stack-field input {
+    .stack-field input[type="number"] {
       width: 84px; padding: 8px 10px; border-radius: 10px; font-size: 15px;
       background: rgba(255,255,255,.08); color: inherit; border: 1px solid rgba(255,255,255,.16);
     }
@@ -1109,6 +1109,10 @@
             <input id="stackInput" type="number" min="100" max="100000" step="100" value="1000" />
             <span class="k">Hands</span>
             <input id="handsInput" type="number" min="1" max="50" step="1" value="12" />
+          </label>
+          <label class="stack-field hidden" id="quizField">
+            <span class="k">Fast mode</span>
+            <input class="switch" id="quizFastInput" type="checkbox" />
           </label>
           <button id="startGameBtn" type="button" disabled>Pick a game</button>
         </div>

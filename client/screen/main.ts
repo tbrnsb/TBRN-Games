@@ -324,8 +324,9 @@ function updateLaunchBar(): void {
   const reachable = selectedGameReachable();
 
   selectedGameEl.textContent = game ? gameName(game) : "No game picked";
-  // Poker is the only game with host-tunable settings so far.
+  // Poker and Quiz are the games with host-tunable settings so far.
   document.getElementById("stackField")?.classList.toggle("hidden", game?.id !== "poker");
+  document.getElementById("quizField")?.classList.toggle("hidden", game?.id !== "quiz");
 
   if (!game) {
     startBtn.textContent = "Pick a game";
@@ -503,7 +504,12 @@ async function endRumble(): Promise<void> {
 }
 
 /** Host-tunable settings for the few games that take them. */
-function hostOptionsFor(gameId: string): Record<string, unknown> {
+function hostOptionsFor(gameId: string, rumble = false): Record<string, unknown> {
+  if (gameId === "quiz") {
+    // The Rumble always runs Fast mode; the standalone lobby uses the toggle.
+    const fast = rumble || (document.getElementById("quizFastInput") as HTMLInputElement | null)?.checked === true;
+    return { mode: fast ? "fast" : "standard" };
+  }
   if (gameId !== "poker") return {};
   const stack = Number((document.getElementById("stackInput") as HTMLInputElement | null)?.value);
   const hands = Number((document.getElementById("handsInput") as HTMLInputElement | null)?.value);
@@ -520,7 +526,7 @@ async function startSessionGame(gameId: string): Promise<void> {
     const res = await fetch(`/api/rooms/${roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": hostToken },
-      body: JSON.stringify({ gameId, options: hostOptionsFor(gameId) }),
+      body: JSON.stringify({ gameId, options: hostOptionsFor(gameId, true) }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { message?: string };
@@ -1067,7 +1073,7 @@ startBtn.addEventListener("click", async () => {
     const res = await fetch(`/api/rooms/${roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": hostToken },
-      body: JSON.stringify({ gameId: selectedGameId }),
+      body: JSON.stringify({ gameId: selectedGameId, options: hostOptionsFor(selectedGameId) }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { message?: string };

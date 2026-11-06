@@ -362,13 +362,19 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
     enabled: true,
     kind: "trivia",
     minPlayers: 1,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 3,
     idealMax: 8,
     minutes: { standalone: 3, rumble: 2 },
     dropoutPolicy: "continue",
-    contentPacks: [],
-    scale: fixedScale(10, { question: 15, reveal: 3 }, { options: 4 }),
+    contentPacks: ["quiz-questions"],
+    // Standard standalone: 10 questions at 15 s. The Rumble's Fast mode:
+    // 6 questions at 10 s with four options. Both modes show four options.
+    scale: (_playerCount, mode) => ({
+      rounds: mode === "rumble" ? 6 : 10,
+      timers: { question: mode === "rumble" ? 10 : 15, reveal: 3 },
+      optionCaps: { options: 4 },
+    }),
   },
   mindmeld: {
     id: "mindmeld",

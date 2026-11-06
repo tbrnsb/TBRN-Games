@@ -27,11 +27,16 @@ import {
 } from "../../client/screen/kit/index.ts";
 
 interface QuizScreenState {
+  mode?: "standard" | "fast";
   phase: "waiting" | "question" | "reveal" | "finished";
   question: { text: string; options: Array<{ id: string; label: string }>; correct: string | null } | null;
   currentQuestion: number;
   totalQuestions: number;
   timeLeft: number;
+  /** Length of the current question window in ms (15 s standard / 10 s fast). */
+  questionTimeMs?: number;
+  /** Per-option answer counts; null until the reveal. */
+  distribution?: Array<{ id: string; count: number }> | null;
   scores: Array<{ name: string; score: number }>;
   finished: boolean;
   winner: { name: string; score: number } | null;
@@ -48,7 +53,7 @@ interface RenderState {
   lastScores: number[];
 }
 
-const QUESTION_TIME_MS = 15000;
+const DEFAULT_QUESTION_TIME_MS = 15000;
 
 function createRenderState(): RenderState {
   return {
@@ -215,13 +220,13 @@ function renderQuestion(
   ctx.textBaseline = "alphabetic";
   ctx.font = `700 ${scaledSize(30, scale)}px ${fonts.title.family}`;
   ctx.fillStyle = colors.text;
-  ctx.fillText("QUIZ", margin, margin + scaledSize(28, scale));
+  ctx.fillText(state.mode === "fast" ? "QUIZ · FAST" : "QUIZ", margin, margin + scaledSize(28, scale));
 
   ctx.font = `600 ${scaledSize(22, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.textMuted;
   ctx.fillText(
     `Question ${currentQuestion} of ${totalQuestions}`,
-    margin + scaledSize(120, scale),
+    margin + scaledSize(state.mode === "fast" ? 196 : 120, scale),
     margin + scaledSize(26, scale),
   );
 
@@ -251,6 +256,7 @@ function renderQuestion(
     height - margin - (cardY + cardH + gap),
     question,
     state.phase === "reveal" ? question.correct : null,
+    state.distribution ?? null,
     scale,
     now,
   );
@@ -266,6 +272,7 @@ function renderOptions(
   height: number,
   question: { options: Array<{ id: string; label: string }> },
   correctId: string | null,
+  distribution: Array<{ id: string; count: number }> | null,
   scale: number,
   now: number,
 ): void {
@@ -275,6 +282,7 @@ function renderOptions(
   const cardW = (width - gap * (cols - 1)) / cols;
   const cardH = Math.min(scaledSize(190, scale), (height - gap * (rows - 1)) / rows);
   const revealed = correctId !== null;
+  const maxCount = Math.max(1, ...(distribution ?? []).map((entry) => entry.count));
 
   question.options.forEach((opt, i) => {
     const col = i % cols;
@@ -320,7 +328,9 @@ function renderOptions(
 
     // Option label
     const labelX = badgeX + badge + scaledSize(18, scale);
-    const labelMax = cx + cardW - labelX - scaledSize(20, scale);
+    const countEntry = distribution?.find((entry) => entry.id === opt.id) ?? null;
+    const countBadgeW = countEntry ? scaledSize(48, scale) : 0;
+    const labelMax = cx + cardW - labelX - scaledSize(20, scale) - countBadgeW;
     const labelSize = Math.max(scaledSize(18, scale), Math.min(scaledSize(26, scale), cardH * 0.24));
     ctx.font = `500 ${labelSize}px ${fonts.display.family}`;
     ctx.fillStyle = revealed && !isCorrect ? colors.textMuted : colors.text;
@@ -330,6 +340,38 @@ function renderOptions(
     const lh = labelSize * 1.2;
     const start = cy + cardH / 2 - ((lines.length - 1) * lh) / 2;
     lines.forEach((line, li) => ctx.fillText(line, labelX, start + li * lh));
+
+    if (countEntry) {
+      // Answer distribution: a count pill plus a proportional bar. Who picked
+      // what is still never published; only the per-option totals are.
+      const pillW = scaledSize(44, scale);
+      const pillH = scaledSize(28, scale);
+      const pillX = cx + cardW - pillW - scaledSize(16, scale);
+      const pillY = cy + scaledSize(14, scale);
+      ctx.fillStyle = isCorrect ? colors.success : "rgba(255,255,255,0.12)";
+      drawRoundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2, ctx.fillStyle as string);
+      ctx.font = `700 ${scaledSize(16, scale)}px ${fonts.title.family}`;
+      ctx.fillStyle = isCorrect ? colors.bg0 : colors.text;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(countEntry.count), pillX + pillW / 2, pillY + pillH / 2 + 1);
+
+      const barX = cx + scaledSize(16, scale);
+      const barY = cy + cardH - scaledSize(14, scale);
+      const barMax = cardW - scaledSize(32, scale);
+      const barW = barMax * (countEntry.count / maxCount);
+      if (barW > 0) {
+        drawRoundRect(
+          ctx,
+          barX,
+          barY,
+          Math.max(scaledSize(2, scale), barW),
+          scaledSize(6, scale),
+          scaledSize(3, scale),
+          isCorrect ? colors.success : colors.cyan,
+        );
+      }
+    }
 
     ctx.restore();
   });
@@ -384,8 +426,9 @@ function renderTimer(
 
   const barH = scaledSize(8, scale);
   const y = margin + scaledSize(42, scale);
+  const questionTimeMs = state.questionTimeMs ?? DEFAULT_QUESTION_TIME_MS;
   const progress = Math.max(0, Math.min(1,
-    state.phase === "question" ? state.timeLeft / QUESTION_TIME_MS : 0,
+    state.phase === "question" ? state.timeLeft / questionTimeMs : 0,
   ));
 
   drawRoundRect(ctx, margin, y, mainWidth, barH, barH / 2, "rgba(255,255,255,0.08)");

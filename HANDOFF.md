@@ -71,6 +71,8 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   phone readout, kit palette synced to all eight seat colours.
 - Phase 3 (e) Slingshot Arena: stays 2-4, best-of-3 standalone / one 60 s
   match in the Rumble, reveal beat and result stats.
+- Phase 3 (f) Quiz: 1-8, standard 10x15s and Fast 6x10s (absorbs Quick
+  Trivia's questions), answer distribution at reveal, host Fast toggle.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,

@@ -283,6 +283,27 @@ describe("gameAvailability", () => {
     assert.strictEqual(racing.idealMax, 8);
   });
 
+  test("quiz moved from 1-4 to 1-8 and reports standard and fast scale", () => {
+    const quiz = GAME_CATALOG.quiz;
+    assert.strictEqual(gameAvailability(quiz, 0), "needs 1+");
+    assert.strictEqual(gameAvailability(quiz, 1), null);
+    assert.strictEqual(gameAvailability(quiz, 4), null);
+    assert.strictEqual(gameAvailability(quiz, 8), null);
+    assert.strictEqual(gameAvailability(quiz, 9), "max 8");
+    assert.strictEqual(quiz.idealMin, 3);
+    assert.strictEqual(quiz.idealMax, 8);
+
+    const standard = quiz.scale(4, "standalone");
+    assert.strictEqual(standard.rounds, 10);
+    assert.strictEqual(standard.timers?.question, 15);
+    assert.strictEqual(standard.optionCaps?.options, 4);
+
+    const fast = quiz.scale(4, "rumble");
+    assert.strictEqual(fast.rounds, 6);
+    assert.strictEqual(fast.timers?.question, 10);
+    assert.strictEqual(fast.optionCaps?.options, 4);
+  });
+
   test("survive moved from 3-4 to 3-6", () => {
     const survive = GAME_CATALOG.survive;
     assert.strictEqual(gameAvailability(survive, 2), "needs 3-6");
