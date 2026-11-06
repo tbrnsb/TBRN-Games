@@ -32,14 +32,16 @@ Last gate: `npm test` 822/822 · typecheck clean · lint 0 errors (954 warnings)
   min and max count — hole cards, roles, secret words, lookalikes, private
   prompts and unrevealed answers stay off the TV payload in every hidden
   phase; a coverage matrix fails if a newly enabled game is not scanned.
+- Phase 6 docs: `docs/PLAYER_COUNTS.md` — every game's hard and ideal range,
+  generated from the catalog (22 enabled, 15 disabled, 37 total).
 
 ## In progress
 Phase 6 verification.
 
 ## Next three actions
-1. 3-4 score parity fixtures, scaling bounds, disconnect/rejoin matrix,
-   layout checks (1080p / 720p / 360dp).
-2. `docs/PLAYER_COUNTS.md`, decisions/HANDOFF updates, final critic.
+1. 3-4 score parity fixtures (in flight), scaling bound suite.
+2. Disconnect/rejoin matrix + below-min; layout checks (1080p/720p/360dp).
+3. Decisions/HANDOFF refresh, final critic (family differs from authors).
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and
