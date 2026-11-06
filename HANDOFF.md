@@ -90,6 +90,10 @@ Last gate: `npm test` 495/495 · typecheck clean · lint 0 errors (605 warnings)
   kind fallback and TV swap lines, validated for N=3..8.
 - Phase 5 engine: preset session state, per-game re-resolution, interlude,
   double-last, late joiners, summary; placement points unchanged.
+- Phase 5 transport: preset start/skip/next/end API, slot options passed to
+  games, late joins at boundaries, on-disk Rumble save per room code.
+- Phase 6 probe: every enabled game at every valid count (130 runs), with
+  `--all` for retired games.
 - Phase 3 (c) Fakin' It: 3-8, 5 standalone / 3 rumble rounds, secure-random
   Faker rotation in shuffled cycles with no repeat before every seat has had
   it, 200 x f(N) correct voters, fixed 500 uncaught, eight-seat TV ballot,

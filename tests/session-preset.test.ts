@@ -85,7 +85,7 @@ describe("session preset: resolution", () => {
     assert.strictEqual(session.length, 8);
     assert.strictEqual(session.slotIndex, 0);
     assert.strictEqual(session.status, "interlude");
-    assert.strictEqual(session.selection, "preset");
+    assert.strictEqual(sessionView(session).selection, "preset");
     assert.strictEqual(session.currentGameId, "quiz");
     assert.deepStrictEqual(session.slots.map((slot) => slot.gameId), preset.slots.map((slot) => slot.gameId));
   });

@@ -9,3 +9,4 @@ Thumbs.db
 .playwright-mcp/
 .screenshots/
 .orchestrator/
+data/

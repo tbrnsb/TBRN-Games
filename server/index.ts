@@ -35,15 +35,20 @@ import { seatForIndex, type SeatIdentity } from "../shared/seat-identity.ts";
 import { sanitisePlayerName, uniquePlayerName } from "../shared/player-name.ts";
 import { isReaction, reactionById, REACTION_COOLDOWN_MS } from "../shared/reactions.ts";
 import {
+  addLatePlayer,
+  beginNextGame,
   createSession,
+  endSessionEarly,
   sessionView,
-  recordVote,
+  skipNextGame,
   startRound,
   abortRound,
   completeRound,
   quizAccuracy,
   type SessionState,
 } from "./session.ts";
+import { RUMBLE_PRESETS } from "../shared/rumble-presets.ts";
+import { restoreRumble, saveRumble } from "./rumble-store.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const MAX_ROOMS = 100; // Prevent unbounded room creation
@@ -70,6 +75,62 @@ function hostTokenFor(roomId: string): string {
     roomHostTokens.set(roomId, token);
   }
   return token;
+}
+
+/**
+ * Load a saved Rumble when a room with a matching code is created again. The
+ * in-memory session normally survives a laptop refresh; this is the cold-start
+ * copy the brief asks for.
+ */
+function restoreRoomRumble(room: RoomState): void {
+  if (roomSessions.has(room.id)) return;
+  const restored = restoreRumble(room.code);
+  if (!restored) return;
+  roomSessions.set(room.id, restored);
+}
+
+/** Players who count for a game: connected, present and not spectating. */
+function activeParticipants(room: RoomState): Player[] {
+  return room.players.filter(
+    (player) =>
+      player.connected &&
+      !player.spectator &&
+      (player.presence === undefined || player.presence === "active"),
+  );
+}
+
+/**
+ * A late phone enters the Rumble score table at the lowest current score.
+ * Called when the session is between games; a mid-game spectator is added at
+ * the next interlude, never retroactively.
+ */
+function admitPendingPlayers(room: RoomState, session: SessionState): void {
+  if (session.status === "finished" || session.status === "playing") return;
+  for (const player of activeParticipants(room)) addLatePlayer(session, player);
+}
+
+/** Start one game in a room from the host endpoints. */
+function beginGameInRoom(
+  room: RoomState,
+  plugin: GamePlugin<any, any, any, any>,
+  participants: Player[],
+  options?: Record<string, unknown>,
+): void {
+  room.gameId = plugin.manifest.id;
+  room.status = "playing";
+  room.pause = null;
+  room.gameState = plugin.onStart(room, participants, options);
+
+  for (const player of participants) {
+    player.controllerType = plugin.manifest.controllerType;
+  }
+
+  const screen = plugin.screenState(room.gameState as { roomId: string; players: Player[]; state: unknown });
+  for (const player of room.players) {
+    sendGameStateTo(room, plugin, player, room.gameState, screen);
+  }
+  sendScreenGameState(room, plugin, screen);
+  startGameLoop(room.id);
 }
 
 // --- Helpers ---
@@ -145,14 +206,6 @@ function sendScreenGameState(room: RoomState, plugin: GamePlugin, screen: unknow
 // --- Royal Rumble session transport ---
 function sessionMessage(room: RoomState, viewerId: string): ServerMessage {
   const session = roomSessions.get(room.id) ?? null;
-  const yourVote = viewerId && session ? session.votes[viewerId] ?? null : null;
-  const canVote =
-    !!viewerId &&
-    !!session &&
-    session.status === "voting" &&
-    session.selection === "vote" &&
-    session.candidates.length > 0 &&
-    !yourVote;
   const yourPoints = viewerId && session ? session.stats[viewerId]?.points ?? 0 : 0;
   return {
     type: MESSAGE_TYPES.SESSION,
@@ -161,8 +214,10 @@ function sessionMessage(room: RoomState, viewerId: string): ServerMessage {
     timestamp: Date.now(),
     payload: {
       session: session ? sessionView(session) : null,
-      yourVote,
-      canVote,
+      // Vote selection is closed for good; the fields stay so the current
+      // clients keep working until their preset screens land.
+      yourVote: null,
+      canVote: false,
       yourPoints,
     },
   };
@@ -580,6 +635,12 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
   if (await handleSessionStart(req, res, url)) {
     return;
   }
+  if (await handleSessionNext(req, res, url)) {
+    return;
+  }
+  if (await handleSessionSkip(req, res, url)) {
+    return;
+  }
   if (handleSessionEnd(req, res, url)) {
     return;
   }
@@ -597,7 +658,7 @@ const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
   }
 
   // Handle start game
-  if (handleStartGame(req, res, url)) {
+  if (await handleStartGame(req, res, url)) {
     return;
   }
 
@@ -882,6 +943,7 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
         pause: null,
       };
       rooms.set(screenRoom.id, screenRoom);
+      restoreRoomRumble(screenRoom);
     }
     let set = roomScreens.get(screenRoom.id);
     if (!set) {
@@ -1007,17 +1069,15 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
       pause: null,
     };
     rooms.set(id, room);
+    restoreRoomRumble(room);
   }
 
-  // A rumble has already fixed its roster and score table. A brand-new seat
-  // would never be scored, so keep it out until the rumble ends. Reconnects
-  // with a rejoin token are handled above and still work. Checked before the
-  // spectator path: a mid-Rumble join waits for the Rumble, not for the game.
+  // A Rumble no longer locks newcomers out. Between games they join the score
+  // table at the lowest score; during a running game they watch as a spectator
+  // and are admitted at the next interlude. Reconnects with a rejoin token are
+  // handled above and still work.
   const activeSession = roomSessions.get(room.id);
-  if (activeSession && activeSession.status !== "finished") {
-    send(ws, { type: MESSAGE_TYPES.ERROR, roomId: room.id, timestamp: Date.now(), payload: { code: "SESSION_IN_PROGRESS", message: "Royal Rumble in progress — wait for it to finish" } });
-    return;
-  }
+  const sessionActive = !!activeSession && activeSession.status !== "finished";
 
   // The lobby has eight seats. Game manifests keep their own maxPlayers and
   // are checked at game start, so a small game can still be picked here.
@@ -1030,7 +1090,8 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
   // A phone that arrives mid-game becomes a spectator: it keeps a seat for the
   // next game, sees the TV state, and cannot affect the running game. Its seat
   // is not part of the game instance, which was sized at start.
-  const spectator = room.status === "playing";
+  const midRumbleGame = sessionActive && activeSession?.status === "playing";
+  const spectator = room.status === "playing" || midRumbleGame;
 
   const playerId = generatePlayerId();
   const token = generateRejoinToken();
@@ -1067,11 +1128,18 @@ function handleJoin(ws: WebSocket, msg: ClientMessage & { type: "join" }): void 
       ...(isHostPlayer ? { hostToken: hostTokenFor(room.id) } : {}),
     },
   });
+  // Admit a between-games joiner to the Rumble score table now. A mid-game
+  // spectator waits for the next interlude instead.
+  if (sessionActive && activeSession && activeSession.status !== "playing") {
+    admitPendingPlayers(room, activeSession);
+  }
+
   // Also send ROOM_STATE to the joining player so they have full room state
   send(ws, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) });
   send(ws, sessionMessage(room, playerId));
   if (spectator) sendCurrentGameFrame(room, player);
   broadcast(room, { type: MESSAGE_TYPES.ROOM_STATE, roomId: room.id, timestamp: Date.now(), payload: publicRoom(room) }, playerId);
+  if (sessionActive && !spectator) broadcastSession(room);
 }
 
 /**
@@ -1163,18 +1231,14 @@ function handleSessionVote(ws: WebSocket, msg: SessionVoteMessage): void {
     send(ws, { type: MESSAGE_TYPES.ERROR, roomId: msg.roomId, timestamp: Date.now(), payload: { code: "ROOM_NOT_FOUND", message: "Room not found" } });
     return;
   }
-  const session = roomSessions.get(room.id);
-  const gameId = typeof msg.payload?.gameId === "string" ? msg.payload.gameId : "";
-  if (!session || !gameId || !recordVote(session, playerId, gameId)) {
-    send(ws, {
-      type: MESSAGE_TYPES.ERROR,
-      roomId: room.id,
-      timestamp: Date.now(),
-      payload: { code: "VOTE_REJECTED", message: "That game cannot be voted for right now" },
-    });
-    return;
-  }
-  broadcastSession(room);
+  // Vote selection was removed in favour of preset playlists. Keep the message
+  // type for older phones and reply softly instead of silently dropping it.
+  send(ws, {
+    type: MESSAGE_TYPES.ERROR,
+    roomId: room.id,
+    timestamp: Date.now(),
+    payload: { code: "SESSION_SELECTION_CLOSED", message: "Rumble games are chosen by the preset now" },
+  });
 }
 
 function handleInput(ws: WebSocket, msg: ClientMessage & { type: "input" }): void {
@@ -1331,10 +1395,8 @@ function scheduleSeatReap(room: RoomState, playerId: string): void {
     playerSockets.delete(playerId);
     lastReactionAt.delete(playerId);
 
-    const session = roomSessions.get(currentRoom.id);
-    if (session) {
-      delete session.votes[playerId];
-      if (currentRoom.players.length > 0) broadcastSession(currentRoom);
+    if (roomSessions.has(currentRoom.id) && currentRoom.players.length > 0) {
+      broadcastSession(currentRoom);
     }
 
     if (currentRoom.players.length === 0) {
@@ -1418,6 +1480,9 @@ function startGameLoop(roomId: string): void {
 
     // When a game reports finished, return the room to the lobby so the
     // host can start the next game. This tick still delivers the final state.
+    // Capture the participants before spectators are promoted: a phone that
+    // joined mid-game was never part of the instance and must not be scored.
+    let finishingParticipants: Player[] | null = null;
     if (
       screen &&
       typeof screen === "object" &&
@@ -1425,6 +1490,7 @@ function startGameLoop(roomId: string): void {
       (screen as { finished?: unknown }).finished === true &&
       currentRoom.status === "playing"
     ) {
+      finishingParticipants = currentRoom.players.filter((player) => !player.spectator);
       currentRoom.pause = null;
       currentRoom.status = "lobby";
       promoteSpectators(currentRoom);
@@ -1445,15 +1511,20 @@ function startGameLoop(roomId: string): void {
     if (currentRoom.status === "lobby") {
       const session = roomSessions.get(currentRoom.id);
       if (session && session.status === "playing") {
+        const scored = finishingParticipants ?? currentRoom.players;
         completeRound(
           session,
           currentPlugin.manifest.id,
           gameDisplayName(currentPlugin.manifest),
           screen,
-          currentRoom.players,
+          scored,
           currentPlugin.manifest.id === "quiz" ? quizAccuracy(currentInstance) : undefined,
-          extractGameResult(currentPlugin, currentInstance, currentRoom.players, currentPlugin.manifest.id),
+          extractGameResult(currentPlugin, currentInstance, scored, currentPlugin.manifest.id),
         );
+        // Mid-game joiners become part of the Rumble now that the interlude
+        // has begun, at the lowest score after this round paid out.
+        admitPendingPlayers(currentRoom, session);
+        saveRumble(currentRoom.code, session);
         broadcastSession(currentRoom);
       }
       currentRoom.gameId = null;
@@ -1502,9 +1573,139 @@ async function handleSessionStart(req: IncomingMessage, res: ServerResponse, url
     res.end(JSON.stringify({ code: "GAME_IN_PROGRESS", message: "Finish the current game first" }));
     return true;
   }
-  if (roomSessions.has(room.id)) {
+
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_BODY", message: "Invalid JSON body" }));
+    return true;
+  }
+
+  const presetId = typeof body.presetId === "string" ? body.presetId : "";
+  const preset = RUMBLE_PRESETS.find((entry) => entry.id === presetId);
+  if (!preset) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_PRESET", message: "Unknown Rumble preset" }));
+    return true;
+  }
+
+  const existing = roomSessions.get(room.id);
+  if (existing && existing.status !== "finished") {
     res.writeHead(409, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ code: "SESSION_EXISTS", message: "A rumble is already running" }));
+    return true;
+  }
+
+  const active = activeParticipants(room);
+  if (active.length === 0) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_PLAYERS", message: "No players are connected" }));
+    return true;
+  }
+
+  const session = createSession(active, preset, undefined, {
+    lastGameDouble: body.lastGameDouble !== false,
+  });
+  roomSessions.set(room.id, session);
+  saveRumble(room.code, session);
+  broadcastSession(room);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ session: sessionView(session) }));
+  return true;
+}
+
+async function handleSessionNext(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/session\/next$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+
+  const session = roomSessions.get(room.id);
+  if (!session) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_SESSION", message: "No rumble is running" }));
+    return true;
+  }
+  if (session.status !== "interlude") {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NOT_INTERLUDE", message: "The rumble is not between games" }));
+    return true;
+  }
+
+  admitPendingPlayers(room, session);
+  if (!beginNextGame(session, room.players)) {
+    saveRumble(room.code, session);
+    broadcastSession(room);
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_NEXT_GAME", message: "No playable slot remains" }));
+    return true;
+  }
+
+  const slot = session.slots[session.slotIndex];
+  const gameId = slot?.gameId;
+  const plugin = gameId ? plugins.get(gameId) : undefined;
+  if (!plugin || !gameId) {
+    abortRound(session);
+    saveRumble(room.code, session);
+    broadcastSession(room);
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_NEXT_GAME", message: "No playable slot remains" }));
+    return true;
+  }
+
+  const participants = activeParticipants(room);
+  if (participants.length < plugin.manifest.minPlayers || participants.length > plugin.manifest.maxPlayers) {
+    abortRound(session);
+    saveRumble(room.code, session);
+    broadcastSession(room);
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "SLOT_PLAYER_RANGE", message: "The next game no longer fits the connected players" }));
+    return true;
+  }
+
+  try {
+    beginGameInRoom(room, plugin, participants, slot.options);
+  } catch (e) {
+    console.error("[Server] Error starting next rumble game:", e);
+    abortRound(session);
+    saveRumble(room.code, session);
+    broadcastSession(room);
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "START_FAILED", message: "The next game could not start" }));
+    return true;
+  }
+
+  saveRumble(room.code, session);
+  broadcastSession(room);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: true, gameId, session: sessionView(session) }));
+  return true;
+}
+
+async function handleSessionSkip(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/session\/skip$/.test(url.pathname)) {
+    return false;
+  }
+  const room = roomByParam(url.pathname.split("/")[3]);
+  if (!room) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
+    return true;
+  }
+  if (!requireHost(req, res, room)) return true;
+
+  const session = roomSessions.get(room.id);
+  if (!session) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_SESSION", message: "No rumble is running" }));
     return true;
   }
 
@@ -1517,40 +1718,18 @@ async function handleSessionStart(req: IncomingMessage, res: ServerResponse, url
     return true;
   }
 
-  const length = Number(body.length);
-  if (![5, 8, 18].includes(length)) {
-    res.writeHead(400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ code: "INVALID_LENGTH", message: "Rumble length must be 5, 8 or 18" }));
-    return true;
-  }
-  const selection = body.selection === "random" ? "random" : "vote";
-  const active = room.players.filter((p) => p.connected);
-  if (active.length === 0) {
-    res.writeHead(400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ code: "NO_PLAYERS", message: "No players are connected" }));
+  const gameId = typeof body.gameId === "string" ? body.gameId : undefined;
+  const swap = skipNextGame(session, room.players, gameId);
+  if (!swap) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_NEXT_SLOT", message: "There is no next game to swap" }));
     return true;
   }
 
-  const games = [...plugins.values()]
-    .filter((p) => isGameEnabled(p.manifest.id))
-    .map((p) => ({
-      id: p.manifest.id,
-      name: gameDisplayName(p.manifest),
-      description: p.manifest.description,
-      minPlayers: p.manifest.minPlayers,
-      maxPlayers: p.manifest.maxPlayers,
-    }));
-  const session = createSession(active, games, length, selection);
-  if (session.candidates.length === 0) {
-    res.writeHead(400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ code: "NO_GAMES", message: "No games fit the current player count" }));
-    return true;
-  }
-
-  roomSessions.set(room.id, session);
+  saveRumble(room.code, session);
   broadcastSession(room);
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ session: sessionView(session) }));
+  res.end(JSON.stringify({ success: true, ...swap, session: sessionView(session) }));
   return true;
 }
 
@@ -1565,10 +1744,27 @@ function handleSessionEnd(req: IncomingMessage, res: ServerResponse, url: URL): 
     return true;
   }
   if (!requireHost(req, res, room)) return true;
-  roomSessions.delete(room.id);
+
+  const session = roomSessions.get(room.id);
+  if (!session) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NO_SESSION", message: "No rumble is running" }));
+    return true;
+  }
+
+  _stopGameLoop(room.id);
+  room.status = "lobby";
+  promoteSpectators(room);
+  room.pause = null;
+  room.gameId = null;
+  room.gameState = null;
+
+  endSessionEarly(session);
+  saveRumble(room.code, session);
+  broadcastRoomState(room);
   broadcastSession(room);
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ success: true }));
+  res.end(JSON.stringify({ success: true, session: sessionView(session) }));
   return true;
 }
 
@@ -1670,6 +1866,8 @@ function handleEndGame(req: IncomingMessage, res: ServerResponse, url: URL): boo
   const session = roomSessions.get(room.id);
   if (session && session.status === "playing") {
     abortRound(session);
+    admitPendingPlayers(room, session);
+    saveRumble(room.code, session);
     broadcastSession(room);
   }
   broadcast(room, {
@@ -1742,22 +1940,12 @@ async function handleHostAction(req: IncomingMessage, res: ServerResponse, url: 
   return true;
 }
 
-function handleStartGame(req: any, res: any, url: URL): boolean {
-  if (req.method !== "POST" || !url.pathname.startsWith("/api/rooms/") || !url.pathname.endsWith("/start")) {
+async function handleStartGame(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+  if (req.method !== "POST" || !/^\/api\/rooms\/[^/]+\/start$/.test(url.pathname)) {
     return false;
   }
 
-  const paramId = url.pathname.split("/")[3];
-  let room = rooms.get(paramId);
-  // Also accept 5-char room code
-  if (!room) {
-    for (const r of rooms.values()) {
-      if (r.code === paramId) {
-        room = r;
-        break;
-      }
-    }
-  }
+  const room = roomByParam(url.pathname.split("/")[3]);
   if (!room) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ code: "ROOM_NOT_FOUND", message: "Room not found" }));
@@ -1767,105 +1955,121 @@ function handleStartGame(req: any, res: any, url: URL): boolean {
   // Verify the request comes from the host screen.
   if (!requireHost(req, res, room)) return true;
 
-  let body = "";
-  req.on("data", (chunk: Buffer) => { body += chunk; });
-  req.on("end", () => {
-    try {
-      const { gameId, options } = JSON.parse(body) as { gameId: string; options?: Record<string, unknown> };
-      const plugin = plugins.get(gameId);
-      if (!plugin) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ code: "INVALID_GAME", message: "Game not found" }));
-        return;
-      }
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req);
+  } catch (e) {
+    console.error("[Server] Error starting game:", e);
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_REQUEST", message: "Invalid request body" }));
+    return true;
+  }
 
-      // Retired games stay loadable but can never be started.
-      if (!isGameEnabled(gameId)) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ code: "GAME_DISABLED", message: "That game is not available" }));
-        return;
-      }
+  const session = roomSessions.get(room.id);
+  let gameId: string;
+  let startOptions: Record<string, unknown> | undefined;
+  let participants: Player[];
 
-      // Drop seats for players who left while the room sat in the lobby, so
-      // the game starts with exactly the connected phones.
-      for (let i = room.players.length - 1; i >= 0; i--) {
-        if (!room.players[i].connected) {
-          const goneId = room.players[i].id;
-          playerRooms.delete(goneId);
-          playerSockets.delete(goneId);
-          lastReactionAt.delete(goneId);
-          room.players.splice(i, 1);
-        }
-      }
-      if (room.hostPlayerId && !room.players.some((p) => p.id === room.hostPlayerId)) {
-        room.hostPlayerId = room.players[0]?.id ?? null;
-      }
+  if (session) {
+    if (session.status === "finished") {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ code: "SESSION_FINISHED", message: "The rumble has finished" }));
+      return true;
+    }
+    if (session.status !== "interlude") {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ code: "NOT_INTERLUDE", message: "The rumble is not between games" }));
+      return true;
+    }
 
-      // Spectators are audience only: never part of the game instance, even if
-      // a stale flag survives a lobby transition.
-      const participants = room.players.filter((p) => !p.spectator);
+    const slot = session.slots[session.slotIndex];
+    if (!slot?.gameId) {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ code: "NO_NEXT_GAME", message: "No playable slot remains" }));
+      return true;
+    }
+    if (typeof body.gameId === "string" && body.gameId !== slot.gameId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ code: "SESSION_GAME_INVALID", message: "Only the current slot's game can start" }));
+      return true;
+    }
 
-      if (participants.length < plugin.manifest.minPlayers) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ code: "NOT_ENOUGH_PLAYERS", message: `Need at least ${plugin.manifest.minPlayers} players` }));
-        return;
-      }
+    gameId = slot.gameId;
+    startOptions = slot.options;
+    participants = activeParticipants(room);
+  } else {
+    gameId = typeof body.gameId === "string" ? body.gameId : "";
+    startOptions =
+      body.options && typeof body.options === "object"
+        ? (body.options as Record<string, unknown>)
+        : undefined;
 
-      if (participants.length > plugin.manifest.maxPlayers) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ code: "TOO_MANY_PLAYERS", message: `Maximum ${plugin.manifest.maxPlayers} players allowed` }));
-        return;
-      }
-
-      const session = roomSessions.get(room.id);
-      if (session) {
-        if (session.status !== "voting") {
-          res.writeHead(409, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ code: "SESSION_NOT_VOTING", message: "The rumble is not ready for another game" }));
-          return;
-        }
-        if (!session.candidates.some((g) => g.id === gameId)) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ code: "SESSION_GAME_INVALID", message: "That game is not in this rumble round" }));
-          return;
-        }
-      }
-
-      room.gameId = gameId;
-      room.status = "playing";
-      room.pause = null;
-      room.gameState = plugin.onStart(room, participants, options);
-      if (session) {
-        startRound(session, gameId);
-        broadcastSession(room);
-      }
-
-      // Set controllerType on each player from manifest
-      for (const player of participants) {
-        player.controllerType = plugin.manifest.controllerType;
-      }
-
-      // Broadcast initial game state
-      const screen = plugin.screenState(room.gameState as { roomId: string; players: Player[]; state: unknown });
-      for (const player of room.players) {
-        sendGameStateTo(room, plugin, player, room.gameState, screen);
-      }
-      sendScreenGameState(room, plugin, screen);
-
-      // Start game loop
-      startGameLoop(room.id);
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true }));
-    } catch (e) {
-      console.error("[Server] Error starting game:", e);
-      if (!res.writableEnded) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ code: "INVALID_REQUEST", message: "Invalid request body" }));
+    // Drop seats for players who left while the room sat in the lobby, so
+    // the game starts with exactly the connected phones. A Rumble keeps the
+    // seats because departed players still hold their score rows.
+    for (let i = room.players.length - 1; i >= 0; i--) {
+      if (!room.players[i].connected) {
+        const goneId = room.players[i].id;
+        playerRooms.delete(goneId);
+        playerSockets.delete(goneId);
+        lastReactionAt.delete(goneId);
+        room.players.splice(i, 1);
       }
     }
-  });
+    if (room.hostPlayerId && !room.players.some((p) => p.id === room.hostPlayerId)) {
+      room.hostPlayerId = room.players[0]?.id ?? null;
+    }
+    participants = room.players.filter((p) => !p.spectator);
+  }
 
+  const plugin = plugins.get(gameId);
+  if (!plugin) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "INVALID_GAME", message: "Game not found" }));
+    return true;
+  }
+
+  // Retired games stay loadable but can never be started.
+  if (!isGameEnabled(gameId)) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "GAME_DISABLED", message: "That game is not available" }));
+    return true;
+  }
+
+  if (participants.length < plugin.manifest.minPlayers) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "NOT_ENOUGH_PLAYERS", message: `Need at least ${plugin.manifest.minPlayers} players` }));
+    return true;
+  }
+  if (participants.length > plugin.manifest.maxPlayers) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "TOO_MANY_PLAYERS", message: `Maximum ${plugin.manifest.maxPlayers} players allowed` }));
+    return true;
+  }
+
+  if (session && !startRound(session, gameId)) {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "SESSION_GAME_INVALID", message: "The current slot cannot start" }));
+    return true;
+  }
+
+  try {
+    beginGameInRoom(room, plugin, participants, startOptions);
+  } catch (e) {
+    console.error("[Server] Error starting game:", e);
+    if (session) abortRound(session);
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ code: "START_FAILED", message: "The game could not start" }));
+    return true;
+  }
+
+  if (session) {
+    saveRumble(room.code, session);
+    broadcastSession(room);
+  }
+
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: true, gameId, ...(session ? { session: sessionView(session) } : {}) }));
   return true;
 }
 

@@ -2,14 +2,12 @@ import { test, describe } from "node:test";
 import assert from "node:assert";
 import {
   createSession,
-  eligibleGames,
   startRound,
   completeRound,
   abortRound,
   computePlacements,
   pointsForPlace,
   sessionView,
-  type SessionGame,
   type SessionState,
 } from "../server/session.ts";
 import { playerStatKey } from "../shared/results.ts";
@@ -23,14 +21,6 @@ const players = [
 ];
 
 const fourPlayers = [...players, { id: "p3", name: "Dee" }];
-
-const games: SessionGame[] = [
-  { id: "quiz", name: "Quiz", description: "", minPlayers: 1, maxPlayers: 4 },
-  { id: "golf", name: "Golf", description: "", minPlayers: 1, maxPlayers: 4 },
-  { id: "darts", name: "Darts", description: "", minPlayers: 1, maxPlayers: 4 },
-  { id: "poker", name: "Poker", description: "", minPlayers: 2, maxPlayers: 4 },
-  { id: "bluff", name: "Bluff", description: "", minPlayers: 3, maxPlayers: 4 },
-];
 
 /** A real-catalog playlist so the resolver keeps every slot at 3-4 players. */
 const preset: RumblePreset = {
@@ -72,13 +62,7 @@ function playCurrent(session: SessionState, roster = players): void {
   completeRound(session, gameId, gameId, screenFor(roster.map((p) => p.name)), roster);
 }
 
-describe("session: candidates and rounds", () => {
-  test("eligible games respect the player count and played list", () => {
-    const eligible = eligibleGames(games, 2, []);
-    assert.deepStrictEqual(eligible.map((g) => g.id), ["quiz", "golf", "darts", "poker"]);
-    assert.deepStrictEqual(eligibleGames(games, 2, ["quiz"]).map((g) => g.id).includes("quiz"), false);
-  });
-
+describe("session: slots and rounds", () => {
   test("a preset session resolves its slots and waits on the interlude", () => {
     const s = createSession(players, preset);
     assert.strictEqual(s.presetId, "test-rounds");
@@ -87,7 +71,7 @@ describe("session: candidates and rounds", () => {
     assert.strictEqual(s.status, "interlude");
     assert.strictEqual(s.slotIndex, 0);
     assert.strictEqual(s.currentGameId, "quiz");
-    assert.deepStrictEqual(s.selection, "preset");
+    assert.strictEqual(sessionView(s).selection, "preset");
     assert.strictEqual(s.lastGameDouble, true);
   });
 
