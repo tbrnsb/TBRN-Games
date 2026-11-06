@@ -21,7 +21,16 @@ type ControllerType =
   | "text"
   | "choice"
   | "private-grid"
-  | "card-hand";
+  | "card-hand"
+  | "slider"
+  | "dual-slider"
+  | "pad"
+  | "aim"
+  | "tap-race"
+  | "board"
+  | "numpad"
+  | "canvas"
+  | "chat";
 
 interface Player {
   id: string;
@@ -112,7 +121,7 @@ const manifest: GameManifest = {
   name: "Golf",
   minPlayers: 1,
   maxPlayers: 4,
-  controllerType: "dpad",
+  controllerType: "aim",
   description: "Mini golf - aim with left/right, charge with up, shoot with down. 5 holes, obstacles, lowest strokes wins.",
 };
 
@@ -123,6 +132,29 @@ function loadCourse(state: GolfState, holeIndex: number): void {
   state.angle = Math.atan2(c.hole.y - c.tee.y, c.hole.x - c.tee.x);
   state.power = 0;
   state.phase = "aiming";
+}
+
+function shoot(instance: GolfInstance): void {
+  const state = instance.state;
+  if (state.phase !== "aiming") return;
+  if (state.power < MIN_POWER) return;
+  const course = COURSES[state.holeIndex];
+  const playerIndex = state.currentPlayer;
+  state.holeStrokes[playerIndex]++;
+  state.totalStrokes[playerIndex]++;
+  // Safety valve: a hole can never run forever. Pick up at par + 4.
+  if (state.holeStrokes[playerIndex] >= course.par + MAX_EXTRA_STROKES) {
+    state.power = 0;
+    state.ball.vx = 0;
+    state.ball.vy = 0;
+    state.phase = "hole-done";
+    state.holeDoneTimerMs = HOLE_DONE_MS;
+    return;
+  }
+  state.phase = "moving";
+  state.ball.vx = Math.cos(state.angle) * state.power * MAX_BALL_SPEED;
+  state.ball.vy = Math.sin(state.angle) * state.power * MAX_BALL_SPEED;
+  state.power = 0;
 }
 
 const plugin: GamePlugin = {
@@ -151,13 +183,43 @@ const plugin: GamePlugin = {
 
   onInput(instance: GolfInstance, playerId: string, input: unknown): void {
     const state = instance.state;
-    if (state.phase === "finished" || state.phase !== "aiming") return;
+    if (state.phase === "finished") return;
     const playerIndex = instance.players.findIndex((p) => p.id === playerId);
     if (playerIndex !== state.currentPlayer) return;
+    if (state.phase !== "aiming") return;
 
-    const move = (input as { move?: string } | null)?.move;
+    const raw = input as {
+      pad?: { x?: number; y?: number };
+      slider?: { axis?: string; value?: number };
+      action?: string;
+      move?: string;
+    } | null;
+
+    // Joystick: the stick points where the ball should go. Screen y grows
+    // downward, so the stick's "up" is negative in board space.
+    if (raw?.pad) {
+      const px = Number(raw.pad.x ?? 0);
+      const py = Number(raw.pad.y ?? 0);
+      if (Number.isFinite(px) && Number.isFinite(py) && Math.hypot(px, py) > 0.15) {
+        state.angle = Math.atan2(-py, px);
+      }
+      return;
+    }
+
+    // Power slider: sets shot strength directly, 0..1.
+    if (raw?.slider && typeof raw.slider.value === "number") {
+      state.power = Math.max(0, Math.min(1, raw.slider.value));
+      return;
+    }
+
+    if (raw?.action === "action") {
+      shoot(instance);
+      return;
+    }
+
+    // Legacy d-pad mapping, kept so an older controller build still plays.
+    const move = raw?.move;
     if (typeof move !== "string") return;
-
     switch (move) {
       case "left":
         state.angle -= TURN_STEP;
@@ -168,28 +230,11 @@ const plugin: GamePlugin = {
       case "up":
         state.power = Math.min(1, state.power + POWER_STEP);
         break;
-      case "down": {
-        if (state.power < MIN_POWER) return; // charge first
-        const course = COURSES[state.holeIndex];
-        state.holeStrokes[state.currentPlayer]++;
-        state.totalStrokes[state.currentPlayer]++;
-        // Safety valve: a hole can never run forever. Pick up at par + 4.
-        if (state.holeStrokes[state.currentPlayer] >= course.par + MAX_EXTRA_STROKES) {
-          state.power = 0;
-          state.ball.vx = 0;
-          state.ball.vy = 0;
-          state.phase = "hole-done";
-          state.holeDoneTimerMs = HOLE_DONE_MS;
-          break;
-        }
-        state.phase = "moving";
-        state.ball.vx = Math.cos(state.angle) * state.power * MAX_BALL_SPEED;
-        state.ball.vy = Math.sin(state.angle) * state.power * MAX_BALL_SPEED;
-        state.power = 0;
+      case "down":
+        shoot(instance);
         break;
-      }
       default:
-        break; // unknown input ignored
+        break;
     }
   },
 
@@ -294,6 +339,17 @@ const plugin: GamePlugin = {
     return {
       phase: state.phase,
       isYourTurn: playerIndex === state.currentPlayer && state.phase !== "finished",
+      // Joystick + power slider + shoot button.
+      aim: {
+        x: Math.cos(state.angle),
+        y: -Math.sin(state.angle), // pad y is up-positive, board y is down
+        power: state.power,
+        actionLabel: "SHOOT",
+        hint: state.phase === "aiming"
+          ? `Hole ${state.holeIndex + 1} · par ${course.par}`
+          : "Ball rolling…",
+        disabled: !(playerIndex === state.currentPlayer && state.phase === "aiming"),
+      },
       power: state.power,
       angle: state.angle,
       holeNumber: state.holeIndex + 1,

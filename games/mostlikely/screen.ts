@@ -16,15 +16,16 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp,
 } from "../../client/screen/kit/index.ts";
+import { seatForIndex } from "../../shared/seat-identity.ts";
 
 interface MostLikelyScreenState {
   prompt: string;
   currentPrompt: number;
   totalPrompts: number;
-  phase: "voting" | "reveal" | "finished";
+  phase: "voting" | "tally" | "reveal" | "finished";
   timeLeft: number;
   players: Array<{ name: string; score: number }>;
-  votes: Array<{ name: string; count: number }> | null;
+  votes: Array<{ name: string; count: number; seat: number; won: boolean }> | null;
   finished: boolean;
   winner: { name: string; score: number } | null;
 }
@@ -39,6 +40,7 @@ interface MostLikelyRenderState {
 }
 
 const VOTE_MS = 15000;
+const TALLY_MS = 2000;
 const REVEAL_MS = 4000;
 
 function createMostLikelyRenderState(): MostLikelyRenderState {
@@ -213,7 +215,7 @@ function drawPrompt(
   const startY = rect.y + rect.height * 0.56 - ((lines.length - 1) * lh) / 2;
   lines.forEach((line, i) => ctx.fillText(line, rect.x + rect.width / 2, startY + i * lh));
 
-  const total = state.phase === "voting" ? VOTE_MS : REVEAL_MS;
+  const total = state.phase === "voting" ? VOTE_MS : state.phase === "tally" ? TALLY_MS : REVEAL_MS;
   const progress = clamp(state.timeLeft / total, 0, 1);
   const barY = rect.y + rect.height - scaledSize(18, scale);
   drawRoundRect(ctx, rect.x + scaledSize(24, scale), barY, rect.width - scaledSize(48, scale), scaledSize(6, scale), scaledSize(3, scale), "rgba(255,255,255,0.08)");
@@ -241,6 +243,11 @@ function drawBody(
   const rect = { x: main.x, y: top, width: main.width, height: main.height * 0.66 - gap };
   drawBentoCard(ctx, rect, { fill: "rgba(18,13,46,0.97)", stroke: colors.border });
 
+  if (state.phase === "tally") {
+    drawTally(ctx, rect, state, scale, now);
+    return;
+  }
+
   if (state.phase === "reveal" && state.votes) {
     drawVoteChart(ctx, rect, state, scale);
     return;
@@ -260,23 +267,76 @@ function drawBody(
   ctx.fillText("Pick a name on your phone", rect.x + rect.width / 2, rect.y + rect.height * 0.36 + scaledSize(34, scale));
   ctx.globalAlpha = 1;
 
-  // Player chips.
+  // Player chips. Every seat keeps its platform colour and glyph.
   const chips = state.players;
+  const chipLabels = chips.map((p, i) => `${seatForIndex(i).emoji} ${p.name}`);
   const chipH = scaledSize(34, scale);
   const gapChip = scaledSize(10, scale);
   ctx.font = `600 ${scaledSize(14, scale)}px ${fonts.display.family}`;
-  const widths = chips.map((p) => ctx.measureText(p.name).width + scaledSize(28, scale));
+  const widths = chipLabels.map((label) => ctx.measureText(label).width + scaledSize(28, scale));
   const totalW = widths.reduce((a, b) => a + b, 0) + gapChip * Math.max(0, chips.length - 1);
   let x = rect.x + rect.width / 2 - totalW / 2;
   const y = rect.y + rect.height * 0.58;
-  chips.forEach((p, i) => {
+  chips.forEach((_p, i) => {
+    const seat = seatForIndex(i);
     const w = widths[i];
-    drawRoundRect(ctx, x, y, w, chipH, chipH / 2, "rgba(11,8,32,0.65)", colors.player[i % colors.player.length], 1);
-    ctx.fillStyle = colors.player[i % colors.player.length];
+    drawRoundRect(ctx, x, y, w, chipH, chipH / 2, "rgba(11,8,32,0.65)", seat.color, 1);
+    ctx.fillStyle = seat.color;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(p.name, x + w / 2, y + chipH / 2);
+    ctx.fillText(chipLabels[i], x + w / 2, y + chipH / 2);
     x += w + gapChip;
+  });
+}
+
+/** Drum-roll beat: every seat badge pulses while the votes are being counted. */
+function drawTally(
+  ctx: CanvasRenderingContext2D,
+  rect: { x: number; y: number; width: number; height: number },
+  state: MostLikelyScreenState,
+  scale: number,
+  now: number,
+): void {
+  const centreX = rect.x + rect.width / 2;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 ${scaledSize(42, scale)}px ${fonts.display.family}`;
+  ctx.fillStyle = colors.text;
+  ctx.fillText("Tallying the votes…", centreX, rect.y + rect.height * 0.4);
+
+  const dots = ".".repeat(1 + (Math.floor(now / 240) % 3));
+  ctx.font = `600 ${scaledSize(20, scale)}px ${fonts.body.family}`;
+  ctx.fillStyle = colors.magenta;
+  ctx.fillText(`Drum roll${dots}`, centreX, rect.y + rect.height * 0.4 + scaledSize(46, scale));
+
+  // All seat badges, lit in sequence like a drum roll across the table.
+  const count = state.players.length;
+  const badge = scaledSize(58, scale);
+  const gap = scaledSize(16, scale);
+  const totalW = count * badge + Math.max(0, count - 1) * gap;
+  let x = centreX - totalW / 2;
+  const y = rect.y + rect.height * 0.66;
+  const lit = Math.floor(now / 170) % Math.max(1, count);
+  state.players.forEach((_player, i) => {
+    const seat = seatForIndex(i);
+    const active = i === lit;
+    ctx.globalAlpha = active ? 1 : 0.35;
+    drawRoundRect(
+      ctx,
+      x,
+      y,
+      badge,
+      badge,
+      scaledSize(14, scale),
+      seat.color,
+      active ? colors.text : undefined,
+      active ? 3 : 1,
+    );
+    ctx.fillStyle = colors.bg0;
+    ctx.font = `700 ${scaledSize(24, scale)}px ${fonts.display.family}`;
+    ctx.fillText(seat.emoji, x + badge / 2, y + badge / 2 + 1);
+    ctx.globalAlpha = 1;
+    x += badge + gap;
   });
 }
 
@@ -286,7 +346,9 @@ function drawVoteChart(
   state: MostLikelyScreenState,
   scale: number,
 ): void {
-  const votes = [...(state.votes ?? [])].sort((a, b) => b.count - a.count);
+  // Every seat stays on the board, including zero-vote seats, so all eight
+  // badges are visible when the room is full.
+  const votes = state.votes ?? [];
   if (votes.length === 0) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -295,15 +357,24 @@ function drawVoteChart(
     ctx.fillText("No votes this round", rect.x + rect.width / 2, rect.y + rect.height / 2);
     return;
   }
+  if (votes.every((vote) => vote.count === 0)) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${scaledSize(20, scale)}px ${fonts.display.family}`;
+    ctx.fillStyle = colors.textMuted;
+    ctx.fillText("Nobody voted this round", rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return;
+  }
 
   const max = Math.max(1, ...votes.map((v) => v.count));
-  const gap = scaledSize(12, scale);
+  const gap = scaledSize(10, scale);
   const rowH = Math.min(
-    scaledSize(104, scale),
+    scaledSize(88, scale),
     (rect.height - scaledSize(64, scale) - gap * (votes.length - 1)) / votes.length,
   );
   const totalH = votes.length * rowH + (votes.length - 1) * gap;
   const startTop = rect.y + scaledSize(48, scale) + Math.max(0, (rect.height - scaledSize(64, scale) - totalH) / 2);
+  const elapsed = Math.max(0, REVEAL_MS - state.timeLeft);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
@@ -311,34 +382,53 @@ function drawVoteChart(
   ctx.fillStyle = colors.textMuted;
   ctx.fillText("VOTES", rect.x + scaledSize(24, scale), rect.y + scaledSize(24, scale));
 
+  const badgeSize = Math.min(rowH * 0.62, scaledSize(44, scale));
   votes.forEach((vote, i) => {
-    const y = startTop + i * (rowH + gap);
-    const isTop = i === 0;
-    const color = colors.player[i % colors.player.length];
-    const pct = vote.count / max;
+    // Rows flip in one at a time: the drum roll resolves into the result.
+    const revealAt = i * 140;
+    if (elapsed < revealAt) return;
+    const grow = clamp((elapsed - revealAt) / 260, 0, 1);
 
+    const y = startTop + i * (rowH + gap);
+    const seat = seatForIndex(vote.seat);
+    const color = vote.won ? colors.success : seat.color;
+    const badgeY = y + rowH * 0.28 - badgeSize / 2;
+    const badgeX = rect.x + scaledSize(24, scale);
+
+    ctx.fillStyle = seat.color;
+    drawRoundRect(ctx, badgeX, badgeY, badgeSize, badgeSize, scaledSize(9, scale), seat.color);
+    ctx.fillStyle = colors.bg0;
+    ctx.font = `700 ${Math.max(10, Math.floor(badgeSize * 0.52))}px ${fonts.display.family}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(seat.emoji, badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 1);
+
+    const nameX = badgeX + badgeSize + scaledSize(12, scale);
     ctx.font = `700 ${scaledSize(22, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = isTop ? colors.success : colors.text;
+    ctx.fillStyle = color;
     ctx.textAlign = "left";
-    ctx.fillText(vote.name, rect.x + scaledSize(24, scale), y + rowH * 0.28);
+    ctx.fillText(vote.name, nameX, y + rowH * 0.28);
 
     ctx.textAlign = "right";
-    ctx.fillStyle = isTop ? colors.success : colors.textMuted;
-    ctx.fillText(`${vote.count}`, rect.x + rect.width - scaledSize(24, scale), y + rowH * 0.28);
+    ctx.fillStyle = color;
+    ctx.fillText(vote.won ? `${vote.count}  WIN` : `${vote.count}`, rect.x + rect.width - scaledSize(24, scale), y + rowH * 0.28);
 
     const barY = y + rowH * 0.58;
     const barW = rect.width - scaledSize(48, scale);
-    const bh = scaledSize(14, scale);
+    const bh = scaledSize(12, scale);
     drawRoundRect(ctx, rect.x + scaledSize(24, scale), barY, barW, bh, bh / 2, "rgba(255,255,255,0.06)");
-    drawRoundRect(
-      ctx,
-      rect.x + scaledSize(24, scale),
-      barY,
-      Math.max(bh, barW * pct),
-      bh,
-      bh / 2,
-      isTop ? colors.success : color,
-    );
+    const fillW = vote.count === 0 ? 0 : Math.max(bh, barW * (vote.count / max) * grow);
+    if (fillW > 0) {
+      drawRoundRect(
+        ctx,
+        rect.x + scaledSize(24, scale),
+        barY,
+        fillW,
+        bh,
+        bh / 2,
+        color,
+      );
+    }
   });
 }
 
@@ -365,7 +455,7 @@ function drawRail(
   }));
   drawScoreboard(ctx, rect, entries, { title: "SCORES", scale });
 
-  const labels: Record<string, string> = { voting: "Voting", reveal: "Reveal", finished: "Final" };
+  const labels: Record<string, string> = { voting: "Voting", tally: "Tally", reveal: "Reveal", finished: "Final" };
   ctx.font = `600 ${scaledSize(13, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.textMuted;
   ctx.textAlign = "left";

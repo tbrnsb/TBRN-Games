@@ -30,6 +30,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Deep probe every enabled game at every player count
+        run: npm run probe
 
       - name: Require HANDOFF.md in latest pushed commit
         if: github.event_name == 'push'

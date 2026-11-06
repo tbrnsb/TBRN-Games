@@ -1,0 +1,27 @@
+{
+  "game": "mindmeld",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    1000,
+    1000,
+    1000
+  ],
+  "standings": [
+    {
+      "playerId": "p0",
+      "rank": 1,
+      "raw": 1000
+    },
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 1000
+    },
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 1000
+    }
+  ]
+}

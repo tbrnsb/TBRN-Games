@@ -1,0 +1,27 @@
+{
+  "game": "frankenanswers",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    2200,
+    3200,
+    1200
+  ],
+  "standings": [
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 3200
+    },
+    {
+      "playerId": "p0",
+      "rank": 2,
+      "raw": 2200
+    },
+    {
+      "playerId": "p2",
+      "rank": 3,
+      "raw": 1200
+    }
+  ]
+}

@@ -1,0 +1,490 @@
+[
+  {
+    "id": "cat_001",
+    "text": "a fruit",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_002",
+    "text": "a vegetable",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_003",
+    "text": "a country in Europe",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_004",
+    "text": "a pizza topping",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_005",
+    "text": "a breakfast food",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_006",
+    "text": "a colour that is not blue",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_007",
+    "text": "a piece of furniture",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_008",
+    "text": "a thing in a bathroom",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_009",
+    "text": "a kitchen utensil",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_010",
+    "text": "a sport played with a ball",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_011",
+    "text": "a musical instrument",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_012",
+    "text": "a farm animal",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_013",
+    "text": "a wild animal you would not pet",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_014",
+    "text": "a type of weather",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_015",
+    "text": "a holiday",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_016",
+    "text": "a school subject",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_017",
+    "text": "a job you would hate",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_018",
+    "text": "a job you would love",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_019",
+    "text": "a household chore",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_020",
+    "text": "a childhood toy",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_021",
+    "text": "a app on your phone",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_022",
+    "text": "a website",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_023",
+    "text": "a film genre",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_024",
+    "text": "a board game",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_025",
+    "text": "a card game",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_026",
+    "text": "a pizza chain",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_027",
+    "text": "a fast food item",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_028",
+    "text": "a soft drink",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_029",
+    "text": "a hot drink",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_030",
+    "text": "a sandwich filling",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_031",
+    "text": "a thing in a fridge",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_032",
+    "text": "a thing in a freezer",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_033",
+    "text": "a thing in a car",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_034",
+    "text": "a thing in a bag",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_035",
+    "text": "a thing on a desk",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_036",
+    "text": "a thing you wear",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_037",
+    "text": "a thing you sleep on",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_038",
+    "text": "a thing you clean",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_039",
+    "text": "a place in a city",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_040",
+    "text": "a place in a house",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_041",
+    "text": "a place in a school",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_042",
+    "text": "a thing in a park",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_043",
+    "text": "a thing at a beach",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_044",
+    "text": "a thing in space",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_045",
+    "text": "a type of cloud",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_046",
+    "text": "a type of tree",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_047",
+    "text": "a flower",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_048",
+    "text": "a bird",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_049",
+    "text": "an insect",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_050",
+    "text": "a fish",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_051",
+    "text": "a reptile",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_052",
+    "text": "a superhero power",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_053",
+    "text": "a superpower you would not want",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_054",
+    "text": "a villain",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_055",
+    "text": "a cartoon character you would recognise",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_056",
+    "text": "a thing that is yellow",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_057",
+    "text": "a thing that is round",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_058",
+    "text": "a thing that is soft",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_059",
+    "text": "a thing that is loud",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_060",
+    "text": "a thing that is expensive",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  },
+  {
+    "id": "cat_061",
+    "text": "a thing that is free",
+    "tags": [
+      "category"
+    ],
+    "safe": true
+  }
+]

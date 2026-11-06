@@ -1,0 +1,16 @@
+{
+  "gameId": "stowaway",
+  "displayName": "Stowaway",
+  "artStyle": "noir",
+  "palette": {
+    "background": "#14161A",
+    "primary": "#E8E6E1",
+    "accent": "#C9A227",
+    "surface": "#1F2329",
+    "text": "#F3F1EC"
+  },
+  "animationProfile": {
+    "style": "slow_fade",
+    "easings": "cubic-bezier(0.4,0,0.2,1)"
+  }
+}

@@ -238,3 +238,18 @@ controller/lobby logic tests, 11 session-engine tests, a server session flow,
 and the existing game/server suites), `npm run probe` 0 issues. Browser flow was
 exercised with two phone contexts: vote → start → finish → points → final board,
 plus End game and random mode.
+## GAMES-SPEC-2 pass (2026-11-05)
+
+- Added **Mind Meld** (`games/mindmeld/`) to spec: 61-item category pack in
+  `content/categories.json`, pure `normalizeAnswer` / `scoreRound` exports, 6 tests
+  (normalization, per-partner scoring, jackpot, empty answers, scripted full game,
+  deadline resolve). Controller honours a per-game `maxLength` (20 chars here).
+- Spec sections 1-18 map onto existing games: Word Fraud = dictionarium, Fence Sitters =
+  splitroom, Gut Check = percentile, Fact or Fiction = trivia, Clue Crafters = blather,
+  Twist It = survive, The Fake Out = fakin, Sketch & Lie = drawful.
+- Still missing: Mind Reader, Word Chain, Dumb Inventions, Slide Roulette, Bracket Brawl,
+  Frankenanswers, Stowaway, Last Seat, Blind Date Chat, Slogan Shirts, Mash-Up Monsters,
+  Slingshot Arena.
+- Added **Mind Reader** (`games/mindreader/`) to spec: `rank` controller in
+  `shared/controllers.ts`, pure `footruleDistance` / `scoreGuess`, 4 tests.
+  Gate: 127 tests, probe 0 issues, 25 games.

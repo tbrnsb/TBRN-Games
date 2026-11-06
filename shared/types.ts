@@ -3,6 +3,11 @@
  * Used for type checking. Runtime values are in constants.js.
  */
 
+import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "./game-catalog.ts";
+import type { GameResult } from "./scoring.ts";
+import type { ReactionId } from "./reactions.ts";
+import type { SeatIdentity } from "./seat-identity.ts";
+
 // --- Base message envelope ---
 export interface BaseMessage {
   type: string;
@@ -31,7 +36,22 @@ export interface SessionVoteMessage extends BaseMessage {
   payload: { gameId: string };
 }
 
-export type ClientMessage = JoinMessage | InputMessage | PingMessage | SessionVoteMessage;
+export interface LeaveMessage extends BaseMessage {
+  type: "leave";
+}
+
+export interface ReactionMessage extends BaseMessage {
+  type: "reaction";
+  payload: { id: string };
+}
+
+export type ClientMessage =
+  | JoinMessage
+  | InputMessage
+  | PingMessage
+  | SessionVoteMessage
+  | LeaveMessage
+  | ReactionMessage;
 
 // --- Server -> Client messages ---
 export interface JoinedMessage extends BaseMessage {
@@ -51,6 +71,7 @@ export interface GameStateMessage extends BaseMessage {
     controller: unknown;
     gameId?: string | null;
     gameName?: string;
+    howTo?: string;
   };
 }
 
@@ -61,6 +82,19 @@ export interface ErrorMessage extends BaseMessage {
 
 export interface PongMessage extends BaseMessage {
   type: "pong";
+}
+
+/** Broadcast when a phone sends an audience reaction; reaches TV and phones. */
+export interface ReactionBroadcastMessage extends BaseMessage {
+  type: "reaction";
+  payload: {
+    playerId: string;
+    name: string;
+    /** Seat identity so the TV can colour the float; null for a legacy seat. */
+    seat: SeatIdentity | null;
+    id: ReactionId;
+    emoji: string;
+  };
 }
 
 // --- Royal Rumble session ---
@@ -89,10 +123,55 @@ export interface SessionTrophyView {
   detail: string;
 }
 
+export interface SessionAwardView {
+  id: string;
+  name: string;
+  playerId: string;
+  playerName: string;
+  detail: string;
+}
+
+/** One preset slot as the TV sees it, including a swap announcement. */
+export interface SessionSlotView {
+  /** The game the preset asked for. */
+  originalId: string;
+  originalName: string;
+  /** The game that will actually be played, or null when the slot was skipped. */
+  gameId: string | null;
+  gameName: string | null;
+  /** Start options already gated for the player count. */
+  options?: Record<string, unknown>;
+  /** One-line TV announcement when a slot was substituted. */
+  announcement: string | null;
+}
+
+/** One completed round, safe to show on the TV between games. */
+export interface SessionRoundView {
+  gameId: string;
+  gameName: string;
+  results: Array<{ playerId: string; name: string; place: number; points: number }>;
+  raw: Record<string, number>;
+  stats?: Record<string, Record<string, number>>;
+}
+
 export interface SessionView {
+  // --- Preset mode (the Rumble) ---
+  presetId: string;
+  presetName: string;
+  slots: SessionSlotView[];
+  /** Index of the current slot; equals `slots.length` when finished. */
+  slotIndex: number;
+  /** The game after the current slot, when one is already resolved. */
+  nextGameId: string | null;
+  /** Completed rounds so far. */
+  rounds: SessionRoundView[];
+  /** Whether the final surviving slot pays double placement points. */
+  lastGameDouble: boolean;
+
+  // --- Shared / kept stable for the current client ---
   length: number;
-  selection: "vote" | "random";
-  status: "voting" | "playing" | "finished";
+  selection: "vote" | "random" | "preset";
+  status: "voting" | "playing" | "interlude" | "finished";
   round: number;
   played: string[];
   currentGameId: string | null;
@@ -103,6 +182,10 @@ export interface SessionView {
   standings: SessionStanding[];
   champion: { name: string; points: number } | null;
   trophies: SessionTrophyView[];
+  /** Aggregated per-player stat totals that feed the finale awards. */
+  awardStats: Record<string, Record<string, number>>;
+  /** Awards computed when the session finishes; empty before the finale. */
+  awards: SessionAwardView[];
 }
 
 export interface SessionMessage extends BaseMessage {
@@ -121,16 +204,49 @@ export type ServerMessage =
   | GameStateMessage
   | ErrorMessage
   | PongMessage
-  | SessionMessage;
+  | SessionMessage
+  | ReactionBroadcastMessage;
 
 // --- Room & Player ---
+/**
+ * Presence is the authoritative table status. `connected` is kept for
+ * compatibility with older clients and games; `presence` is what the TV and
+ * phones render.
+ *
+ * - `active`: holding a live seat.
+ * - `away`: socket closed, inside the rejoin grace window.
+ * - `left`: explicitly left; keeps the room row and score for this game.
+ */
+export type PlayerPresence = "active" | "away" | "left";
+
+/**
+ * Why a running game is paused. Only "players" exists today: connected
+ * non-spectator players fell below the running game's minimum.
+ */
+export type PauseReason = "players";
+
+/**
+ * A below-minimum pause, on the server clock. `until` is the point where the
+ * host is offered Wait / End game; the game stays paused after it passes.
+ */
+export interface RoomPause {
+  reason: PauseReason;
+  startedAt: number;
+  until: number;
+}
+
 export interface Player {
   id: string;
   name: string;
   joinedAt: number;
   rejoinToken: string;
   connected: boolean;
+  presence: PlayerPresence;
+  /** True for a phone that joined mid-game: sees the TV, sends no game input. */
+  spectator?: boolean;
   controllerType?: string;
+  /** Stable seat identity, assigned on join and kept for the room's lifetime. */
+  seat?: SeatIdentity;
 }
 
 // Type-safe room state with generic game state
@@ -143,6 +259,8 @@ export interface RoomState<TGameState extends object = object> {
   gameState: TGameState | null;
   createdAt: number;
   status: "lobby" | "playing" | "finished";
+  /** Set while a running game waits for players to come back. */
+  pause: RoomPause | null;
 }
 
 // Non-generic alias for backward compatibility
@@ -156,6 +274,17 @@ export interface GameManifest {
   maxPlayers: number;
   controllerType: ControllerType;
   description: string;
+  // Platform metadata, merged from shared/game-catalog.ts at load time.
+  // Optional so a manifest.json without them still loads.
+  displayName?: string;
+  enabled?: boolean;
+  kind?: GameKind;
+  idealMin?: number;
+  idealMax?: number;
+  minutes?: { standalone: number; rumble: number };
+  dropoutPolicy?: DropoutPolicy;
+  contentPacks?: string[];
+  scale?: (playerCount: number, mode: ScaleMode) => GameScale;
 }
 
 export type ControllerType =
@@ -175,11 +304,22 @@ export interface GamePlugin<
   TControllerState = unknown
 > {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance<TState>;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance<TState>;
   onInput(instance: GameInstance<TState>, playerId: string, input: TInput): void;
   onTick(instance: GameInstance<TState>, deltaMs: number): void;
   screenState(instance: GameInstance<TState>): TScreenState;
   controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
+  /**
+   * Optional host-token control (skip, hide) for the running game. Returns true
+   * when the action was understood. Host authentication happens in the server;
+   * a game never sees an unauthenticated action.
+   */
+  onHostAction?(instance: GameInstance<TState>, action: string): boolean;
+  /**
+   * Optional per-game standings and stats. Games that do not implement it fall
+   * back to the platform's screen-state extraction.
+   */
+  results?(instance: GameInstance<TState>): GameResult;
 }
 
 export interface GameInstance<TState extends object = object> {

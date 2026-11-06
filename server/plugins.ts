@@ -1,5 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "../shared/game-catalog.ts";
+import type { GameResult } from "../shared/scoring.ts";
 
 // Plugin types defined locally to avoid import issues with Node type stripping
 export interface GameManifest {
@@ -9,6 +11,17 @@ export interface GameManifest {
   maxPlayers: number;
   controllerType: ControllerType;
   description: string;
+  howTo?: string;
+  // Platform metadata, merged from shared/game-catalog.ts at load time.
+  displayName?: string;
+  enabled?: boolean;
+  kind?: GameKind;
+  idealMin?: number;
+  idealMax?: number;
+  minutes?: { standalone: number; rumble: number };
+  dropoutPolicy?: DropoutPolicy;
+  contentPacks?: string[];
+  scale?: (playerCount: number, mode: ScaleMode) => GameScale;
 }
 
 export type ControllerType =
@@ -26,6 +39,8 @@ export interface Player {
   joinedAt: number;
   rejoinToken: string;
   connected: boolean;
+  presence: "active" | "away" | "left";
+  spectator?: boolean;
   controllerType?: string;
 }
 
@@ -53,11 +68,15 @@ export interface GamePlugin<
   TControllerState = unknown
 > {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance<TState>;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance<TState>;
   onInput(instance: GameInstance<TState>, playerId: string, input: TInput): void;
   onTick(instance: GameInstance<TState>, deltaMs: number): void;
   screenState(instance: GameInstance<TState>): TScreenState;
   controllerState(instance: GameInstance<TState>, playerId: string): TControllerState;
+  /** Optional host-token control for the running game (authenticated by the server). */
+  onHostAction?(instance: GameInstance<TState>, action: string): boolean;
+  /** Optional per-game standings and stats; the platform extracts a fallback. */
+  results?(instance: GameInstance<TState>): GameResult;
 }
 
 export interface PluginLoader {

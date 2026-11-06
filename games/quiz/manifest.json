@@ -2,7 +2,8 @@
   "id": "quiz",
   "name": "Quiz",
   "minPlayers": 1,
-  "maxPlayers": 4,
+  "maxPlayers": 8,
   "controllerType": "choice",
-  "description": "Trivia quiz - pick the right answer. Fastest correct answer gets most points. Content packs included."
+  "description": "Trivia quiz - pick the right answer. Standard is ten questions; Fast mode is six quick ones. Content packs included.",
+  "howTo": "Answer fast. Standard gives a speed bonus; Fast mode is six quick questions."
 }

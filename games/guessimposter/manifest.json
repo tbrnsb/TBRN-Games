@@ -1,0 +1,9 @@
+{
+  "id": "guessimposter",
+  "name": "Guess the Imposter",
+  "minPlayers": 3,
+  "maxPlayers": 8,
+  "controllerType": "choice",
+  "description": "Everyone shares a secret word except the Imposter. Give clues, discuss, vote someone off, then catch the Imposter in a final guess.",
+  "howTo": "You all share a secret word except the Imposter, who is bluffing. Give one-word clues, talk it out, and vote off who you think is faking it."
+}

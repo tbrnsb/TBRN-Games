@@ -7,7 +7,13 @@
 - Work on one phase or game step at a time. Do not start F1 until F0 passes its done gate.
 - Read `AGENTS.md`, `HANDOFF.md`, `DECISIONS.md`, and `LESSONS.md` at session start. Check `git status` and recent history. Trust the repository if notes conflict with code, then correct the notes.
 - Write tests before implementation. Use simulated phone clients for server and game behavior.
-- Do not commit, push, merge, or tag without the human reviewing the diff and asking for that action.
+- Commit after **every game** and after **every significant change** (engine, shared
+  controller layer, or a multi-game refactor). The human granted this as a standing rule on
+  2026-11-05; it overrides the older ask-first rule for commits only.
+- Still never push, merge or tag without being asked, and never force-push.
+- Run `~/.config/opencode/lib/secret-scan.sh` on the staged diff before each commit.
+- Keep each commit to one coherent unit: the engine fix, the controller primitives, one
+  game, or one docs pass. Commit messages describe the change, not the session.
 - Keep each change small. Update `HANDOFF.md` after every commit and update decision or lesson logs when needed.
 
 ## Review-fix-review workflow

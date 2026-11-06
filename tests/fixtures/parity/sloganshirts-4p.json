@@ -1,0 +1,33 @@
+{
+  "game": "sloganshirts",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    200,
+    200,
+    2100,
+    2100
+  ],
+  "standings": [
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 2100
+    },
+    {
+      "playerId": "p3",
+      "rank": 1,
+      "raw": 2100
+    },
+    {
+      "playerId": "p0",
+      "rank": 3,
+      "raw": 200
+    },
+    {
+      "playerId": "p1",
+      "rank": 3,
+      "raw": 200
+    }
+  ]
+}

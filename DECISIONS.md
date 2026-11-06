@@ -1,7 +1,7 @@
 # Decisions
 
-Append new decisions at the top. Keep each entry short: the decision, the
-reason, and the date.
+Expansion decisions from 2026-11-06 onward are logged in
+`docs/DECISIONS.md` (brief: phases 2-6). This file keeps the earlier history.
 
 ## 2026-11-04 — Royal Rumble sessions
 

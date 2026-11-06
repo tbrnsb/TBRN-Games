@@ -1,0 +1,104 @@
+{
+  "id": "percentile-stats",
+  "name": "Percentile Statistics",
+  "description": "Rounded party estimates on a 0-100 slider, each with a unit, source and year for the reveal.",
+  "version": 1,
+  "stats": [
+    {
+      "id": "floor-food",
+      "text": "What % of adults admit to eating food that fell on the floor?",
+      "value": 52,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2023
+    },
+    {
+      "id": "shower-singing",
+      "text": "What % of people sing in the shower?",
+      "value": 71,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2024
+    },
+    {
+      "id": "car-chat",
+      "text": "What % of drivers admit to talking to other cars?",
+      "value": 34,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2022
+    },
+    {
+      "id": "movie-crying",
+      "text": "What % of people have cried at a movie in the last year?",
+      "value": 46,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2025
+    },
+    {
+      "id": "childhood-toy",
+      "text": "What % of adults still sleep with a childhood toy?",
+      "value": 28,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2023
+    },
+    {
+      "id": "polite-laugh",
+      "text": "What % of people have pretended to laugh at a joke they did not get?",
+      "value": 83,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2024
+    },
+    {
+      "id": "work-bathroom-crying",
+      "text": "What % of workers have cried in a bathroom at work?",
+      "value": 19,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2022
+    },
+    {
+      "id": "waking-phone",
+      "text": "What % of people check their phone within a minute of waking?",
+      "value": 62,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2025
+    },
+    {
+      "id": "swim-25",
+      "text": "What % of adults cannot swim 25 metres?",
+      "value": 41,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2023
+    },
+    {
+      "id": "dating-profile",
+      "text": "What % of people have lied on a dating profile?",
+      "value": 57,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2024
+    },
+    {
+      "id": "unused-hammer",
+      "text": "What % of households own a hammer they have never used?",
+      "value": 66,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2022
+    },
+    {
+      "id": "missed-stop",
+      "text": "What % of people have fallen asleep on public transport and missed their stop?",
+      "value": 37,
+      "unit": "%",
+      "source": "TBRN house survey",
+      "year": 2025
+    }
+  ]
+}

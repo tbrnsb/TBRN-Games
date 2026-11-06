@@ -1,0 +1,27 @@
+{
+  "game": "archery",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    23,
+    0,
+    90
+  ],
+  "standings": [
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 90
+    },
+    {
+      "playerId": "p0",
+      "rank": 2,
+      "raw": 23
+    },
+    {
+      "playerId": "p1",
+      "rank": 3,
+      "raw": 0
+    }
+  ]
+}

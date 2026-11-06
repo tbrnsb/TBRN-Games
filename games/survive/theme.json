@@ -1,0 +1,16 @@
+{
+  "gameId": "survive",
+  "displayName": "Survive the Internet",
+  "artStyle": "newspaper",
+  "palette": {
+    "background": "#EDE6D6",
+    "primary": "#3B3A36",
+    "accent": "#B33A3A",
+    "surface": "#FAF7EF",
+    "text": "#1C1B19"
+  },
+  "animationProfile": {
+    "style": "press_flat",
+    "easings": "cubic-bezier(0.2,0,0.2,1)"
+  }
+}

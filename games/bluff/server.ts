@@ -3,9 +3,24 @@
  * Fill in the blank with a fake answer. Everyone votes for the answer they
  * think is real. Points for voting real, points for fooling others.
  * Phones switch from a text input (writing) to buttons (voting).
+ *
+ * Content packs live in `content/*.json` and are loaded once at module init:
+ * - facts (default): a trivia prompt with a blank and a fixed real answer.
+ * - dictionary: an obscure word; the real answer is its definition.
  */
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { secureShuffle } from "../../shared/secure-random.ts";
+import { roundsOption } from "../../shared/game-options.ts";
+import { captionFor } from "../../shared/interlude.ts";
+import { playerStatKey } from "../../shared/results.ts";
+import {
+  scalePayout,
+  standingsFromScores,
+  type GameResult,
+} from "../../shared/scoring.ts";
 
 // Types defined inline to avoid import issues with Node type stripping
 interface GameManifest {
@@ -24,7 +39,16 @@ type ControllerType =
   | "text"
   | "choice"
   | "private-grid"
-  | "card-hand";
+  | "card-hand"
+  | "slider"
+  | "dual-slider"
+  | "pad"
+  | "aim"
+  | "tap-race"
+  | "board"
+  | "numpad"
+  | "canvas"
+  | "chat";
 
 interface Player {
   id: string;
@@ -54,11 +78,12 @@ interface GameInstance {
 
 interface GamePlugin {
   manifest: GameManifest;
-  onStart(room: RoomState, players: Player[]): GameInstance;
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): GameInstance;
   onInput(instance: GameInstance, playerId: string, input: unknown): void;
   onTick(instance: GameInstance, deltaMs: number): void;
   screenState(instance: GameInstance): unknown;
   controllerState(instance: GameInstance, playerId: string): unknown;
+  results?(instance: GameInstance): GameResult;
 }
 
 // --- Game types ---
@@ -66,6 +91,19 @@ interface Prompt {
   text: string;
   answer: string;
   category: string;
+}
+
+type ContentPack = "facts" | "dictionary";
+
+interface FactEntry {
+  text: string;
+  answer: string;
+  category: string;
+}
+
+interface DictionaryEntry {
+  word: string;
+  definition: string;
 }
 
 interface RoundAnswer {
@@ -82,6 +120,7 @@ interface RoundResult {
 }
 
 interface BluffState {
+  contentPack: ContentPack;
   prompts: Prompt[];
   currentPrompt: number;
   phase: "writing" | "voting" | "reveal" | "finished";
@@ -91,11 +130,33 @@ interface BluffState {
   phaseTimerMs: number;
   scores: number[];
   lastResult: RoundResult | null;
+  /** Flat `<playerId>:<statKey>` counters for the finale awards. */
+  stats: Record<string, number>;
 }
 
 interface BluffInstance extends GameInstance {
   state: BluffState;
 }
+
+// --- Content packs ---
+const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), "content");
+
+function loadContent<T>(fileName: string): T[] {
+  const raw: unknown = JSON.parse(readFileSync(join(CONTENT_DIR, fileName), "utf8"));
+  return Array.isArray(raw) ? (raw as T[]) : [];
+}
+
+const FACTS: Prompt[] = loadContent<FactEntry>("facts.json").map((entry) => ({
+  text: entry.text,
+  answer: entry.answer,
+  category: entry.category,
+}));
+
+const DICTIONARY: Prompt[] = loadContent<DictionaryEntry>("dictionary.json").map((entry) => ({
+  text: entry.word,
+  answer: entry.definition,
+  category: "Dictionary",
+}));
 
 // --- Constants ---
 const WRITE_TIME_MS = 30000;
@@ -104,26 +165,13 @@ const REVEAL_TIME_MS = 6000;
 const ROUNDS = 6;
 const MAX_TEXT = 100;
 const POINTS_VOTE_REAL = 500;
-const POINTS_FOOL = 200;
-
-const PROMPTS: Prompt[] = [
-  { text: "The world's largest _____ weighs as much as 33 elephants.", answer: "blue whale", category: "Nature" },
-  { text: "A group of flamingos is called a _____.", answer: "flamboyance", category: "Animals" },
-  { text: "_____ was originally marketed as a wallpaper cleaner.", answer: "Play-Doh", category: "Toys" },
-  { text: "The shortest war in history lasted _____ minutes.", answer: "38", category: "History" },
-  { text: "Bananas are technically _____.", answer: "berries", category: "Food" },
-  { text: "Octopuses have _____ hearts.", answer: "three", category: "Animals" },
-  { text: "The dot over the letter i is called a _____.", answer: "tittle", category: "Words" },
-  { text: "Honey never _____.", answer: "spoils", category: "Food" },
-  { text: "A group of crows is called a _____.", answer: "murder", category: "Animals" },
-  { text: "The national sport of Japan is _____.", answer: "sumo", category: "World" },
-];
+const POINTS_FOOL_BASE = 200;
 
 const manifest: GameManifest = {
   id: "bluff",
   name: "Bluff",
   minPlayers: 3,
-  maxPlayers: 4,
+  maxPlayers: 8,
   controllerType: "text",
   description:
     "Fill in the blank with a convincing fake answer. Vote for the real one. Fool the table!",
@@ -152,6 +200,23 @@ function answerLabel(state: BluffState, prompt: Prompt | null, id: string): stri
   return state.submissions[id] ?? "…";
 }
 
+/** Awards use the camelCase platform keys; the brief also names the stats in
+ * kebab-case, so both are published and stay in lockstep. */
+const STAT_ALIASES = {
+  votesFooled: "votes-fooled",
+  correctVotes: "truth-found",
+  fakesWritten: "fakes-written",
+} as const;
+
+type PlayerStat = keyof typeof STAT_ALIASES;
+
+function bumpStat(state: BluffState, playerId: string, stat: PlayerStat, amount = 1): void {
+  const camelKey = playerStatKey(playerId, stat);
+  const displayKey = playerStatKey(playerId, STAT_ALIASES[stat]);
+  state.stats[camelKey] = (state.stats[camelKey] ?? 0) + amount;
+  state.stats[displayKey] = (state.stats[displayKey] ?? 0) + amount;
+}
+
 function enterVoting(instance: BluffInstance): void {
   const state = instance.state;
   state.voteOrder = secureShuffle(["real", ...Object.keys(state.submissions)]);
@@ -162,7 +227,10 @@ function enterVoting(instance: BluffInstance): void {
 function buildResult(instance: BluffInstance): RoundResult {
   const state = instance.state;
   const prompt = state.prompts[state.currentPrompt];
-  const answers: RoundAnswer[] = ["real", ...Object.keys(state.submissions)].map((id) => ({
+  const ids = state.voteOrder.length > 0
+    ? state.voteOrder
+    : ["real", ...Object.keys(state.submissions)];
+  const answers: RoundAnswer[] = ids.map((id) => ({
     id,
     text: answerLabel(state, prompt, id),
     author: id === "real" ? "The real answer" : nameOf(instance, id),
@@ -179,19 +247,27 @@ function nameOf(instance: BluffInstance, playerId: string): string {
 function scoreRound(instance: BluffInstance): void {
   const state = instance.state;
   const result = buildResult(instance);
+  // The per-fool payout scales with the table; 3-4 players stay at 200.
+  const foolPayout = scalePayout(POINTS_FOOL_BASE, instance.players.length);
 
   // +500 to every voter who picked the real answer.
   for (const [voterId, choice] of Object.entries(state.votes)) {
     if (choice === "real") {
       const idx = instance.players.findIndex((p) => p.id === voterId);
-      if (idx >= 0) state.scores[idx] += POINTS_VOTE_REAL;
+      if (idx >= 0) {
+        state.scores[idx] += POINTS_VOTE_REAL;
+        bumpStat(state, voterId, "correctVotes");
+      }
     }
   }
-  // +200 to the author of every fake answer that fooled a voter.
+  // Scaled payout to the author of every fake answer that fooled a voter.
   for (const answer of result.answers) {
     if (answer.id === "real" || answer.votes === 0) continue;
     const idx = instance.players.findIndex((p) => p.id === answer.id);
-    if (idx >= 0) state.scores[idx] += answer.votes * POINTS_FOOL;
+    if (idx >= 0) {
+      state.scores[idx] += answer.votes * foolPayout;
+      bumpStat(state, answer.id, "votesFooled", answer.votes);
+    }
   }
 
   state.lastResult = result;
@@ -212,16 +288,58 @@ function nextRoundOrFinish(instance: BluffInstance): void {
   }
 }
 
+function waitingNames(instance: BluffInstance): string[] {
+  const state = instance.state;
+  if (state.phase === "writing") {
+    return instance.players
+      .filter((p) => state.submissions[p.id] === undefined)
+      .map((p) => p.name);
+  }
+  if (state.phase === "voting") {
+    return instance.players
+      .filter((p) => state.votes[p.id] === undefined)
+      .map((p) => p.name);
+  }
+  return [];
+}
+
+/** Public, capped caption for the reveal. Never carries the real answer. */
+function revealCaption(state: BluffState): string | null {
+  if (state.phase !== "reveal" || !state.lastResult) return null;
+
+  let topFooler: RoundAnswer | null = null;
+  for (const answer of state.lastResult.answers) {
+    if (answer.id === "real" || answer.votes <= 0) continue;
+    if (!topFooler || answer.votes > topFooler.votes) topFooler = answer;
+  }
+  if (topFooler) {
+    return captionFor({
+      kind: "fooled",
+      name: topFooler.author,
+      count: topFooler.votes,
+      seed: state.currentPrompt,
+    });
+  }
+  return captionFor({ kind: "reveal", seed: state.currentPrompt });
+}
+
 // --- Plugin ---
 const plugin: GamePlugin = {
   manifest,
 
-  onStart(room: RoomState, players: Player[]): BluffInstance {
+  onStart(room: RoomState, players: Player[], options?: Record<string, unknown>): BluffInstance {
+    const contentPack: ContentPack =
+      options?.contentPack === "dictionary" ? "dictionary" : "facts";
+    const source = contentPack === "dictionary" ? DICTIONARY : FACTS;
+    // A Rumble passes the catalog's shorter round count; standalone keeps six.
+    const rounds = roundsOption(options) ?? ROUNDS;
+
     return {
       roomId: room.id,
       players,
       state: {
-        prompts: secureShuffle(PROMPTS).slice(0, ROUNDS),
+        contentPack,
+        prompts: secureShuffle(source).slice(0, rounds),
         currentPrompt: 0,
         phase: "writing",
         submissions: {},
@@ -230,6 +348,7 @@ const plugin: GamePlugin = {
         phaseTimerMs: WRITE_TIME_MS,
         scores: players.map(() => 0),
         lastResult: null,
+        stats: {},
       } satisfies BluffState,
     } as BluffInstance;
   },
@@ -244,6 +363,9 @@ const plugin: GamePlugin = {
     if (state.phase === "writing") {
       const text = cleanText(inp?.text);
       if (text === null) return;
+      if (state.submissions[playerId] === undefined) {
+        bumpStat(state, playerId, "fakesWritten");
+      }
       state.submissions[playerId] = text;
       if (submittedCount(state) >= instance.players.length) enterVoting(instance);
       return;
@@ -305,6 +427,7 @@ const plugin: GamePlugin = {
 
     return {
       phase: state.phase,
+      contentPack: state.contentPack,
       prompt: prompt ? prompt.text : null,
       category: prompt ? prompt.category : null,
       round: Math.min(state.currentPrompt + 1, state.prompts.length),
@@ -312,8 +435,11 @@ const plugin: GamePlugin = {
       submitted: submittedCount(state),
       playerCount: instance.players.length,
       voted: votedCount(state),
+      waitingOn: waitingNames(instance),
       answers,
       realAnswer: isReveal && prompt ? prompt.answer : null,
+      caption: revealCaption(state),
+      sound: isReveal ? "reveal" : null,
       timeLeft: Math.max(0, state.phaseTimerMs),
       scores: instance.players.map((p, i) => ({ name: p.name, score: state.scores[i] })),
       finished: state.phase === "finished",
@@ -336,7 +462,9 @@ const plugin: GamePlugin = {
         phase: "writing",
         prompt: prompt ? prompt.text : null,
         category: prompt ? prompt.category : null,
-        placeholder: "Your convincing answer...",
+        placeholder: state.contentPack === "dictionary"
+          ? "Your convincing definition..."
+          : "Your convincing answer...",
         hasSubmitted: mine !== undefined,
         yourAnswer: mine ?? null,
         timeLeft: Math.max(0, state.phaseTimerMs),
@@ -390,6 +518,16 @@ const plugin: GamePlugin = {
       winner: getWinner(instance),
       finished: true,
       youWon: getWinner(instance)?.name === instance.players[playerIndex].name,
+    };
+  },
+
+  results(instance: BluffInstance): GameResult {
+    const state = instance.state;
+    return {
+      standings: standingsFromScores(
+        instance.players.map((p, i) => ({ id: p.id, raw: state.scores[i] })),
+      ),
+      stats: { ...state.stats },
     };
   },
 };

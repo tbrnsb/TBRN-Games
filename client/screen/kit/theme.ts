@@ -6,8 +6,11 @@
  * gradients, glow or soft shadows live here.
  */
 
+
 import { INKS, PAPERS, PLAYERS, TYPE } from "../../kit/theme.ts";
 import type { Skin } from "../../kit/types.ts";
+import { theme as sharedTheme } from "../../../shared/theme.ts";
+
 
 export const colors = {
   bg0: PAPERS.cream.hex,
@@ -26,7 +29,8 @@ export const colors = {
   success: INKS.grass,
   danger: INKS.tomato,
   paperTexture: PAPERS.cream.texture,
-  player: PLAYERS.map((p) => p.hex) as string[],
+  player: [...sharedTheme.colors.player] as string[],
+
   gradient: {
     bgStart: PAPERS.cream.hex,
     bgEnd: PAPERS.cream.hex,

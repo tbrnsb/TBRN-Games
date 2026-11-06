@@ -4,5 +4,6 @@
   "minPlayers": 1,
   "maxPlayers": 4,
   "controllerType": "choice",
-  "description": "Guess the word letter by letter. Wrong guesses build the hangman. Solo uses word list."
+  "description": "Guess the word letter by letter. Wrong guesses build the hangman. Solo uses word list.",
+  "howTo": "Guess letters one at a time. Too many wrong guesses and you are done."
 }

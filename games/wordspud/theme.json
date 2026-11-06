@@ -1,0 +1,16 @@
+{
+  "gameId": "wordspud",
+  "displayName": "Word Spud",
+  "artStyle": "candy",
+  "palette": {
+    "background": "#FFF3F8",
+    "primary": "#3A1E4E",
+    "accent": "#FF4F9A",
+    "surface": "#FFFFFF",
+    "text": "#22112E"
+  },
+  "animationProfile": {
+    "style": "bouncy",
+    "easings": "cubic-bezier(0.5,1.8,0.4,1)"
+  }
+}

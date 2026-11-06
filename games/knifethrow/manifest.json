@@ -1,1 +1,9 @@
-{ "id": "knifethrow", "name": "Knife Throw", "minPlayers": 1, "maxPlayers": 4, "controllerType": "one-button", "description": "Tap to throw knives at rotating target. Don't hit existing knives!" }
+{
+  "id": "knifethrow",
+  "name": "Knife Throw",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "controllerType": "one-button",
+  "description": "Tap to throw knives at rotating target. Don't hit existing knives!",
+  "howTo": "Tap to throw a knife at the spinning target. Do not hit an existing knife."
+}

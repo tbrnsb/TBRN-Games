@@ -1,0 +1,27 @@
+{
+  "game": "mostlikely",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    20,
+    20,
+    100
+  ],
+  "standings": [
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 100
+    },
+    {
+      "playerId": "p0",
+      "rank": 2,
+      "raw": 20
+    },
+    {
+      "playerId": "p1",
+      "rank": 2,
+      "raw": 20
+    }
+  ]
+}

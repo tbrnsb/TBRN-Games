@@ -51,11 +51,13 @@ interface PokerScreenState {
   maxHands: number;
   community: CardDisplay[];
   pot: number;
+  /** Main pot plus every side pot; more than one when players are all-in. */
+  pots: Array<{ amount: number; label: string }>;
   currentBet: number;
   players: PlayerDisplay[];
   turnName: string | null;
   timeLeft: number;
-  showdown: Array<{ name: string; cards: CardDisplay[]; handName: string }> | null;
+  showdown: Array<{ name: string; handName: string }> | null;
   potBreakdown: Array<{ amount: number; winners: string[] }> | null;
   results: string[] | null;
   finished: boolean;
@@ -218,13 +220,20 @@ function phaseLabel(phase: PokerScreenState["phase"]): string {
   }
 }
 
-function drawTable(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  state: PokerScreenState,
-  scale: number,
-): void {
+interface TableGeometry {
+  area: { x: number; y: number; width: number; height: number };
+  cx: number;
+  cy: number;
+  feltRX: number;
+  feltRY: number;
+  seatRX: number;
+  seatRY: number;
+  scale: number;
+}
+
+/** One shared table geometry so the renderer and the layout test agree. */
+function tableGeometry(width: number, height: number): TableGeometry {
+  const scale = scaleForViewport(width, height);
   const margin = scaledSize(48, scale);
   const headerH = scaledSize(56, scale);
   const area = {
@@ -235,9 +244,57 @@ function drawTable(
   };
   const cx = area.x + area.width / 2;
   const cy = area.y + area.height / 2;
-
   const feltRX = area.width * 0.30;
   const feltRY = area.height * 0.31;
+  return {
+    area,
+    cx,
+    cy,
+    feltRX,
+    feltRY,
+    seatRX: feltRX + scaledSize(78, scale),
+    seatRY: feltRY + scaledSize(64, scale),
+    scale,
+  };
+}
+
+/** A seat panel rectangle in screen pixels. */
+export interface SeatBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Seat panel rectangles for a table of `playerCount`.
+ * Exported so tests can prove the eight-seat ring never overlaps.
+ */
+export function pokerSeatLayout(
+  playerCount: number,
+  width: number,
+  height: number,
+): SeatBox[] {
+  const geometry = tableGeometry(width, height);
+  const panelWidth = scaledSize(280, geometry.scale);
+  const panelHeight = scaledSize(116, geometry.scale);
+  return seatPositions(playerCount, geometry.cx, geometry.cy, geometry.seatRX, geometry.seatRY)
+    .map((position) => ({
+      x: position.x - panelWidth / 2,
+      y: position.y - panelHeight / 2,
+      width: panelWidth,
+      height: panelHeight,
+    }));
+}
+
+function drawTable(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: PokerScreenState,
+  scale: number,
+): void {
+  const { area, cx, cy, feltRX, feltRY } = tableGeometry(width, height);
 
   // Felt
   ctx.save();
@@ -278,44 +335,58 @@ function drawTable(
     }
   }
 
-  // Pot
-  const potText = state.pot > 0 ? String(state.pot) : "—";
-  ctx.font = `700 ${scaledSize(26, scale)}px ${fonts.display.family}`;
-  const potLabelW = ctx.measureText(potText).width + scaledSize(96, scale);
-  const potW = Math.max(scaledSize(150, scale), potLabelW);
+  // Pots. One large pill when there is a single pot; a compact row list when
+  // side pots exist, so every all-in level stays visible on the TV.
+  const pots = state.pots.length > 0
+    ? state.pots
+    : state.pot > 0
+      ? [{ amount: state.pot, label: "POT" }]
+      : [];
   const potY = cy + feltRY * 0.34;
-  drawPill(
-    ctx,
-    cx - potW / 2,
-    potY - scaledSize(22, scale),
-    potW,
-    scaledSize(44, scale),
-    "rgba(11,8,32,0.72)",
-    "rgba(255,179,71,0.5)",
-    Math.max(1, scaledSize(2, scale)),
-  );
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `600 ${scaledSize(16, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
-  ctx.textAlign = "left";
-  ctx.fillText("POT", cx - potW / 2 + scaledSize(18, scale), potY);
-  ctx.textAlign = "right";
-  ctx.font = `700 ${scaledSize(32, scale)}px ${fonts.display.family}`;
-  ctx.fillStyle = colors.amber;
-  ctx.fillText(potText, cx + potW / 2 - scaledSize(18, scale), potY + 1);
+  let infoY = potY;
+
+  if (pots.length <= 1) {
+    const potText = pots[0] ? String(pots[0].amount) : "—";
+    ctx.font = `700 ${scaledSize(26, scale)}px ${fonts.display.family}`;
+    const potLabelW = ctx.measureText(potText).width + scaledSize(96, scale);
+    const potW = Math.max(scaledSize(150, scale), potLabelW);
+    drawPill(
+      ctx,
+      cx - potW / 2,
+      potY - scaledSize(22, scale),
+      potW,
+      scaledSize(44, scale),
+      "rgba(11,8,32,0.72)",
+      "rgba(255,179,71,0.5)",
+      Math.max(1, scaledSize(2, scale)),
+    );
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${scaledSize(16, scale)}px ${fonts.body.family}`;
+    ctx.fillStyle = colors.textMuted;
+    ctx.textAlign = "left";
+    ctx.fillText("POT", cx - potW / 2 + scaledSize(18, scale), potY);
+    ctx.textAlign = "right";
+    ctx.font = `700 ${scaledSize(32, scale)}px ${fonts.display.family}`;
+    ctx.fillStyle = colors.amber;
+    ctx.fillText(potText, cx + potW / 2 - scaledSize(18, scale), potY + 1);
+    infoY = potY + scaledSize(24, scale);
+  } else {
+    infoY = drawPotRows(ctx, cx, cy + scaledSize(16, scale), pots, scale, area.width * 0.72);
+  }
 
   // Current bet
   if (state.currentBet > 0 && state.phase !== "showdown" && state.phase !== "hand-end") {
     ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
     ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = colors.textMuted;
-    ctx.fillText(`Current bet ${state.currentBet}`, cx, potY + scaledSize(38, scale));
+    ctx.fillText(`Current bet ${state.currentBet}`, cx, infoY + scaledSize(18, scale));
   }
 
-  // Results (fold win / split pot) below the pot.
+  // Results (fold win / split pot) below the pots.
   if (state.results && state.results.length > 0 && (state.phase === "hand-end" || state.phase === "showdown")) {
-    const startY = potY + scaledSize(60, scale);
+    const startY = infoY + scaledSize(40, scale);
     ctx.textAlign = "center";
     state.results.slice(0, 2).forEach((line, i) => {
       ctx.font = `${i === 0 ? 700 : 500} ${scaledSize(i === 0 ? 20 : 15, scale)}px ${fonts.display.family}`;
@@ -324,15 +395,99 @@ function drawTable(
     });
   }
 
-  // Seats
+  // Seats: four fixed anchors up to four players, an even ring from five so
+  // all eight panels fit without colliding.
   const n = state.players.length;
   const seatRX = feltRX + scaledSize(78, scale);
   const seatRY = feltRY + scaledSize(64, scale);
+  const positions = seatPositions(n, cx, cy, seatRX, seatRY);
   state.players.forEach((player, i) => {
-    // Only use four anchor points for up to four players so panels never collide.
-    const anchor = n <= 1 ? 0 : Math.round((i * 4) / n) % 4;
-    const pos = seatAnchor(anchor, cx, cy, seatRX, seatRY);
-    drawSeat(ctx, pos.x, pos.y, player, state, scale);
+    drawSeat(ctx, positions[i].x, positions[i].y, player, state, scale);
+  });
+}
+
+/**
+ * Draw every pot as a compact pill and pack the rows into `maxWidth`.
+ * Returns the y coordinate just below the last row.
+ */
+function drawPotRows(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  top: number,
+  pots: Array<{ amount: number; label: string }>,
+  scale: number,
+  maxWidth: number,
+): number {
+  const height = scaledSize(32, scale);
+  const gap = scaledSize(10, scale);
+  const padX = scaledSize(14, scale);
+  const font = `600 ${scaledSize(15, scale)}px ${fonts.body.family}`;
+  ctx.font = font;
+
+  const items = pots.map((pot) => {
+    const text = `${pot.label} ${pot.amount}`;
+    return { text, width: ctx.measureText(text).width + padX * 2 };
+  });
+
+  const rows: Array<Array<{ text: string; width: number }>> = [];
+  let row: Array<{ text: string; width: number }> = [];
+  let rowWidth = 0;
+  for (const item of items) {
+    const extra = row.length > 0 ? gap : 0;
+    if (row.length > 0 && rowWidth + extra + item.width > maxWidth) {
+      rows.push(row);
+      row = [];
+      rowWidth = 0;
+    }
+    rowWidth += (row.length > 0 ? gap : 0) + item.width;
+    row.push(item);
+  }
+  if (row.length > 0) rows.push(row);
+
+  rows.forEach((cells, rowIndex) => {
+    const totalWidth = cells.reduce((sum, cell) => sum + cell.width, 0) + gap * (cells.length - 1);
+    let x = cx - totalWidth / 2;
+    const y = top + rowIndex * (height + gap);
+    for (const cell of cells) {
+      drawPill(
+        ctx,
+        x,
+        y,
+        cell.width,
+        height,
+        "rgba(11,8,32,0.78)",
+        "rgba(255,179,71,0.5)",
+        Math.max(1, scaledSize(1.5, scale)),
+      );
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = font;
+      ctx.fillStyle = colors.amber;
+      ctx.fillText(cell.text, x + cell.width / 2, y + height / 2 + 1);
+      x += cell.width + gap;
+    }
+  });
+
+  return top + rows.length * height + Math.max(0, rows.length - 1) * gap;
+}
+
+/** Seat centres around the table: four anchors below five, an even ring above. */
+function seatPositions(
+  playerCount: number,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+): Array<{ x: number; y: number }> {
+  if (playerCount <= 0) return [];
+  if (playerCount <= 4) {
+    return Array.from({ length: playerCount }, (_, i) =>
+      seatAnchor(Math.round((i * 4) / playerCount) % 4, cx, cy, rx, ry),
+    );
+  }
+  return Array.from({ length: playerCount }, (_, i) => {
+    const angle = Math.PI / 2 + (i * 2 * Math.PI) / playerCount;
+    return { x: cx + Math.cos(angle) * rx, y: cy + Math.sin(angle) * ry };
   });
 }
 
@@ -407,17 +562,17 @@ function drawSeat(
   ctx.fillStyle = colors.amber;
   ctx.fillText(String(player.chips), left + scaledSize(14, scale), top + h - scaledSize(22, scale));
 
-  // Bet / last action (hidden at showdown, where the cards take this space).
-  if (!showdown && player.bet > 0) {
-    ctx.textAlign = "right";
-    ctx.font = `600 ${scaledSize(20, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = colors.cyan;
-    ctx.fillText(`bet ${player.bet}`, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
-  } else if (!showdown && player.lastAction) {
+  // Bet / last action (hidden at showdown, where the hand name takes this space).
+  if (!showdown && player.lastAction) {
     ctx.textAlign = "right";
     ctx.font = `500 ${scaledSize(16, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = colors.textMuted;
     ctx.fillText(player.lastAction, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
+  } else if (!showdown && player.bet > 0) {
+    ctx.textAlign = "right";
+    ctx.font = `600 ${scaledSize(20, scale)}px ${fonts.display.family}`;
+    ctx.fillStyle = colors.cyan;
+    ctx.fillText(`bet ${player.bet}`, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
   }
 
   // Status pill (dealer / SB / BB / ALL IN / OUT / FOLDED)
@@ -454,20 +609,14 @@ function drawSeat(
     ctx.fillText(badge.text, bx + bw / 2, top - scaledSize(2, scale));
   });
 
-  // Showdown: revealed hole cards + hand name, on the right of the panel.
+  // Hand name at showdown. Hole cards stay on the owners' phones, so the TV
+  // only publishes the made hand and the pot winners.
   if (showdown) {
-    const cw = scaledSize(38, scale);
-    const ch = scaledSize(54, scale);
-    const cGap = scaledSize(5, scale);
-    const cardsX = left + w - scaledSize(14, scale) - (2 * cw + cGap);
-    const cardsY = top + scaledSize(20, scale);
-    showdown.cards.slice(0, 2).forEach((card, ci) => {
-      drawCard(ctx, cardsX + ci * (cw + cGap), cardsY, cw, ch, card, scale, true);
-    });
     ctx.textAlign = "right";
-    ctx.font = `600 ${scaledSize(14, scale)}px ${fonts.body.family}`;
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${scaledSize(15, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = isWinner ? colors.success : colors.textMuted;
-    ctx.fillText(showdown.handName, left + w - scaledSize(14, scale), cardsY + ch + scaledSize(12, scale));
+    ctx.fillText(showdown.handName, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
   }
 
   ctx.restore();

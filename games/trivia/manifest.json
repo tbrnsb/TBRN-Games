@@ -1,0 +1,9 @@
+{
+  "id": "trivia",
+  "name": "Quick Trivia",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "controllerType": "choice",
+  "description": "Rapid-fire trivia. Faster answers score more.",
+  "howTo": "Rapid-fire trivia. Faster correct answers score more."
+}

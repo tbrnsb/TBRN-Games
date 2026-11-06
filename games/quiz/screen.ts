@@ -1,170 +1,489 @@
 /**
- * Quiz — paper-and-ink screen renderer (V3 reference).
- * DOM/CSS is the only path; the old synthwave canvas renderer is deleted.
+ * Quiz — Premium Screen Renderer
+ * Synthwave + Bento Grid + Swiss Typography
+ * Uses the shared kit from client/screen/kit/
  */
+
 import {
-  createMox,
-  fitText,
-  moxLine,
-  sound,
-  tokenMarkup,
-  type MoxElement,
-} from "../../client/kit/index.ts";
+  // Theme
+  colors, fonts, scaleForViewport, scaledSize,
+  // Background
+  drawSynthwaveBackground,
+  // Bento
+  drawBentoCard, drawScoreboard,
+  // Scoreboard
+  ScoreManager,
+  // Particles
+  emitScoreBurst, updateParticles, drawParticles,
+  // Shake
+  createShake, triggerShake, applyShakeTransform,
+  // Title Card
+  createTitleCard, showTitleCard, updateTitleCard, drawTitleCard, isTitleCardDone,
+  createCountdownCard, startCountdown, updateCountdown, drawCountdown,
+  // Victory
+  createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
+  // Utils
+  drawRoundRect,
+} from "../../client/screen/kit/index.ts";
 
 interface QuizScreenState {
+  mode?: "standard" | "fast";
   phase: "waiting" | "question" | "reveal" | "finished";
   question: { text: string; options: Array<{ id: string; label: string }>; correct: string | null } | null;
   currentQuestion: number;
   totalQuestions: number;
   timeLeft: number;
+  /** Length of the current question window in ms (15 s standard / 10 s fast). */
+  questionTimeMs?: number;
+  /** Per-option answer counts; null until the reveal. */
+  distribution?: Array<{ id: string; count: number }> | null;
   scores: Array<{ name: string; score: number }>;
   finished: boolean;
   winner: { name: string; score: number } | null;
 }
 
-// --- Paper-and-ink DOM renderer (V3) ---
-
-interface QuizDomState {
-  scene: HTMLElement;
-  mox: MoxElement;
-  key: string;
-  timer: HTMLElement | null;
+interface RenderState {
+  lastFrameTime: number;
+  scoreManager: ScoreManager;
+  titleCard: ReturnType<typeof createTitleCard> | null;
+  countdownCard: ReturnType<typeof createCountdownCard> | null;
+  victoryScreen: ReturnType<typeof createVictoryScreen> | null;
+  shake: ReturnType<typeof createShake>;
+  lastPhase: string;
+  lastScores: number[];
 }
 
-const quizDomStates = new WeakMap<HTMLElement, QuizDomState>();
+const DEFAULT_QUESTION_TIME_MS = 15000;
 
-function ensureQuizCss(): void {
-  if (document.getElementById("quiz-paper-css")) return;
-  const link = document.createElement("link");
-  link.id = "quiz-paper-css";
-  link.rel = "stylesheet";
-  link.href = "/games/quiz/screen.css";
-  document.head.appendChild(link);
+function createRenderState(): RenderState {
+  return {
+    lastFrameTime: 0,
+    scoreManager: new ScoreManager(),
+    titleCard: null,
+    countdownCard: null,
+    victoryScreen: null,
+    shake: createShake(6, 250),
+    lastPhase: "",
+    lastScores: [],
+  };
 }
 
-function escapeHtml(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+const renderState = (globalThis as any)._quizRenderState ||= createRenderState();
+
+export function renderQuiz(ctx: CanvasRenderingContext2D, width: number, height: number, state: QuizScreenState): void {
+  const scale = scaleForViewport(width, height);
+  const rs: RenderState = renderState;
+  const now = performance.now();
+  const dt = rs.lastFrameTime ? Math.min(now - rs.lastFrameTime, 100) : 16;
+  rs.lastFrameTime = now;
+
+  ctx.save();
+  try {
+    drawSynthwaveBackground(ctx, { width, height, time: now });
+    applyShakeTransform(ctx, rs.shake, now);
+    updateParticles(dt);
+
+    updateScores(state, rs, now, dt, width, height, scale);
+
+    // One-time transitions, keyed on phase.
+    if (state.phase !== rs.lastPhase) {
+      handlePhaseChange(state, rs, now, width, height);
+      rs.lastPhase = state.phase;
+    }
+    // A new game after a finished one.
+    if (!state.finished && rs.victoryScreen) rs.victoryScreen = null;
+
+    // Always advance the cards; this is what was missing before.
+    if (rs.titleCard) updateTitleCard(rs.titleCard, now);
+    if (rs.countdownCard) updateCountdown(rs.countdownCard, now);
+    if (rs.victoryScreen) updateVictoryScreen(rs.victoryScreen, now, dt);
+
+    if (state.finished && rs.victoryScreen) {
+      drawVictoryScreen(ctx, width, height, rs.victoryScreen);
+      return;
+    }
+
+    if (rs.titleCard && !isTitleCardDone(rs.titleCard)) {
+      drawTitleCard(ctx, width, height, rs.titleCard);
+      return;
+    }
+
+    if (!state.question) {
+      drawWaiting(ctx, width, height, scale, now);
+      return;
+    }
+
+    renderQuestion(ctx, width, height, state, rs, scale, now);
+    renderScoreboard(ctx, width, height, state, rs, scale);
+    renderTimer(ctx, width, height, state, scale);
+
+    if (rs.countdownCard && rs.countdownCard.state !== "done") {
+      drawCountdown(ctx, width, height, rs.countdownCard);
+    }
+
+    drawParticles(ctx);
+  } finally {
+    ctx.restore();
+  }
 }
 
-export function renderDom(root: HTMLElement, raw: unknown): void {
-  ensureQuizCss();
-  const state = raw as QuizScreenState;
-  if (!state) return;
+function updateScores(
+  state: QuizScreenState,
+  rs: RenderState,
+  now: number,
+  dt: number,
+  width: number,
+  height: number,
+  scale: number,
+): void {
+  state.scores.forEach((s, i) => {
+    const prev = rs.lastScores[i];
+    if (prev !== s.score) {
+      rs.scoreManager.setScore(i, s.score, 600);
+      if (prev !== undefined && s.score > prev) {
+        emitScoreBurst(width * 0.5, height * 0.35, i, scale);
+        triggerShake(rs.shake, 0.25, now);
+      }
+      rs.lastScores[i] = s.score;
+    }
+  });
+  rs.scoreManager.update(now);
+  void dt;
+}
 
-  let dom = quizDomStates.get(root);
-  if (!dom) {
-    root.className = "qz-paper";
-    const scene = document.createElement("div");
-    scene.className = "qz-scene";
-    scene.style.display = "contents";
-    const moxWrap = document.createElement("div");
-    moxWrap.className = "qz-mox";
-    const mox = createMox({ outfit: "party", pitch: 1.12, bank: "buzzer" });
-    moxWrap.appendChild(mox);
-    root.append(scene, moxWrap);
-    dom = { scene, mox, key: "", timer: null };
-    quizDomStates.set(root, dom);
+function handlePhaseChange(
+  state: QuizScreenState,
+  rs: RenderState,
+  now: number,
+  width: number,
+  height: number,
+): void {
+  switch (state.phase) {
+    case "waiting":
+      rs.titleCard = createTitleCard({
+        title: "QUIZ",
+        subtitle: "Get ready…",
+        duration: 2200,
+        fadeInDuration: 450,
+        holdDuration: 1200,
+        fadeOutDuration: 550,
+      });
+      showTitleCard(rs.titleCard, now);
+      break;
+    case "question":
+      // Countdown only when coming out of a reveal, not on the very first question.
+      if (rs.lastPhase === "reveal") {
+        rs.countdownCard = createCountdownCard(3, 420);
+        startCountdown(rs.countdownCard, now);
+      }
+      break;
+    case "finished":
+      if (state.winner) {
+        const rankings = buildRankedEntries(state.scores, state.winner.name);
+        const winner = rankings.find((r) => r.isWinner) ?? rankings[0];
+        if (winner) {
+          rs.victoryScreen = createVictoryScreen({
+            winner,
+            rankings,
+            gameName: "Quiz",
+            duration: 0,
+          });
+          showVictoryScreen(rs.victoryScreen, now, width, height);
+          triggerShake(rs.shake, 0.5, now);
+        }
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+function renderQuestion(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: QuizScreenState,
+  rs: RenderState,
+  scale: number,
+  now: number,
+): void {
+  const { question, currentQuestion, totalQuestions } = state;
+  if (!question) return;
+
+  const margin = scaledSize(48, scale);
+  const gap = scaledSize(24, scale);
+  const scoreWidth = Math.min(width * 0.28, scaledSize(400, scale));
+  const mainWidth = width - margin * 2 - gap - scoreWidth;
+
+  // Eyebrow: game name + question progress. Sentence case, not tracked caps.
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `700 ${scaledSize(30, scale)}px ${fonts.title.family}`;
+  ctx.fillStyle = colors.text;
+  ctx.fillText(state.mode === "fast" ? "QUIZ · FAST" : "QUIZ", margin, margin + scaledSize(28, scale));
+
+  ctx.font = `600 ${scaledSize(22, scale)}px ${fonts.body.family}`;
+  ctx.fillStyle = colors.textMuted;
+  ctx.fillText(
+    `Question ${currentQuestion} of ${totalQuestions}`,
+    margin + scaledSize(state.mode === "fast" ? 196 : 120, scale),
+    margin + scaledSize(26, scale),
+  );
+
+  // Question card
+  const cardY = margin + scaledSize(64, scale);
+  const cardH = height * 0.26;
+  const cardRect = { x: margin, y: cardY, width: mainWidth, height: cardH };
+  drawBentoCard(ctx, cardRect, { fill: "#171238", stroke: colors.border });
+
+  const qSize = Math.max(scaledSize(26, scale), Math.min(scaledSize(46, scale), cardH * 0.3));
+  ctx.font = `700 ${qSize}px ${fonts.display.family}`;
+  ctx.fillStyle = colors.text;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const textY = cardY + cardH / 2;
+  const wrapped = wrapToWidth(ctx, question.text, mainWidth - scaledSize(64, scale));
+  const lineHeight = qSize * 1.18;
+  const startY = textY - ((wrapped.length - 1) * lineHeight) / 2;
+  wrapped.forEach((line, i) => ctx.fillText(line, margin + mainWidth / 2, startY + i * lineHeight));
+
+  // Options
+  renderOptions(
+    ctx,
+    margin,
+    cardY + cardH + gap,
+    mainWidth,
+    height - margin - (cardY + cardH + gap),
+    question,
+    state.phase === "reveal" ? question.correct : null,
+    state.distribution ?? null,
+    scale,
+    now,
+  );
+
+  void rs;
+}
+
+function renderOptions(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  question: { options: Array<{ id: string; label: string }> },
+  correctId: string | null,
+  distribution: Array<{ id: string; count: number }> | null,
+  scale: number,
+  now: number,
+): void {
+  const cols = 2;
+  const gap = scaledSize(20, scale);
+  const rows = Math.max(1, Math.ceil(question.options.length / cols));
+  const cardW = (width - gap * (cols - 1)) / cols;
+  const cardH = Math.min(scaledSize(190, scale), (height - gap * (rows - 1)) / rows);
+  const revealed = correctId !== null;
+  const maxCount = Math.max(1, ...(distribution ?? []).map((entry) => entry.count));
+
+  question.options.forEach((opt, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cx = x + col * (cardW + gap);
+    const cy = y + row * (cardH + gap);
+
+    const isCorrect = opt.id === correctId;
+    let fill = "rgba(23,18,56,0.97)";
+    let stroke: string = colors.border;
+    if (revealed) {
+      fill = isCorrect ? "#16352B" : "#100C28";
+      stroke = isCorrect ? colors.success : "rgba(255,255,255,0.06)";
+    }
+
+    // Pop-in on the first 400ms of the question.
+    const age = now % 100000;
+    const pop = 1 + 0.015 * Math.sin(age * 0.004 + i) * (revealed ? 0 : 1);
+    ctx.save();
+    ctx.translate(cx + cardW / 2, cy + cardH / 2);
+    ctx.scale(pop, pop);
+    ctx.translate(-(cx + cardW / 2), -(cy + cardH / 2));
+
+    drawBentoCard(ctx, { x: cx, y: cy, width: cardW, height: cardH }, {
+      fill,
+      stroke,
+      lineWidth: revealed && isCorrect ? 3 : 1,
+      glow: revealed && isCorrect ? colors.success : undefined,
+    });
+
+    // Letter badge
+    const badge = scaledSize(44, scale);
+    const badgeX = cx + scaledSize(20, scale);
+    const badgeY = cy + cardH / 2 - badge / 2;
+    ctx.fillStyle = isCorrect && revealed ? colors.success : colors.surfaceHi;
+    drawRoundRect(ctx, badgeX, badgeY, badge, badge, scaledSize(10, scale), ctx.fillStyle as string);
+
+    ctx.font = `700 ${scaledSize(22, scale)}px ${fonts.title.family}`;
+    ctx.fillStyle = isCorrect && revealed ? colors.bg0 : colors.magenta;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(opt.id.toUpperCase(), badgeX + badge / 2, badgeY + badge / 2 + 1);
+
+    // Option label
+    const labelX = badgeX + badge + scaledSize(18, scale);
+    const countEntry = distribution?.find((entry) => entry.id === opt.id) ?? null;
+    const countBadgeW = countEntry ? scaledSize(48, scale) : 0;
+    const labelMax = cx + cardW - labelX - scaledSize(20, scale) - countBadgeW;
+    const labelSize = Math.max(scaledSize(18, scale), Math.min(scaledSize(26, scale), cardH * 0.24));
+    ctx.font = `500 ${labelSize}px ${fonts.display.family}`;
+    ctx.fillStyle = revealed && !isCorrect ? colors.textMuted : colors.text;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const lines = wrapToWidth(ctx, opt.label, labelMax);
+    const lh = labelSize * 1.2;
+    const start = cy + cardH / 2 - ((lines.length - 1) * lh) / 2;
+    lines.forEach((line, li) => ctx.fillText(line, labelX, start + li * lh));
+
+    if (countEntry) {
+      // Answer distribution: a count pill plus a proportional bar. Who picked
+      // what is still never published; only the per-option totals are.
+      const pillW = scaledSize(44, scale);
+      const pillH = scaledSize(28, scale);
+      const pillX = cx + cardW - pillW - scaledSize(16, scale);
+      const pillY = cy + scaledSize(14, scale);
+      ctx.fillStyle = isCorrect ? colors.success : "rgba(255,255,255,0.12)";
+      drawRoundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2, ctx.fillStyle as string);
+      ctx.font = `700 ${scaledSize(16, scale)}px ${fonts.title.family}`;
+      ctx.fillStyle = isCorrect ? colors.bg0 : colors.text;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(countEntry.count), pillX + pillW / 2, pillY + pillH / 2 + 1);
+
+      const barX = cx + scaledSize(16, scale);
+      const barY = cy + cardH - scaledSize(14, scale);
+      const barMax = cardW - scaledSize(32, scale);
+      const barW = barMax * (countEntry.count / maxCount);
+      if (barW > 0) {
+        drawRoundRect(
+          ctx,
+          barX,
+          barY,
+          Math.max(scaledSize(2, scale), barW),
+          scaledSize(6, scale),
+          scaledSize(3, scale),
+          isCorrect ? colors.success : colors.cyan,
+        );
+      }
+    }
+
+    ctx.restore();
+  });
+}
+
+function renderScoreboard(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: QuizScreenState,
+  rs: RenderState,
+  scale: number,
+): void {
+  const margin = scaledSize(48, scale);
+  const scoreWidth = Math.min(width * 0.28, scaledSize(400, scale));
+  const rect = {
+    x: width - margin - scoreWidth,
+    y: margin,
+    width: scoreWidth,
+    height: Math.min(
+      height - margin * 2,
+      scaledSize(64, scale) * state.scores.length + scaledSize(92, scale),
+    ),
+  };
+  drawBentoCard(ctx, rect, { fill: "#171238", stroke: colors.border });
+
+  const entries = state.scores.map((s, i) => ({
+    name: s.name,
+    score: s.score,
+    playerIndex: i,
+    isCurrent: false,
+    isWinner: state.finished && state.winner?.name === s.name,
+    animatedScore: rs.scoreManager.getDisplayScore(i),
+  }));
+
+  drawScoreboard(ctx, rect, entries, { title: "SCORES", showRank: true, scale });
+}
+
+function renderTimer(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  state: QuizScreenState,
+  scale: number,
+): void {
+  if (state.phase !== "question" && state.phase !== "reveal") return;
+
+  const margin = scaledSize(48, scale);
+  const gap = scaledSize(24, scale);
+  const scoreWidth = Math.min(width * 0.28, scaledSize(400, scale));
+  const mainWidth = width - margin * 2 - gap - scoreWidth;
+
+  const barH = scaledSize(8, scale);
+  const y = margin + scaledSize(42, scale);
+  const questionTimeMs = state.questionTimeMs ?? DEFAULT_QUESTION_TIME_MS;
+  const progress = Math.max(0, Math.min(1,
+    state.phase === "question" ? state.timeLeft / questionTimeMs : 0,
+  ));
+
+  drawRoundRect(ctx, margin, y, mainWidth, barH, barH / 2, "rgba(255,255,255,0.08)");
+  if (progress > 0) {
+    const color = progress > 0.35 ? colors.cyan : progress > 0.15 ? colors.amber : colors.danger;
+    drawRoundRect(ctx, margin, y, Math.max(barH, mainWidth * progress), barH, barH / 2, color);
   }
 
-  const key = [
-    state.phase,
-    state.currentQuestion,
-    state.question?.correct ?? "",
-    state.scores.map((s) => `${s.name}:${s.score}`).join("|"),
-    state.finished ? "1" : "0",
-  ].join("~");
+  if (state.phase === "question") {
+    ctx.font = `700 ${scaledSize(20, scale)}px ${fonts.title.family}`;
+    ctx.fillStyle = progress > 0.15 ? colors.text : colors.danger;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`${Math.ceil(state.timeLeft / 1000)}`, margin + mainWidth, y - scaledSize(6, scale));
+  }
+}
 
-  if (key !== dom.key) {
-    dom.key = key;
-    dom.scene.innerHTML = buildQuizScene(state);
-    dom.timer = dom.scene.querySelector<HTMLElement>(".qz-timer");
-    window.setTimeout(() => fitQuizText(dom.scene), 80);
+function drawWaiting(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  scale: number,
+  now: number,
+): void {
+  const pulse = 0.6 + 0.4 * Math.sin(now * 0.002);
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 ${scaledSize(96, scale)}px ${fonts.title.family}`;
+  ctx.fillStyle = colors.text;
+  ctx.shadowColor = colors.magenta;
+  ctx.shadowBlur = 30 * pulse;
+  ctx.fillText("QUIZ", width / 2, height * 0.42);
 
-    if (state.phase === "question") {
-      dom.mox.mox.say(moxLine("quizQuestion", { round: state.currentQuestion }, String(state.currentQuestion)), { holdMs: 2400 });
-      sound.play("slide", { bank: "buzzer" });
-    } else if (state.phase === "reveal") {
-      const correct = state.question?.correct
-        ? state.question.options.find((o) => o.id === state.question?.correct)?.label
-        : "That one";
-      dom.mox.mox.say(moxLine("quizReveal", { answer: correct ?? "That one" }, String(state.currentQuestion)), { expression: "smug", holdMs: 2800 });
-      sound.play("reveal", { bank: "buzzer" });
-    } else if (state.finished) {
-      dom.mox.mox.say(moxLine("winner"), { expression: "celebrate" });
-      sound.play("win", { bank: "buzzer" });
+  ctx.shadowBlur = 0;
+  ctx.font = `500 ${scaledSize(28, scale)}px ${fonts.display.family}`;
+  ctx.fillStyle = colors.textMuted;
+  ctx.fillText("Waiting for the host to start…", width / 2, height * 0.58);
+  ctx.restore();
+}
+
+/** Greedy wrap that respects the current ctx.font. */
+function wrapToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
     }
   }
-
-  if (dom.timer) {
-    const seconds = Math.max(0, Math.ceil(state.timeLeft / 1000));
-    dom.timer.textContent = String(seconds);
-    dom.timer.classList.toggle("low", state.phase === "question" && seconds <= 5);
-  }
-}
-
-function buildQuizScene(state: QuizScreenState): string {
-  const question = state.question;
-  const reveal = state.phase === "reveal";
-  const head = `
-    <header class="qz-head">
-      <div class="qz-mast">QUIZ</div>
-      <div class="qz-sub">Question ${Math.min(state.currentQuestion, state.totalQuestions)} of ${state.totalQuestions}<br><span class="qz-progress">${state.finished ? "Final scores" : reveal ? "Reveal" : "Pick on your phone"}</span></div>
-      <div class="qz-spacer"></div>
-      ${state.finished ? "" : `<div class="qz-timer" aria-live="off">${Math.ceil(state.timeLeft / 1000)}</div>`}
-    </header>
-  `;
-
-  if (state.finished) {
-    const winner = state.winner?.name ?? "Nobody";
-    const tags = state.scores
-      .slice()
-      .sort((a, b) => b.score - a.score)
-      .map((s) => `<span class="score-tag">${escapeHtml(s.name)} — ${s.score}</span>`)
-      .join("");
-    return `${head}
-      <section class="qz-final">
-        <span class="k">Tonight's champion</span>
-        <h2>${escapeHtml(winner)}</h2>
-        <div class="score-list">${tags}</div>
-      </section>`;
-  }
-
-  const options = (question?.options ?? []).map((option, i) => {
-    const correct = reveal && option.id === question?.correct;
-    const wrong = reveal && !correct;
-    return `<div class="qz-option${correct ? " correct" : ""}${wrong ? " wrong" : ""}" role="listitem">
-      <span class="qz-letter">${String.fromCharCode(65 + i)}</span>
-      <span class="qz-label">${escapeHtml(option.label)}</span>
-    </div>`;
-  }).join("");
-
-  const scores = state.scores.map((score, i) => {
-    const max = Math.max(...state.scores.map((s) => s.score));
-    return `<div class="qz-score">
-      ${tokenMarkup(i, score.name)}
-      <span class="nm">${escapeHtml(score.name)}</span>
-      <span class="pts"${score.score === max && max > 0 ? ' style="color:var(--ink-2)"' : ""}>${score.score}</span>
-    </div>`;
-  }).join("");
-
-  return `${head}
-    <div class="qz-props" aria-hidden="true">
-      <img class="qz-pin" src="/assets/props/pin.svg" alt="">
-      <img class="qz-coffee" src="/assets/props/coffee-ring.svg" alt="">
-      <img class="qz-star" src="/assets/props/star.svg" alt="">
-    </div>
-    <section class="qz-main">
-      <div class="qz-question"><p>${escapeHtml(question?.text ?? "Waiting for the question…")}</p></div>
-      <div class="qz-options" role="list">${options}</div>
-    </section>
-    <aside class="qz-scores" aria-label="Scores">
-      <div class="qz-score-head">Scores</div>
-      ${scores}
-    </aside>`;
-}
-
-function fitQuizText(scene: HTMLElement): void {
-  for (const label of scene.querySelectorAll<HTMLElement>(".qz-label")) {
-    fitText(label, { min: 14, max: 30, lineHeight: 1.12 });
-  }
+  if (line) lines.push(line);
+  return lines;
 }

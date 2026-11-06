@@ -2,16 +2,24 @@
  * Deep invariant probe over every game plugin.
  * Finds: Map/Set/undefined/NaN on the wire, stuck games, hostile-input crashes,
  * unsafe post-finish calls, and player-index range errors.
+ *
+ * Runs every enabled game at every player count in its manifest range.
+ * Pass `--all` to include retired (disabled) games. Exits non-zero when any
+ * run reports an issue.
  */
 import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import assert from "node:assert";
+import { isGameEnabled } from "../shared/game-catalog.ts";
+
+const includeDisabled = process.argv.includes("--all");
 
 const gamesDir = join(process.cwd(), "games");
-const gameIds = readdirSync(gamesDir, { withFileTypes: true })
+const allGameIds = readdirSync(gamesDir, { withFileTypes: true })
   .filter((d) => d.isDirectory() && existsSync(join(gamesDir, d.name, "server.ts")))
   .map((d) => d.name)
   .sort();
+const gameIds = includeDisabled ? allGameIds : allGameIds.filter((id) => isGameEnabled(id));
 
 const mkPlayers = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -26,9 +34,39 @@ const mkRoom = (players: any[], gameId: string) => ({
   players, gameId, gameState: null, createdAt: 0, status: "playing",
 });
 
+/** Every integer player count the manifest allows, deduped. */
+function playerCounts(manifest: { minPlayers: number; maxPlayers: number }): number[] {
+  const counts: number[] = [];
+  for (let n = manifest.minPlayers; n <= manifest.maxPlayers; n++) {
+    if (n >= manifest.minPlayers && n <= manifest.maxPlayers) counts.push(n);
+  }
+  return [...new Set(counts)];
+}
+
+function phaseOf(instance: unknown): string {
+  const state = (instance as { state?: Record<string, unknown> } | null)?.state;
+  if (!state) return "unknown";
+  if (state.phase !== undefined) return String(state.phase);
+  if (state.finished === true) return "finished";
+  return "unknown";
+}
+
+function isFinished(instance: unknown): boolean {
+  const state = (instance as { state?: Record<string, unknown> } | null)?.state;
+  return state?.phase === "finished" || state?.finished === true;
+}
+
+/**
+ * Keys whose values are scores and therefore must never be negative
+ * (brief 7.1: "no negative or NaN scores"). Matched case-insensitively as a
+ * substring so `score`, `scores`, `rawScore`, `chips`, `stack`, `pots`,
+ * `points` and `roundGain` are all covered.
+ */
+const SCORE_KEY = /(score|raw|chips|stack|pots|points|gain)/i;
+
 function badNumbers(value: unknown, path = "$", out: string[] = []): string[] {
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) out.push(`${path} = ${String(value)}`);
+    if (!Number.isFinite(value)) out.push(`${path} = ${String(value)} (non-finite)`);
     return out;
   }
   if (Array.isArray(value)) {
@@ -37,7 +75,13 @@ function badNumbers(value: unknown, path = "$", out: string[] = []): string[] {
   }
   if (value && typeof value === "object") {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      badNumbers(v, `${path}.${k}`, out);
+      const childPath = `${path}.${k}`;
+      // Only score-like numeric keys are range-checked; other numbers (times,
+      // counts, coordinates, angles) may legitimately be negative.
+      if (typeof v === "number" && Number.isFinite(v) && v < 0 && SCORE_KEY.test(k)) {
+        out.push(`${childPath} = ${v} (negative score)`);
+      }
+      badNumbers(v, childPath, out);
     }
   }
   return out;
@@ -136,6 +180,21 @@ function driver(gameId: string, cs: any, playerId: string): unknown {
       const pool = guesses.length && Math.random() < 0.15 ? guesses : qs.length ? qs : opts;
       return { choice: pool[rnd(pool.length)].id };
     }
+    case "guessimposter": {
+      // Clue turns are either typed or a one-button spoken confirmation; the
+      // vote and final guess both use a plain option list.
+      if (cs.mode === "one-button") return { tap: true };
+      if (cs.mode === "text") {
+        if (cs.isYourTurn === false) return null;
+        return { text: `clue${rnd(999)}` };
+      }
+      if (cs.mode === "choice") {
+        const opts = (cs.options as Array<{ id: string }>) ?? [];
+        if (!opts.length) return null;
+        return { choice: opts[rnd(opts.length)].id };
+      }
+      return null;
+    }
     case "bluff":
     case "writevote": {
       if (cs.phase === "writing") return cs.hasSubmitted ? null : { text: `${gameId}-${playerId}-${rnd(999)}` };
@@ -146,42 +205,108 @@ function driver(gameId: string, cs: any, playerId: string): unknown {
       }
       return null;
     }
-    case "trafficjam":
-    case "seabattle": {
-      const rows = typeof cs.rows === "number" ? cs.rows : 6;
-      const cols = typeof cs.cols === "number" ? cs.cols : 6;
-      return { grid: { row: rnd(rows), col: rnd(cols) } };
+    case "percentile":
+    case "splitroom":
+    case "dictionarium":
+    case "drawful":
+    case "fakin":
+    case "trivia":
+    case "wordspud":
+    case "survive":
+    case "blather":
+    case "mindmeld":
+    case "mindreader":
+    case "stowaway":
+    case "bdate":
+    case "frankenanswers":
+    case "bracket":
+    case "dumbinventions":
+    case "wordchain":
+    case "sloganshirts":
+    case "mashup":
+    case "arena":
+    case "slideroulette":
+    case "lastseat": {
+      // These games switch controller UI per phase and report it as `mode`.
+      if (cs.mode === "one-button") return { tap: true };
+      if (cs.mode === "slider") {
+        return Math.random() < 0.5 ? { slider: { axis: "x", value: Math.random() } } : { action: "action" };
+      }
+      if (cs.mode === "canvas") {
+        return Math.random() < 0.75
+          ? { stroke: { points: [[0.2, 0.2], [0.6, 0.6], [0.8, 0.4]], color: "#111111" } }
+          : { action: "action" };
+      }
+      if (cs.mode === "text") return { text: `${gameId} answer by ${playerId}` };
+      if (cs.mode === "aim") {
+        return Math.random() < 0.4
+          ? { pad: { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } }
+          : Math.random() < 0.5
+            ? { slider: { axis: "y", value: Math.random() } }
+            : { action: "action" };
+      }
+      if (cs.mode === "chat") {
+        const contacts = ((cs.chat as { contacts?: Array<{ id: string }> } | undefined)?.contacts ?? []);
+        if (contacts.length) return { chat: { to: contacts[0].id, text: "hello there" } };
+        return { action: "lol" };
+      }
+      if (cs.mode === "rank") {
+        const items = ((cs.rank as { items?: Array<{ id: string }> } | undefined)?.items ?? []);
+        const ids = items.map((i) => i.id);
+        for (let k = ids.length - 1; k > 0; k--) {
+          const j = Math.floor(Math.random() * (k + 1));
+          const tmp = ids[k]; ids[k] = ids[j]; ids[j] = tmp;
+        }
+        return { rank: { order: ids } };
+      }
+      if (cs.mode === "choice") {
+        const opts = (cs.options as Array<{ id: string }>) ?? [];
+        if (!opts.length) return null;
+        return { choice: opts[rnd(opts.length)].id };
+      }
+      return null;
     }
     case "snakes":
     case "golf":
       return { move: ["up", "down", "left", "right"][rnd(4)] };
     case "racing":
-      return { move: Math.random() < 0.5 ? "left" : "right" };
+      return { tap: true };
+    case "darts":
+      return Math.random() < 0.5
+        ? { slider: { axis: Math.random() < 0.5 ? "x" : "y", value: Math.random() } }
+        : { action: "action" };
     default:
       return { tap: true };
   }
 }
 
 const budgets: Record<string, number> = {
-  seabattle: 20000, trafficjam: 2500, poker: 40000, snakes: 4000,
-  darts: 6000, gravityrun: 600, racing: 4000, slotcar: 4000,
+  poker: 40000, snakes: 4000,
+  darts: 6000, racing: 4000,
 };
 
 const report: string[] = [];
-let hardFailures = 0;
+const perCount = new Map<number, { runs: number; failing: number }>();
+let totalRuns = 0;
+let failingRuns = 0;
+let totalIssues = 0;
 
 for (const gameId of gameIds) {
   const plugin = (await import(join(gamesDir, gameId, "server.ts"))).default;
-  const counts = [plugin.manifest.minPlayers, 2, 3, 4].filter(
-    (n, i, a) => n >= plugin.manifest.minPlayers && n <= plugin.manifest.maxPlayers && a.indexOf(n) === i,
-  );
-  for (const n of counts) {
+  for (const n of playerCounts(plugin.manifest)) {
+    totalRuns++;
+    const countStats = perCount.get(n) ?? { runs: 0, failing: 0 };
+    countStats.runs++;
+
     const issues: string[] = [];
     const players = mkPlayers(n);
     const inst = plugin.onStart(mkRoom(players, gameId), players);
     const budget = budgets[gameId] ?? 5000;
     let tick = 0;
     let finished = false;
+    let lastPhase = phaseOf(inst);
+    let phaseChangedAt = 0;
+    const phaseSeq: string[] = [lastPhase];
 
     for (; tick < budget; tick++) {
       // Hostile inputs at fixed points, plus post-finish calls later.
@@ -206,7 +331,7 @@ for (const gameId of gameIds) {
       try {
         const screen = plugin.screenState(inst);
         checkWire(`screen`, screen, issues);
-        for (const bad of badNumbers(screen)) issues.push(`screen non-finite ${bad}`);
+        for (const bad of badNumbers(screen)) issues.push(`screen bad number ${bad}`);
       } catch (e) {
         issues.push(`screenState threw: ${(e as Error).message}`);
       }
@@ -215,7 +340,7 @@ for (const gameId of gameIds) {
         try {
           const cs = plugin.controllerState(inst, p.id);
           checkWire(`controller(${p.id})`, cs, issues);
-          for (const bad of badNumbers(cs)) issues.push(`controller(${p.id}) non-finite ${bad}`);
+          for (const bad of badNumbers(cs)) issues.push(`controller(${p.id}) bad number ${bad}`);
         } catch (e) {
           issues.push(`controllerState threw for ${p.id}: ${(e as Error).message}`);
         }
@@ -247,16 +372,22 @@ for (const gameId of gameIds) {
         break;
       }
 
-      const s = inst.state as any;
-      if (s?.phase === "finished" || s?.finished === true) {
+      const phase = phaseOf(inst);
+      if (phase !== lastPhase) {
+        lastPhase = phase;
+        phaseChangedAt = tick;
+        phaseSeq.push(phase);
+        if (phaseSeq.length > 16) phaseSeq.shift();
+      }
+
+      if (isFinished(inst)) {
         finished = true;
         break;
       }
     }
 
     // Post-finish safety.
-    const s = inst.state as any;
-    if (finished || s?.phase === "finished" || s?.finished === true) {
+    if (finished || isFinished(inst)) {
       for (const p of players) {
         try {
           plugin.onInput(inst, p.id, { tap: true });
@@ -268,19 +399,40 @@ for (const gameId of gameIds) {
         }
       }
     } else {
-      issues.push(`did not finish within ${budget} ticks (phase=${s?.phase ?? s?.finished})`);
+      const heldFor = budget - phaseChangedAt;
+      issues.push(
+        `did not finish within ${budget} ticks (last phase "${lastPhase}" held ${heldFor} ticks; phases seen: ${phaseSeq.join(" -> ")})`,
+      );
     }
 
     const unique = [...new Set(issues)];
     if (unique.length) {
-      hardFailures += unique.length;
+      countStats.failing++;
+      failingRuns++;
+      totalIssues += unique.length;
       report.push(`\n### ${gameId} (${n} players) — ${unique.length} issue(s)`);
-      for (const u of unique.slice(0, 14)) report.push(`  - ${u}`);
+      for (const u of unique) report.push(`  - ${u}`);
     } else {
       report.push(`${gameId} (${n}p): clean`);
     }
+    perCount.set(n, countStats);
   }
 }
 
 console.log(report.join("\n"));
-console.log(`\nTOTAL ISSUES: ${hardFailures}`);
+
+const countBreakdown = [...perCount.entries()]
+  .sort(([a], [b]) => a - b)
+  .map(([n, stats]) => `${n}p=${stats.runs}${stats.failing ? ` (${stats.failing} failing)` : ""}`)
+  .join(", ");
+
+console.log("");
+console.log("PROBE SUMMARY");
+console.log(`  mode: ${includeDisabled ? "all games (--all)" : "enabled games only (--all includes retired)"}`);
+console.log(`  games probed: ${gameIds.length}`);
+console.log(`  total runs: ${totalRuns}`);
+console.log(`  player counts: ${countBreakdown || "none"}`);
+console.log(`  clean runs: ${totalRuns - failingRuns}, failing runs: ${failingRuns}`);
+console.log(`TOTAL ISSUES: ${totalIssues}`);
+
+process.exitCode = totalIssues > 0 ? 1 : 0;

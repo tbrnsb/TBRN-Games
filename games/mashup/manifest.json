@@ -1,0 +1,9 @@
+{
+  "id": "mashup",
+  "name": "Mash-Up Monsters",
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "controllerType": "canvas",
+  "description": "Everyone draws one section of a monster, then the sheets pass on. You only see a hint of what came before.",
+  "howTo": "Draw one section of a monster, then the sheet passes on. You only see a hint."
+}

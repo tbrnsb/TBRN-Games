@@ -1,8 +1,8 @@
 {
   "id": "quiz-questions",
   "name": "General Knowledge Quiz",
-  "description": "Mixed trivia questions for 1-4 players.",
-  "version": 1,
+  "description": "Mixed trivia questions for 1-8 players, standard and fast modes.",
+  "version": 2,
   "questions": [
     {
       "id": "q1",
@@ -108,6 +108,62 @@
       "options": ["Oxygen", "Carbon", "Hydrogen", "Nitrogen"],
       "answer": 2,
       "explanation": "The Sun is about 73% hydrogen and 25% helium by mass."
+    },
+    {
+      "id": "q16",
+      "text": "Which planet has the most moons?",
+      "options": ["Jupiter", "Saturn", "Neptune", "Uranus"],
+      "answer": 1,
+      "explanation": "Saturn has the most confirmed moons, ahead of Jupiter."
+    },
+    {
+      "id": "q17",
+      "text": "Which mammal cannot jump?",
+      "options": ["Elephant", "Sloth", "Hippopotamus", "Rhinoceros"],
+      "answer": 0,
+      "explanation": "Elephants are the largest land mammals that cannot jump."
+    },
+    {
+      "id": "q18",
+      "text": "How many bones does a shark have?",
+      "options": ["0", "206", "94", "412"],
+      "answer": 0,
+      "explanation": "A shark's skeleton is made of cartilage, not bone."
+    },
+    {
+      "id": "q19",
+      "text": "Which country invented paper?",
+      "options": ["Egypt", "China", "India", "Greece"],
+      "answer": 1,
+      "explanation": "Paper was invented in China around 105 CE."
+    },
+    {
+      "id": "q20",
+      "text": "What is the loudest animal on Earth?",
+      "options": ["Blue whale", "Sperm whale", "Howler monkey", "Elephant"],
+      "answer": 1,
+      "explanation": "Sperm whale clicks can reach about 230 decibels underwater."
+    },
+    {
+      "id": "q21",
+      "text": "How long is a day on Venus?",
+      "options": ["24 hours", "243 Earth days", "9 hours", "1 Earth year"],
+      "answer": 1,
+      "explanation": "Venus rotates so slowly that one day lasts about 243 Earth days."
+    },
+    {
+      "id": "q22",
+      "text": "Which food never spoils?",
+      "options": ["Honey", "Rice", "Salt", "Dried beans"],
+      "answer": 0,
+      "explanation": "Honey can last indefinitely when stored sealed and dry."
+    },
+    {
+      "id": "q23",
+      "text": "What colour is a polar bear's skin?",
+      "options": ["White", "Pink", "Black", "Grey"],
+      "answer": 2,
+      "explanation": "Polar bear skin is black; the fur only looks white."
     }
   ]
 }

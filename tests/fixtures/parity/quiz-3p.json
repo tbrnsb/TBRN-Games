@@ -1,0 +1,27 @@
+{
+  "game": "quiz",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    3000,
+    1500,
+    7400
+  ],
+  "standings": [
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 7400
+    },
+    {
+      "playerId": "p0",
+      "rank": 2,
+      "raw": 3000
+    },
+    {
+      "playerId": "p1",
+      "rank": 3,
+      "raw": 1500
+    }
+  ]
+}

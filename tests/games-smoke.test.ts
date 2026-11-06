@@ -1,7 +1,7 @@
 /**
  * Headless smoke tests for every game plugin.
  *
- * For each of the 18 games this runs the plugin with simulated phone
+ * For each shipped game this runs the plugin with simulated phone
  * players, drives it with realistic inputs until it finishes, and checks:
  *   - the game reaches "finished" within a generous tick budget
  *   - screen and controller states are JSON-serializable every few ticks
@@ -122,18 +122,87 @@ function chooseInput(gameId: string, cs: Record<string, unknown>, playerId: stri
       }
       return null;
     }
-    case "trafficjam":
-    case "seabattle": {
-      const rows = typeof cs.rows === "number" ? cs.rows : 5;
-      const cols = typeof cs.cols === "number" ? cs.cols : 5;
-      return { grid: { row: rand(rows), col: rand(cols) } };
+    case "guessimposter": {
+      if (cs.mode === "one-button" && cs.isYourTurn === true) return { action: "done" };
+      if (cs.mode === "text" && cs.isYourTurn === true) return { text: "clue" };
+      if (cs.mode === "choice") {
+        if (cs.hasVoted === true) return null;
+        const opts = (cs.options as Array<{ id: string }>) ?? [];
+        if (!opts.length) return null;
+        return { choice: opts[rand(opts.length)].id };
+      }
+      return null;
+    }
+    case "percentile":
+    case "splitroom":
+    case "dictionarium":
+    case "drawful":
+    case "fakin":
+    case "trivia":
+    case "wordspud":
+    case "survive":
+    case "blather":
+    case "mindmeld":
+    case "mindreader":
+    case "stowaway":
+    case "bdate":
+    case "frankenanswers":
+    case "bracket":
+    case "dumbinventions":
+    case "wordchain":
+    case "sloganshirts":
+    case "mashup":
+    case "arena":
+    case "slideroulette":
+    case "lastseat": {
+      // These games switch controller UI per phase and report it as `mode`.
+      if (cs.mode === "slider") {
+        return Math.random() < 0.5 ? { slider: { axis: "x", value: Math.random() } } : { action: "action" };
+      }
+      if (cs.mode === "canvas") {
+        return Math.random() < 0.75
+          ? { stroke: { points: [[0.2, 0.2], [0.6, 0.6], [0.8, 0.4]], color: "#111111" } }
+          : { action: "action" };
+      }
+      if (cs.mode === "text") return { text: `${gameId} answer by ${playerId}` };
+      if (cs.mode === "aim") {
+        return Math.random() < 0.4
+          ? { pad: { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } }
+          : Math.random() < 0.5
+            ? { slider: { axis: "y", value: Math.random() } }
+            : { action: "action" };
+      }
+      if (cs.mode === "chat") {
+        const contacts = ((cs.chat as { contacts?: Array<{ id: string }> } | undefined)?.contacts ?? []);
+        if (contacts.length) return { chat: { to: contacts[0].id, text: "hello there" } };
+        return { action: "lol" };
+      }
+      if (cs.mode === "rank") {
+        const items = ((cs.rank as { items?: Array<{ id: string }> } | undefined)?.items ?? []);
+        const ids = items.map((i) => i.id);
+        for (let k = ids.length - 1; k > 0; k--) {
+          const j = Math.floor(Math.random() * (k + 1));
+          const tmp = ids[k]; ids[k] = ids[j]; ids[j] = tmp;
+        }
+        return { rank: { order: ids } };
+      }
+      if (cs.mode === "choice") {
+        const opts = (cs.options as Array<{ id: string }>) ?? [];
+        if (!opts.length) return null;
+        return { choice: opts[rand(opts.length)].id };
+      }
+      return null;
     }
     case "snakes":
       return { move: ["up", "right", "down", "left"][rand(4)] };
     case "golf":
       return { move: ["up", "up", "up", "down", "left", "right"][rand(6)] };
     case "racing":
-      return { move: Math.random() < 0.5 ? "left" : "right" };
+      return { tap: true };
+    case "darts":
+      return Math.random() < 0.5
+        ? { slider: { axis: Math.random() < 0.5 ? "x" : "y", value: Math.random() } }
+        : { action: "action" };
     default:
       return { tap: true };
   }
@@ -147,9 +216,6 @@ function playerCountFor(plugin: GamePlugin): number {
 /** Tick budget per game; some games run on real-time timers. */
 function tickBudget(gameId: string): number {
   switch (gameId) {
-    case "seabattle": return 12000; // random shooting has to hit 17 cells
-    case "trafficjam": return 1200; // two levels run on a 180s in-game timer
-    case "gravityrun": return 300;
     case "snakes": return 2000;
     case "darts": return 3000;
     default: return 4000;
@@ -162,8 +228,8 @@ async function loadPlugin(gameId: string): Promise<GamePlugin> {
 }
 
 describe("game plugins: manifest consistency", () => {
-  test("all 18 games exist with manifest.json + server.ts", () => {
-    assert.strictEqual(gameIds.length, 18, `expected 18 games, found ${gameIds.length}: ${gameIds.join(",")}`);
+  test("every shipped game has manifest.json + server.ts", () => {
+    assert.ok(gameIds.length >= 10, `expected a full roster, found ${gameIds.length}: ${gameIds.join(",")}`);
     for (const id of gameIds) {
       assert.ok(existsSync(join(gamesDir, id, "manifest.json")), `${id}: manifest.json missing`);
     }
@@ -243,16 +309,16 @@ describe("game plugins: privacy", () => {
       const screen = plugin.screenState(instance) as Record<string, unknown>;
       const phase = String(screen.phase ?? "");
       const screenJson = JSON.stringify(screen);
-      // Player rows on the screen must never carry cards; only the public
-      // showdown reveal may.
+      // Player rows on the screen must never carry cards; the showdown is a
+      // hand-name reveal only.
       assert.ok(!JSON.stringify(screen.players ?? []).includes('"cards"'), `poker: hole cards leaked to screen during ${phase}`);
-      if (phase !== "showdown" && phase !== "hand-end") {
-        assert.ok(!screenJson.includes("showdown\":["), `poker: showdown revealed outside showdown phase (${phase})`);
-      }
-      // Every player's controller gets their own cards.
+      assert.ok(!screenJson.includes('"cards"'), `poker: hole cards leaked to the TV during ${phase}`);
+      // Every player still in the game gets their own cards. A busted player
+      // is a spectator and receives the inert spectator payload instead.
       for (const p of players) {
-        const cs = JSON.stringify(plugin.controllerState(instance, p.id));
-        assert.ok(cs.includes("\"cards\""), "poker: controller must receive hole cards");
+        const payload = plugin.controllerState(instance, p.id) as Record<string, unknown>;
+        if (payload.spectator === true) continue;
+        assert.ok(JSON.stringify(payload).includes("\"cards\""), "poker: controller must receive hole cards");
       }
       const s = instance.state as Record<string, unknown>;
       const turnIndex = s.turnIndex as number;
@@ -289,12 +355,12 @@ describe("game plugins: privacy", () => {
     const players = makePlayers(2);
     const instance = plugin.onStart(makeRoom(players, "guesswho"), players);
     const s = instance.state as { secrets: number[] };
-    const cs0 = plugin.controllerState(instance, "p0") as { secret: { name: string }; board: Array<{ name: string; eliminated: boolean }> };
+    const cs0 = plugin.controllerState(instance, "p0") as { secret: { name: string }; board: { tiles: Array<{ label: string; marked: boolean }> } };
     const cs1 = plugin.controllerState(instance, "p1") as { secret: { name: string } };
     assert.notStrictEqual(cs0.secret.name, cs1.secret.name, "secrets must differ");
-    assert.strictEqual(cs0.board.length, 24);
+    assert.strictEqual(cs0.board.tiles.length, 24);
     // p1's secret must still be alive on p0's board.
-    assert.ok(cs0.board.some((c) => c.name === cs1.secret.name && !c.eliminated));
+    assert.ok(cs0.board.tiles.some((c) => c.label === cs1.secret.name && !c.marked));
     assert.strictEqual(s.secrets.length, 2);
   });
 

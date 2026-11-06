@@ -1,0 +1,9 @@
+{
+  "id": "percentile",
+  "name": "Percentile",
+  "minPlayers": 2,
+  "maxPlayers": 8,
+  "controllerType": "slider",
+  "description": "One player estimates a real statistic on a slider. Everyone else bets higher or lower. Close guess, big score.",
+  "howTo": "One player estimates a statistic. Everyone else bets higher or lower before the guess is revealed."
+}

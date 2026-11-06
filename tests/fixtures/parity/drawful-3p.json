@@ -1,0 +1,27 @@
+{
+  "game": "drawful",
+  "players": 3,
+  "finished": true,
+  "scores": [
+    0,
+    1500,
+    750
+  ],
+  "standings": [
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 1500
+    },
+    {
+      "playerId": "p2",
+      "rank": 2,
+      "raw": 750
+    },
+    {
+      "playerId": "p0",
+      "rank": 3,
+      "raw": 0
+    }
+  ]
+}

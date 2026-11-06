@@ -1,0 +1,662 @@
+[
+  {
+    "id": "q_1",
+    "text": "Which planet is known as the Red Planet?",
+    "options": [
+      "Venus",
+      "Mars",
+      "Jupiter",
+      "Mercury"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_2",
+    "text": "How many sides does a hexagon have?",
+    "options": [
+      "5",
+      "6",
+      "7",
+      "8"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_3",
+    "text": "What is the capital of Canada?",
+    "options": [
+      "Toronto",
+      "Vancouver",
+      "Ottawa",
+      "Montreal"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_4",
+    "text": "Which gas do plants absorb?",
+    "options": [
+      "Oxygen",
+      "Nitrogen",
+      "Carbon dioxide",
+      "Hydrogen"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_5",
+    "text": "How many minutes in a full day?",
+    "options": [
+      "1440",
+      "1200",
+      "960",
+      "2400"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "q_6",
+    "text": "Which ocean is the largest?",
+    "options": [
+      "Atlantic",
+      "Indian",
+      "Arctic",
+      "Pacific"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "q_7",
+    "text": "What is the hardest natural substance?",
+    "options": [
+      "Gold",
+      "Iron",
+      "Diamond",
+      "Quartz"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_8",
+    "text": "Who painted the Mona Lisa?",
+    "options": [
+      "Michelangelo",
+      "Da Vinci",
+      "Raphael",
+      "Donatello"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_9",
+    "text": "How many players start a football match per side?",
+    "options": [
+      "9",
+      "10",
+      "11",
+      "12"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_10",
+    "text": "What is the smallest prime number?",
+    "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_11",
+    "text": "Which country invented paper?",
+    "options": [
+      "Egypt",
+      "China",
+      "India",
+      "Greece"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_12",
+    "text": "What is the boiling point of water at sea level?",
+    "options": [
+      "90C",
+      "100C",
+      "110C",
+      "120C"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_13",
+    "text": "Which animal is the fastest on land?",
+    "options": [
+      "Lion",
+      "Cheetah",
+      "Horse",
+      "Gazelle"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_14",
+    "text": "How many bones in an adult human?",
+    "options": [
+      "186",
+      "206",
+      "226",
+      "246"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_15",
+    "text": "Which language has the most native speakers?",
+    "options": [
+      "English",
+      "Spanish",
+      "Mandarin",
+      "Hindi"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_16",
+    "text": "What is the largest desert on Earth?",
+    "options": [
+      "Sahara",
+      "Gobi",
+      "Antarctic",
+      "Arabian"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_17",
+    "text": "Which instrument has 88 keys?",
+    "options": [
+      "Organ",
+      "Piano",
+      "Accordion",
+      "Harpsichord"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_18",
+    "text": "What does HTTP stand for?",
+    "options": [
+      "HyperText Transfer Protocol",
+      "High Tech Text Process",
+      "Hyperlink Text Transfer Path",
+      "Host Transfer Text Protocol"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "q_19",
+    "text": "How many colours in a rainbow traditionally?",
+    "options": [
+      "5",
+      "6",
+      "7",
+      "8"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_20",
+    "text": "Which vitamin comes from sunlight?",
+    "options": [
+      "A",
+      "B12",
+      "C",
+      "D"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "q_21",
+    "text": "What is the capital of Japan?",
+    "options": [
+      "Osaka",
+      "Kyoto",
+      "Tokyo",
+      "Nagoya"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_22",
+    "text": "Which metal is liquid at room temperature?",
+    "options": [
+      "Mercury",
+      "Lead",
+      "Tin",
+      "Zinc"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "q_23",
+    "text": "How many legs does a spider have?",
+    "options": [
+      "6",
+      "8",
+      "10",
+      "12"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_24",
+    "text": "What is the longest river in the world?",
+    "options": [
+      "Amazon",
+      "Nile",
+      "Yangtze",
+      "Mississippi"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_25",
+    "text": "Which planet has the most moons?",
+    "options": [
+      "Mars",
+      "Jupiter",
+      "Saturn",
+      "Neptune"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_26",
+    "text": "What is the chemical symbol for gold?",
+    "options": [
+      "Ag",
+      "Au",
+      "Gd",
+      "Go"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_27",
+    "text": "How many strings on a standard guitar?",
+    "options": [
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_28",
+    "text": "Which country hosted the 2016 Olympics?",
+    "options": [
+      "China",
+      "Brazil",
+      "UK",
+      "Japan"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_29",
+    "text": "What is the largest mammal?",
+    "options": [
+      "Elephant",
+      "Blue whale",
+      "Giraffe",
+      "Orca"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_30",
+    "text": "How many degrees in a right angle?",
+    "options": [
+      "45",
+      "60",
+      "90",
+      "180"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_31",
+    "text": "Which fruit is known for potassium?",
+    "options": [
+      "Apple",
+      "Banana",
+      "Grape",
+      "Pear"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_32",
+    "text": "What is the capital of Australia?",
+    "options": [
+      "Sydney",
+      "Melbourne",
+      "Canberra",
+      "Perth"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_33",
+    "text": "Which scientist proposed relativity?",
+    "options": [
+      "Newton",
+      "Einstein",
+      "Bohr",
+      "Galileo"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_34",
+    "text": "How many wheels on a tricycle?",
+    "options": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_35",
+    "text": "What is the main ingredient in guacamole?",
+    "options": [
+      "Tomato",
+      "Avocado",
+      "Pea",
+      "Cucumber"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_36",
+    "text": "Which blood type is the universal donor?",
+    "options": [
+      "A",
+      "B",
+      "AB",
+      "O negative"
+    ],
+    "answer": 3
+  },
+  {
+    "id": "q_37",
+    "text": "What is the largest organ in the human body?",
+    "options": [
+      "Liver",
+      "Skin",
+      "Lungs",
+      "Brain"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_38",
+    "text": "How many continents are there?",
+    "options": [
+      "5",
+      "6",
+      "7",
+      "8"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_39",
+    "text": "Which planet is closest to the sun?",
+    "options": [
+      "Venus",
+      "Mercury",
+      "Mars",
+      "Earth"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_40",
+    "text": "What is the symbol for sodium?",
+    "options": [
+      "So",
+      "Sd",
+      "Na",
+      "Nm"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_41",
+    "text": "How many hours in a week?",
+    "options": [
+      "148",
+      "158",
+      "168",
+      "178"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_42",
+    "text": "Which bird cannot fly?",
+    "options": [
+      "Sparrow",
+      "Penguin",
+      "Falcon",
+      "Robin"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_43",
+    "text": "What is the capital of Italy?",
+    "options": [
+      "Milan",
+      "Rome",
+      "Naples",
+      "Turin"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_44",
+    "text": "How many teeth does an adult have?",
+    "options": [
+      "28",
+      "30",
+      "32",
+      "34"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_45",
+    "text": "Which season comes after winter?",
+    "options": [
+      "Autumn",
+      "Spring",
+      "Summer",
+      "None"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_46",
+    "text": "What is the currency of Japan?",
+    "options": [
+      "Won",
+      "Yuan",
+      "Yen",
+      "Ringgit"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_47",
+    "text": "How many sides does a triangle have?",
+    "options": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_48",
+    "text": "Which gas makes up most of the atmosphere?",
+    "options": [
+      "Oxygen",
+      "Nitrogen",
+      "Argon",
+      "Carbon dioxide"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_49",
+    "text": "Who wrote Romeo and Juliet?",
+    "options": [
+      "Dickens",
+      "Shakespeare",
+      "Austen",
+      "Milton"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_50",
+    "text": "What is the tallest mountain?",
+    "options": [
+      "K2",
+      "Everest",
+      "Kangchenjunga",
+      "Denali"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_51",
+    "text": "How many minutes in a football half?",
+    "options": [
+      "30",
+      "40",
+      "45",
+      "50"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_52",
+    "text": "Which animal is known as the ship of the desert?",
+    "options": [
+      "Horse",
+      "Camel",
+      "Donkey",
+      "Ox"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_53",
+    "text": "What is the largest planet?",
+    "options": [
+      "Saturn",
+      "Jupiter",
+      "Neptune",
+      "Uranus"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_54",
+    "text": "How many colours in the Olympic rings?",
+    "options": [
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_55",
+    "text": "Which metal is magnetic?",
+    "options": [
+      "Copper",
+      "Aluminium",
+      "Iron",
+      "Silver"
+    ],
+    "answer": 2
+  },
+  {
+    "id": "q_56",
+    "text": "What is the capital of Spain?",
+    "options": [
+      "Barcelona",
+      "Madrid",
+      "Seville",
+      "Valencia"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_57",
+    "text": "How many seconds in an hour?",
+    "options": [
+      "3600",
+      "3000",
+      "2400",
+      "1800"
+    ],
+    "answer": 0
+  },
+  {
+    "id": "q_58",
+    "text": "Which fruit has its seeds on the outside?",
+    "options": [
+      "Apple",
+      "Strawberry",
+      "Cherry",
+      "Grape"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_59",
+    "text": "What is the study of stars called?",
+    "options": [
+      "Geology",
+      "Astronomy",
+      "Biology",
+      "Ecology"
+    ],
+    "answer": 1
+  },
+  {
+    "id": "q_60",
+    "text": "Which country is the Eiffel Tower in?",
+    "options": [
+      "Italy",
+      "France",
+      "Belgium",
+      "Spain"
+    ],
+    "answer": 1
+  }
+]

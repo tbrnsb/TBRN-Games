@@ -1,1 +1,9 @@
-{ "id": "writevote", "name": "Write & Vote", "minPlayers": 3, "maxPlayers": 4, "controllerType": "text", "description": "Write your funniest response to a prompt. Everyone votes. Most votes wins!" }
+{
+  "id": "writevote",
+  "name": "Write & Vote",
+  "minPlayers": 3,
+  "maxPlayers": 8,
+  "controllerType": "text",
+  "description": "Write your funniest response to a prompt. Everyone votes. Most votes wins!",
+  "howTo": "Write an answer, then vote for the best one. Points for votes you collect."
+}

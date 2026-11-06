@@ -1,0 +1,9 @@
+{
+  "id": "arena",
+  "name": "Slingshot Arena",
+  "minPlayers": 2,
+  "maxPlayers": 4,
+  "controllerType": "aim",
+  "description": "Flip your puck around the arena, hit the others off the edge, and stay alive. Best of three.",
+  "howTo": "Read the screen and follow the prompts."
+}

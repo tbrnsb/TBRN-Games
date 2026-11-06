@@ -1,0 +1,33 @@
+{
+  "game": "splitroom",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    300,
+    667,
+    667,
+    817
+  ],
+  "standings": [
+    {
+      "playerId": "p3",
+      "rank": 1,
+      "raw": 817
+    },
+    {
+      "playerId": "p1",
+      "rank": 2,
+      "raw": 667
+    },
+    {
+      "playerId": "p2",
+      "rank": 2,
+      "raw": 667
+    },
+    {
+      "playerId": "p0",
+      "rank": 4,
+      "raw": 300
+    }
+  ]
+}

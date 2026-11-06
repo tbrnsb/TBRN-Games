@@ -1,0 +1,33 @@
+{
+  "game": "percentile",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    0,
+    1950,
+    700,
+    1900
+  ],
+  "standings": [
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 1950
+    },
+    {
+      "playerId": "p3",
+      "rank": 2,
+      "raw": 1900
+    },
+    {
+      "playerId": "p2",
+      "rank": 3,
+      "raw": 700
+    },
+    {
+      "playerId": "p0",
+      "rank": 4,
+      "raw": 0
+    }
+  ]
+}

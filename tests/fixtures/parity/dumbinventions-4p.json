@@ -1,0 +1,33 @@
+{
+  "game": "dumbinventions",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    1600,
+    1600,
+    600,
+    2600
+  ],
+  "standings": [
+    {
+      "playerId": "p3",
+      "rank": 1,
+      "raw": 2600
+    },
+    {
+      "playerId": "p0",
+      "rank": 2,
+      "raw": 1600
+    },
+    {
+      "playerId": "p1",
+      "rank": 2,
+      "raw": 1600
+    },
+    {
+      "playerId": "p2",
+      "rank": 4,
+      "raw": 600
+    }
+  ]
+}

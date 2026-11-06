@@ -93,7 +93,7 @@ describe("TBRN-Games Server", () => {
     newBot.disconnect();
   });
 
-  test("darts game: bots can send inputs and receive game state", async () => {
+  test("tap race game: bots can send inputs and receive game state", async () => {
     const bots = await createBots(2, wsUrl, "GameBot");
     const [bot1, bot2] = bots;
 
@@ -104,7 +104,7 @@ describe("TBRN-Games Server", () => {
     const startRes = await fetch(`${httpUrl}/api/rooms/${bot1.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(startRes.status, 200);
 
@@ -114,7 +114,7 @@ describe("TBRN-Games Server", () => {
     // Wait a bit for game loop to start
     await new Promise(r => setTimeout(r, 100));
 
-    // Send inputs (darts uses tap to throw)
+    // Send inputs (racing uses tap to boost)
     bot1.sendInput({ tap: true });
     bot2.sendInput({ tap: true });
 
@@ -136,14 +136,14 @@ describe("TBRN-Games Server", () => {
     const noToken = await fetch(`${httpUrl}/api/rooms/${bot.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(noToken.status, 403);
 
     const wrongToken = await fetch(`${httpUrl}/api/rooms/${bot.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": "not-the-token" },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(wrongToken.status, 403);
 
@@ -151,7 +151,7 @@ describe("TBRN-Games Server", () => {
     bot.disconnect();
   });
 
-  test("new players cannot join a room mid-game", async () => {
+  test("new players join a running game as spectators", async () => {
     const bots = await createBots(2, wsUrl, "MidGameBot");
     const [bot1] = bots;
     const screen = await connectScreen(bot1.roomId);
@@ -159,12 +159,14 @@ describe("TBRN-Games Server", () => {
     const startRes = await fetch(`${httpUrl}/api/rooms/${bot1.roomId}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
-      body: JSON.stringify({ gameId: "darts" }),
+      body: JSON.stringify({ gameId: "racing" }),
     });
     assert.strictEqual(startRes.status, 200);
 
+    // A late phone is seated as a spectator, not turned away: it keeps a seat
+    // for the next game but cannot affect the one that is running.
     const late = new WebSocket(wsUrl);
-    const code = await new Promise<string>((resolve, reject) => {
+    const joined = await new Promise<any>((resolve, reject) => {
       late.on("open", () => {
         late.send(JSON.stringify({
           type: "join",
@@ -175,12 +177,15 @@ describe("TBRN-Games Server", () => {
       });
       late.on("message", (data) => {
         const msg = JSON.parse(data.toString());
-        if (msg.type === "error") resolve(msg.payload.code);
+        if (msg.type === "error") reject(new Error(`unexpected error code ${msg.payload.code}`));
+        if (msg.type === "joined") resolve(msg);
       });
       late.on("error", reject);
-      setTimeout(() => reject(new Error("no error reply")), 3000);
+      setTimeout(() => reject(new Error("no join reply")), 3000);
     });
-    assert.strictEqual(code, "GAME_IN_PROGRESS");
+    const lateSeat = joined.payload.roomState.players.find((p: any) => p.id === joined.payload.playerId);
+    assert.strictEqual(lateSeat.spectator, true);
+    assert.strictEqual(lateSeat.presence, "active");
 
     late.close();
     screen.ws.close();

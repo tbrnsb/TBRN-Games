@@ -1,0 +1,9 @@
+{
+  "id": "survive",
+  "name": "Survive the Internet",
+  "minPlayers": 3,
+  "maxPlayers": 6,
+  "controllerType": "text",
+  "description": "Answer innocently, twist someone else's answer into a headline, vote for the funniest.",
+  "howTo": "Answer innocently, then write a headline that makes someone else's answer look terrible."
+}

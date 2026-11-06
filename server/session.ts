@@ -1,23 +1,29 @@
 /**
  * Royal Rumble session engine (pure logic).
  *
- * A session plays a fixed number of distinct games. Each round awards placement
- * points, then the next round is chosen by phone vote or at random. After the
- * last round the champion and honorary trophies are computed.
+ * A session plays a pre-built playlist (a preset) of up to eight games back to
+ * back, with one running leaderboard. Each round awards placement points, then
+ * the remaining slots are re-resolved for the players still in the room. After
+ * the last surviving slot the champion and honorary trophies are computed.
+ *
+ * A session always plays a preset (brief section 6); vote selection was removed
+ * with the transport move. The old vote/random helpers are gone so no session
+ * state can carry a half-voted, half-preset playlist.
  */
 
-export type SessionSelection = "vote" | "random";
-export type SessionStatus = "voting" | "playing" | "finished";
+import type { SessionRoundView, SessionSlotView, SessionView } from "../shared/types.ts";
+import { computeAwards, type AwardWinner } from "../shared/awards.ts";
+import { GAME_CATALOG, catalogEntry, type GameCatalogEntry } from "../shared/game-catalog.ts";
+import {
+  resolvePreset,
+  type PresetSwap,
+  type ResolvedSlot,
+  type RumblePreset,
+} from "../shared/rumble-presets.ts";
+import { normaliseGameResult, perPlayerStats, resultFromScreen } from "../shared/results.ts";
+import type { GameResult } from "../shared/scoring.ts";
 
-import type { SessionView } from "../shared/types.ts";
-
-export interface SessionGame {
-  id: string;
-  name: string;
-  description: string;
-  minPlayers: number;
-  maxPlayers: number;
-}
+export type SessionStatus = "voting" | "playing" | "interlude" | "finished";
 
 export interface SessionPlayerStat {
   playerId: string;
@@ -33,6 +39,10 @@ export interface SessionRoundResult {
   gameId: string;
   gameName: string;
   results: Array<{ playerId: string; name: string; place: number; points: number }>;
+  /** The game's own raw score per player, shown beside placement points. */
+  raw: Record<string, number>;
+  /** Per-player stat totals for this round, when the game supplied them. */
+  stats?: Record<string, Record<string, number>>;
 }
 
 export interface SessionTrophy {
@@ -42,23 +52,81 @@ export interface SessionTrophy {
   detail: string;
 }
 
+/** Options accepted when starting a preset Rumble. */
+export interface SessionOptions {
+  /** Double the final surviving slot's placement points. Defaults to on. */
+  lastGameDouble?: boolean;
+}
+
+/**
+ * Options passed into `onStart` for one preset-Rumble game.
+ *
+ * Every preset game runs in `mode: "rumble"` (brief section 6), with the round
+ * count the catalog reports for this table, so the started game matches the
+ * short Rumble length instead of its standalone one. A slot's own mode wins
+ * over the generic default: Quiz in "Friday Night at Mo's" keeps `"fast"`, and
+ * Big Brain Sunday keeps `"standard"`, while both get the Rumble round count.
+ */
+export function rumbleSlotOptions(
+  gameId: string,
+  slotOptions: Record<string, unknown> | undefined,
+  playerCount: number,
+): Record<string, unknown> {
+  const entry = catalogEntry(gameId);
+  const count = Number.isFinite(playerCount) ? Math.max(0, Math.floor(playerCount)) : 0;
+  const rounds = entry?.scale(count, "rumble").rounds;
+  return {
+    ...(slotOptions ?? {}),
+    rumble: true,
+    mode: slotOptions?.mode ?? "rumble",
+    ...(rounds !== undefined ? { rounds } : {}),
+  };
+}
+
 export interface SessionState {
-  length: number;
-  selection: SessionSelection;
+  // --- Preset mode ---
+  presetId: string;
+  presetName: string;
+  /** The preset being played; null on a legacy vote/random session. */
+  preset: RumblePreset | null;
+  slots: ResolvedSlot[];
+  /** Index of the current slot; `slots.length` once the Rumble is finished. */
+  slotIndex: number;
+  /** Every swap announcement shown so far, oldest first. */
+  swaps: PresetSwap[];
+  /** Final-slot doubling setting, default on. */
+  lastGameDouble: boolean;
+  /** The enabled roster the preset was resolved against. */
+  enabledGames: string[];
+  /** Late joiners added mid-game, scored from the next slot only. */
+  ineligibleThisSlot: string[];
+
+  // --- Shared ---
   status: SessionStatus;
-  round: number;
-  played: string[];
   currentGameId: string | null;
-  candidates: SessionGame[];
-  votes: Record<string, string>; // playerId -> gameId
+  played: string[];
   stats: Record<string, SessionPlayerStat>; // playerId
   rounds: SessionRoundResult[];
   accuracy: Record<string, { correct: number; answered: number; fastestMs: number | null }>;
+  /** All per-player stats merged across rounds; powers the finale awards. */
+  awardStats: Record<string, Record<string, number>>;
   trophies: SessionTrophy[];
+  awards: AwardWinner[];
   champion: { playerId: string; name: string; points: number } | null;
+
+  /** Playable slots in the resolved playlist (for the view's old `length`). */
+  length: number;
+  /** 1-based round number shown by the clients. */
+  round: number;
 }
 
-interface PlayerLike { id: string; name: string; }
+interface PlayerLike {
+  id: string;
+  name: string;
+  connected?: boolean;
+  presence?: string;
+  spectator?: boolean;
+}
 
 const PLACEMENT_POINTS = [10, 6, 3, 1];
 
@@ -66,91 +134,148 @@ export function pointsForPlace(place: number): number {
   return PLACEMENT_POINTS[place - 1] ?? 0;
 }
 
-/** Games that can start with the current player count and have not been played. */
-export function eligibleGames(games: SessionGame[], playerCount: number, played: string[]): SessionGame[] {
-  const done = new Set(played);
-  return games.filter(
-    (g) => !done.has(g.id) && playerCount >= g.minPlayers && playerCount <= g.maxPlayers,
-  );
+/** Players who count for the Rumble: connected, present and not spectating. */
+function activePlayerCount(players: PlayerLike[]): number {
+  return players.filter(
+    (p) =>
+      p.spectator !== true &&
+      p.connected !== false &&
+      (p.presence === undefined || p.presence === "active"),
+  ).length;
+}
+
+function emptyStats(players: PlayerLike[]): Record<string, SessionPlayerStat> {
+  const stats: Record<string, SessionPlayerStat> = {};
+  for (const p of players) {
+    stats[p.id] = emptyStat(p);
+  }
+  return stats;
+}
+
+function emptyStat(player: PlayerLike): SessionPlayerStat {
+  return {
+    playerId: player.id,
+    name: player.name,
+    points: 0,
+    wins: 0,
+    podiums: 0,
+    lastPlaces: 0,
+    bestSingle: 0,
+  };
+}
+
+function defaultEnabledGameIds(): string[] {
+  return Object.values(GAME_CATALOG)
+    .filter((entry) => entry.enabled)
+    .map((entry) => entry.id);
+}
+
+function displayName(id: string): string {
+  return catalogEntry(id)?.displayName ?? id;
+}
+
+function firstPlayableIndex(slots: ResolvedSlot[], from = 0): number {
+  for (let i = from; i < slots.length; i++) {
+    if (slots[i].gameId !== null) return i;
+  }
+  return -1;
+}
+
+function countPlayable(slots: ResolvedSlot[]): number {
+  return slots.filter((slot) => slot.gameId !== null).length;
 }
 
 export function createSession(
   players: PlayerLike[],
-  games: SessionGame[],
-  length: number,
-  selection: SessionSelection,
+  preset: RumblePreset,
+  enabledGames?: readonly string[],
+  options?: SessionOptions,
 ): SessionState {
-  const candidates = eligibleGames(games, players.length, []);
-  const effectiveLength = Math.max(1, Math.min(length, candidates.length));
-  const stats: Record<string, SessionPlayerStat> = {};
-  for (const p of players) {
-    stats[p.id] = { playerId: p.id, name: p.name, points: 0, wins: 0, podiums: 0, lastPlaces: 0, bestSingle: 0 };
-  }
+  return createPresetSession(players, preset, enabledGames, options);
+}
+
+function createPresetSession(
+  players: PlayerLike[],
+  preset: RumblePreset,
+  enabledGames?: readonly string[],
+  options?: SessionOptions,
+): SessionState {
+  const enabled = enabledGames ? [...enabledGames] : defaultEnabledGameIds();
+  const resolution = resolvePreset(preset, activePlayerCount(players), [], enabled);
   const session: SessionState = {
-    length: effectiveLength,
-    selection,
-    status: "voting",
-    round: 1,
-    played: [],
+    presetId: preset.id,
+    presetName: preset.name,
+    preset,
+    slots: resolution.slots,
+    slotIndex: 0,
+    swaps: [...resolution.swaps],
+    lastGameDouble: options?.lastGameDouble ?? true,
+    enabledGames: enabled,
+    ineligibleThisSlot: [],
+    status: "interlude",
     currentGameId: null,
-    candidates,
-    votes: {},
-    stats,
+    played: [],
+    stats: emptyStats(players),
     rounds: [],
     accuracy: {},
+    awardStats: {},
     trophies: [],
+    awards: [],
     champion: null,
+    length: countPlayable(resolution.slots),
+    round: 1,
   };
-  if (selection === "random") session.currentGameId = pickRandom(candidates)?.id ?? null;
+
+  const first = firstPlayableIndex(session.slots);
+  if (first === -1) {
+    finishPreset(session);
+    return session;
+  }
+  session.slotIndex = first;
+  session.currentGameId = session.slots[first].gameId;
   return session;
 }
 
-export function recordVote(session: SessionState, playerId: string, gameId: string): boolean {
-  if (session.status !== "voting" || session.selection !== "vote") return false;
-  if (!session.candidates.some((g) => g.id === gameId)) return false;
-  session.votes[playerId] = gameId;
+/**
+ * Start the current round. Only the resolved game for the current slot is
+ * accepted; the host may start it once the interlude is over.
+ */
+export function startRound(session: SessionState, gameId: string): boolean {
+  if (session.status !== "interlude") return false;
+  const slot = session.slots[session.slotIndex];
+  if (!slot || slot.gameId !== gameId) return false;
+  session.status = "playing";
+  session.currentGameId = gameId;
   return true;
 }
 
-/** Highest vote count; ties are broken deterministically by candidate order. */
-export function leadingGameId(session: SessionState): string | null {
-  if (session.selection === "random") return session.currentGameId;
-  let best: string | null = null;
-  let bestCount = 0;
-  for (const game of session.candidates) {
-    const count = Object.values(session.votes).filter((v) => v === game.id).length;
-    if (count > bestCount) {
-      bestCount = count;
-      best = game.id;
+/**
+ * Leave the between-game card and begin the current slot.
+ *
+ * When the current roster is supplied the remaining slots are re-resolved for
+ * the players actually connected, so a lineup never runs a game that stopped
+ * fitting during the interlude. Swaps are appended once and announced.
+ */
+export function beginNextGame(session: SessionState, players?: PlayerLike[]): boolean {
+  if (session.status !== "interlude") return false;
+  if (players) {
+    if (!resolveFrom(session, players, session.slotIndex, true)) {
+      finishPreset(session);
+      return false;
     }
   }
-  return best;
-}
-
-export function voteCounts(session: SessionState): Array<{ gameId: string; name: string; count: number }> {
-  return session.candidates.map((game) => ({
-    gameId: game.id,
-    name: game.name,
-    count: Object.values(session.votes).filter((v) => v === game.id).length,
-  }));
-}
-
-export function startRound(session: SessionState, gameId: string): boolean {
-  if (session.status !== "voting") return false;
-  if (!session.candidates.some((g) => g.id === gameId)) return false;
+  const slot = session.slots[session.slotIndex];
+  if (!slot?.gameId) return false;
   session.status = "playing";
-  session.currentGameId = gameId;
-  session.votes = {};
+  session.currentGameId = slot.gameId;
   return true;
 }
 
 /** Abort a running round without awarding points; reopen the same round. */
 export function abortRound(session: SessionState): void {
   if (session.status !== "playing") return;
-  session.status = "voting";
-  session.currentGameId = null;
-  session.votes = {};
-  if (session.selection === "random") session.currentGameId = pickRandom(session.candidates)?.id ?? null;
+  session.status = "interlude";
+  session.currentGameId = session.slots[session.slotIndex]?.gameId ?? null;
 }
 
 interface ScoreEntry { name: string; score: number; }
@@ -184,13 +309,6 @@ function entriesFromScreen(gameId: string, screen: unknown): ScoreEntry[] {
       return asEntries(s.players, "score");
     case "racing":
       return asEntries(s.racers, "progress");
-    case "slotcar":
-      return (Array.isArray(s.cars) ? s.cars as Array<Record<string, unknown>> : []).map((c) => {
-        const track = Number(s.trackLength ?? 900);
-        const laps = Number(s.maxLaps ?? 3);
-        const total = c.finished ? track * laps : (Number(c.lap ?? 1) - 1) * track + Number(c.progress ?? 0);
-        return { name: String(c.name ?? ""), score: total };
-      }).filter((e) => e.name.length > 0);
     case "poker":
       return asEntries(s.players, "chips");
     case "spinwar":
@@ -275,13 +393,31 @@ export function completeRound(
   screen: unknown,
   players: PlayerLike[],
   accuracy?: Record<string, { correct: number; answered: number; fastestMs: number | null }>,
+  gameResult?: GameResult,
 ): void {
   const placements = computePlacements(gameId, screen, players);
-  const results = placements.map((p) => ({ ...p, points: pointsForPlace(p.place) }));
+  // The presets' final surviving slot pays double; decide before advancing.
+  const doubled = session.lastGameDouble && isFinalSurvivingSlot(session, gameId, players);
+  const results = placements.map((p) => ({
+    ...p,
+    points: pointsForPlace(p.place) * (doubled ? 2 : 1),
+  }));
 
+  // Raw scores and stats sit beside the unchanged placement points. A game
+  // result is preferred; otherwise derive it from the screen it already shows.
+  const result = gameResult
+    ? normaliseGameResult(gameResult, players)
+    : resultFromScreen(screen, players, gameId);
+  const raw: Record<string, number> = {};
+  for (const standing of result.standings) raw[standing.playerId] = standing.raw;
+  const roundStats = perPlayerStats(result.stats, players);
+
+  const ineligible = new Set(session.ineligibleThisSlot);
   for (const r of results) {
     const stat = session.stats[r.playerId];
     if (!stat) continue;
+    // A player added during this game starts scoring from the next slot.
+    if (ineligible.has(r.playerId)) continue;
     stat.points += r.points;
     stat.bestSingle = Math.max(stat.bestSingle, r.points);
     if (r.place === 1) stat.wins++;
@@ -299,24 +435,142 @@ export function completeRound(
     }
   }
 
-  session.rounds.push({ gameId, gameName, results });
+  const round: SessionRoundResult = { gameId, gameName, results, raw };
+  if (Object.keys(roundStats).length > 0) {
+    round.stats = roundStats;
+    for (const [playerId, values] of Object.entries(roundStats)) {
+      const aggregate = session.awardStats[playerId] ?? {};
+      for (const [statKey, value] of Object.entries(values)) {
+        aggregate[statKey] = (aggregate[statKey] ?? 0) + value;
+      }
+      session.awardStats[playerId] = aggregate;
+    }
+  }
+  session.rounds.push(round);
   session.played.push(gameId);
 
-  const remaining = eligibleGames(session.candidates, players.length, session.played);
-  if (session.rounds.length >= session.length || remaining.length === 0) {
-    session.status = "finished";
-    session.currentGameId = null;
-    session.candidates = remaining;
-    session.votes = {};
-    finalise(session);
+  advancePreset(session, players);
+}
+
+/**
+ * True when no playable slot would remain after this game. The probe uses the
+ * current connected player count and the used ids, exactly like the real
+ * re-resolution that follows.
+ */
+function isFinalSurvivingSlot(session: SessionState, gameId: string, players: PlayerLike[]): boolean {
+  const preset = session.preset;
+  if (!preset) return false;
+  const remaining = preset.slots.slice(session.slotIndex + 1);
+  if (remaining.length === 0) return true;
+  const resolution = resolvePreset(
+    { ...preset, slots: remaining },
+    activePlayerCount(players),
+    [...session.played, gameId],
+    session.enabledGames,
+  );
+  return resolution.slots.every((slot) => slot.gameId === null);
+}
+
+function swapKey(swap: PresetSwap): string {
+  return `${swap.from}|${swap.to}|${swap.reason}`;
+}
+
+/** Append only swaps the session has not announced before. */
+function appendSwaps(session: SessionState, swaps: PresetSwap[], dedupe = false): void {
+  if (!dedupe) {
+    session.swaps.push(...swaps);
+    return;
+  }
+  const seen = new Set(session.swaps.map(swapKey));
+  for (const swap of swaps) {
+    const key = swapKey(swap);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    session.swaps.push(swap);
+  }
+}
+
+/** Games already played or already planned in a different slot. */
+function usedSlotIds(session: SessionState, exceptIndex: number): Set<string> {
+  const used = new Set(session.played);
+  session.slots.forEach((slot, index) => {
+    if (index !== exceptIndex && slot.gameId) used.add(slot.gameId);
+  });
+  return used;
+}
+
+function fitsCatalogEntry(entry: GameCatalogEntry | undefined, playerCount: number): boolean {
+  return !!entry && entry.enabled && playerCount >= entry.minPlayers && playerCount <= entry.maxPlayers;
+}
+
+/**
+ * Re-resolve every slot from `fromIndex` for the current connected players.
+ * The playlist's already-played slots stay untouched. Returns true when a
+ * playable slot was found (and parks `slotIndex` on it).
+ */
+function resolveFrom(
+  session: SessionState,
+  players: PlayerLike[],
+  fromIndex: number,
+  dedupeSwaps = false,
+): boolean {
+  const preset = session.preset;
+  if (!preset) return false;
+  const remaining = preset.slots.slice(fromIndex);
+  if (remaining.length === 0) return false;
+
+  const previous = session.slots.slice();
+  const resolution = resolvePreset(
+    { ...preset, slots: remaining },
+    activePlayerCount(players),
+    session.played,
+    session.enabledGames,
+  );
+  const resolved = resolution.slots.map((slot, index) => {
+    const old = previous[fromIndex + index];
+    // A host skip already announced this exact game; keep that line and the
+    // preset's original slot when the slot is re-resolved.
+    if (!slot.announcement && old?.gameId === slot.gameId && old.announcement) {
+      return { ...slot, originalId: old.originalId, announcement: old.announcement };
+    }
+    return slot;
+  });
+  session.slots = [...session.slots.slice(0, fromIndex), ...resolved];
+  appendSwaps(session, resolution.swaps, dedupeSwaps);
+  session.length = countPlayable(session.slots);
+
+  const next = firstPlayableIndex(session.slots, fromIndex);
+  if (next === -1) return false;
+  session.slotIndex = next;
+  session.currentGameId = session.slots[next].gameId;
+  return true;
+}
+
+/**
+ * Move past the round just recorded: re-resolve every remaining slot for the
+ * current connected player count, append the swap announcements and park on the
+ * next playable slot (or finish).
+ */
+function advancePreset(session: SessionState, players: PlayerLike[]): void {
+  session.ineligibleThisSlot = [];
+  session.slotIndex++;
+
+  if (!resolveFrom(session, players, session.slotIndex)) {
+    finishPreset(session);
     return;
   }
 
-  session.candidates = remaining;
-  session.round++;
-  session.status = "voting";
-  session.votes = {};
-  session.currentGameId = session.selection === "random" ? pickRandom(remaining)?.id ?? null : null;
+  session.status = "interlude";
+  session.round = session.rounds.length + 1;
+}
+
+function finishPreset(session: SessionState): void {
+  session.status = "finished";
+  session.currentGameId = null;
+  session.ineligibleThisSlot = [];
+  session.slotIndex = session.slots.length;
+  session.round = session.rounds.length;
+  finalise(session);
 }
 
 function finalise(session: SessionState): void {
@@ -371,11 +625,209 @@ function finalise(session: SessionState): void {
   }
 
   session.trophies = trophies;
+  session.awards = computeAwards(session.rounds, session.awardStats);
 }
 
-function pickRandom<T>(items: T[]): T | null {
-  if (items.length === 0) return null;
-  return items[Math.floor(Math.random() * items.length)] ?? null;
+/**
+ * Add a phone that joined after the Rumble began. They enter on the current
+ * lowest score (never ahead) and score from the next slot; a player added
+ * while a game is running is skipped for that game.
+ */
+export function addLatePlayer(session: SessionState, player: PlayerLike): boolean {
+  if (session.status === "finished") return false;
+  if (session.stats[player.id]) return false;
+
+  const scores = Object.values(session.stats).map((stat) => stat.points);
+  const points = scores.length > 0 ? Math.min(...scores) : 0;
+  session.stats[player.id] = { ...emptyStat(player), points };
+
+  if (session.status === "playing") session.ineligibleThisSlot.push(player.id);
+  return true;
+}
+
+/**
+ * Swap the next unplayed slot for an enabled game the host chose, or a
+ * resolver-style fallback. A game that has already started is never touched,
+ * so while a game is running the slot after it is the target; during the
+ * interlude the upcoming slot itself is the target.
+ *
+ * Returns the recorded swap, or null when there is no next slot or no valid
+ * replacement.
+ */
+export function skipNextGame(
+  session: SessionState,
+  players: PlayerLike[],
+  gameId?: string,
+): { from: string; to: string; announcement: string } | null {
+  if (session.status === "finished" || !session.preset) return null;
+
+  const fromIndex = session.status === "interlude" ? session.slotIndex : session.slotIndex + 1;
+  let target = -1;
+  for (let index = fromIndex; index < session.slots.length; index++) {
+    if (session.slots[index].gameId) {
+      target = index;
+      break;
+    }
+  }
+  if (target === -1) return null;
+
+  const current = session.slots[target].gameId;
+  if (!current) return null;
+
+  const active = activePlayerCount(players);
+  const used = usedSlotIds(session, target);
+  const enabled = new Set(session.enabledGames);
+  const valid = (id: string): boolean => {
+    if (used.has(id) || !enabled.has(id)) return false;
+    return fitsCatalogEntry(catalogEntry(id), active);
+  };
+
+  let replacement = typeof gameId === "string" && valid(gameId) ? gameId : null;
+  if (!replacement) replacement = session.preset.bench.find(valid) ?? null;
+  if (!replacement) {
+    const kind = catalogEntry(current)?.kind;
+    if (kind) {
+      for (const entry of Object.values(GAME_CATALOG)) {
+        if (entry.kind !== kind) continue;
+        if (valid(entry.id)) {
+          replacement = entry.id;
+          break;
+        }
+      }
+    }
+  }
+  if (!replacement) return null;
+  if (replacement === current) return null;
+
+  const announcement = `${displayName(current)} was swapped for ${displayName(replacement)}.`;
+
+  // Persist the host's choice in this session's copy of the playlist so the
+  // next re-resolution keeps the swap instead of restoring the preset slot.
+  session.preset = {
+    ...session.preset,
+    slots: session.preset.slots.map((slot, index) =>
+      index === target ? { gameId: replacement } : slot,
+    ),
+  };
+  session.slots[target] = {
+    originalId: session.slots[target].originalId,
+    gameId: replacement,
+    announcement,
+  };
+  if (target === session.slotIndex) session.currentGameId = replacement;
+
+  const swap = {
+    from: current,
+    to: replacement,
+    reason: `Host swapped ${displayName(current)}`,
+    announcement,
+  };
+  appendSwaps(session, [swap]);
+  return { from: current, to: replacement, announcement };
+}
+
+/** End the Rumble early and crown the current leader (trophies included). */
+export function endSessionEarly(session: SessionState): void {
+  if (session.status === "finished") return;
+  session.ineligibleThisSlot = [];
+  finishPreset(session);
+}
+
+/**
+ * Rebuild a session from an on-disk summary. A stored `playing` status becomes
+ * an interlude: the running game instance is not part of the snapshot, so the
+ * host restarts that slot rather than resuming a game with no state.
+ */
+export function restoreSession(summary: SessionSummary, preset: RumblePreset | null): SessionState {
+  const playing = summary.status === "playing";
+  const status: SessionStatus = playing ? "interlude" : summary.status;
+  return {
+    presetId: summary.presetId,
+    presetName: summary.presetName,
+    preset,
+    slots: summary.slots.map((slot) => ({
+      originalId: slot.originalId,
+      gameId: slot.gameId,
+      ...(slot.options ? { options: { ...slot.options } } : {}),
+      announcement: slot.announcement,
+    })),
+    slotIndex: summary.slotIndex,
+    swaps: summary.swaps.map((swap) => ({ ...swap })),
+    lastGameDouble: summary.lastGameDouble,
+    enabledGames: [...summary.enabledGames],
+    ineligibleThisSlot: [],
+    status,
+    currentGameId: playing
+      ? summary.slots[summary.slotIndex]?.gameId ?? null
+      : summary.currentGameId,
+    played: [...summary.played],
+    stats: Object.fromEntries(
+      Object.entries(summary.stats).map(([playerId, stat]) => [playerId, { ...stat }]),
+    ),
+    rounds: summary.rounds.map((round) => ({
+      gameId: round.gameId,
+      gameName: round.gameName,
+      results: round.results.map((result) => ({ ...result })),
+      raw: cloneNumberMap(round.raw),
+      ...(round.stats ? { stats: cloneStatMap(round.stats) } : {}),
+    })),
+    accuracy: Object.fromEntries(
+      Object.entries(summary.accuracy).map(([playerId, value]) => [playerId, { ...value }]),
+    ),
+    awardStats: Object.fromEntries(
+      Object.entries(summary.awardStats).map(([playerId, values]) => [playerId, cloneNumberMap(values)]),
+    ),
+    trophies: summary.trophies.map((trophy) => ({ ...trophy })),
+    awards: summary.awards.map((award) => ({ ...award })),
+    champion: summary.champion ? { ...summary.champion } : null,
+    length: summary.length,
+    round: summary.status === "finished" ? summary.rounds.length : summary.rounds.length + 1,
+  };
+}
+
+/** The resolved game for the slot after the current one, if any. */
+function nextGameId(session: SessionState): string | null {
+  if (session.status === "finished") return null;
+  for (let i = session.slotIndex + 1; i < session.slots.length; i++) {
+    const gameId = session.slots[i].gameId;
+    if (gameId) return gameId;
+  }
+  return null;
+}
+
+function slotView(slot: ResolvedSlot): SessionSlotView {
+  return {
+    originalId: slot.originalId,
+    originalName: displayName(slot.originalId),
+    gameId: slot.gameId,
+    gameName: slot.gameId ? displayName(slot.gameId) : null,
+    ...(slot.options ? { options: { ...slot.options } } : {}),
+    announcement: slot.announcement,
+  };
+}
+
+function roundView(round: SessionRoundResult): SessionRoundView {
+  return {
+    gameId: round.gameId,
+    gameName: round.gameName,
+    results: round.results.map((result) => ({ ...result })),
+    raw: { ...round.raw },
+    ...(round.stats ? { stats: cloneStatMap(round.stats) } : {}),
+  };
+}
+
+function cloneNumberMap(map: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(map)) out[key] = value;
+  return out;
+}
+
+function cloneStatMap(
+  map: Record<string, Record<string, number>>,
+): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  for (const [playerId, values] of Object.entries(map)) out[playerId] = cloneNumberMap(values);
+  return out;
 }
 
 export function sessionView(session: SessionState): SessionView {
@@ -387,18 +839,96 @@ export function sessionView(session: SessionState): SessionView {
       a.name.localeCompare(b.name),
   );
   return {
+    presetId: session.presetId,
+    presetName: session.presetName,
+    slots: session.slots.map(slotView),
+    slotIndex: session.slotIndex,
+    nextGameId: nextGameId(session),
+    rounds: session.rounds.map(roundView),
+    lastGameDouble: session.lastGameDouble,
     length: session.length,
-    selection: session.selection,
+    // Kept for the current clients while they move to preset slots. The vote
+    // fields are inert: no session can switch into vote selection any more.
+    selection: "preset",
     status: session.status,
     round: session.round,
     played: [...session.played],
     currentGameId: session.currentGameId,
-    leadingGameId: leadingGameId(session),
-    candidates: session.candidates,
-    votes: voteCounts(session),
-    voted: Object.keys(session.votes).length,
+    leadingGameId: null,
+    candidates: [],
+    votes: [],
+    voted: 0,
     standings,
     champion: session.champion ? { name: session.champion.name, points: session.champion.points } : null,
     trophies: session.trophies,
+    awardStats: session.awardStats,
+    awards: session.awards,
+  };
+}
+
+/** JSON-safe snapshot for persistence; safe to `JSON.stringify`. */
+export interface SessionSummary {
+  presetId: string;
+  presetName: string;
+  slotIndex: number;
+  slots: ResolvedSlot[];
+  swaps: PresetSwap[];
+  status: SessionStatus;
+  currentGameId: string | null;
+  played: string[];
+  rounds: SessionRoundResult[];
+  stats: Record<string, SessionPlayerStat>;
+  accuracy: Record<string, { correct: number; answered: number; fastestMs: number | null }>;
+  awardStats: Record<string, Record<string, number>>;
+  trophies: SessionTrophy[];
+  awards: AwardWinner[];
+  champion: { playerId: string; name: string; points: number } | null;
+  lastGameDouble: boolean;
+  enabledGames: string[];
+  length: number;
+}
+
+export function sessionSummary(session: SessionState): SessionSummary {
+  const slots: ResolvedSlot[] = session.slots.map((slot) => ({
+    originalId: slot.originalId,
+    gameId: slot.gameId,
+    ...(slot.options ? { options: { ...slot.options } } : {}),
+    announcement: slot.announcement,
+  }));
+  const swaps: PresetSwap[] = session.swaps.map((swap) => ({ ...swap }));
+  const rounds: SessionRoundResult[] = session.rounds.map((round) => ({
+    gameId: round.gameId,
+    gameName: round.gameName,
+    results: round.results.map((result) => ({ ...result })),
+    raw: cloneNumberMap(round.raw),
+    ...(round.stats ? { stats: cloneStatMap(round.stats) } : {}),
+  }));
+  const stats: Record<string, SessionPlayerStat> = {};
+  for (const [playerId, stat] of Object.entries(session.stats)) stats[playerId] = { ...stat };
+  const accuracy: SessionSummary["accuracy"] = {};
+  for (const [playerId, value] of Object.entries(session.accuracy)) accuracy[playerId] = { ...value };
+  const awardStats: Record<string, Record<string, number>> = {};
+  for (const [playerId, values] of Object.entries(session.awardStats)) {
+    awardStats[playerId] = cloneNumberMap(values);
+  }
+  return {
+    presetId: session.presetId,
+    presetName: session.presetName,
+    slotIndex: session.slotIndex,
+    slots,
+    swaps,
+    status: session.status,
+    currentGameId: session.currentGameId,
+    played: [...session.played],
+    rounds,
+    stats,
+    accuracy,
+    awardStats,
+    trophies: session.trophies.map((trophy) => ({ ...trophy })),
+    awards: session.awards.map((award) => ({ ...award })),
+    champion: session.champion ? { ...session.champion } : null,
+    lastGameDouble: session.lastGameDouble,
+    enabledGames: [...session.enabledGames],
+    length: session.length,
   };
 }

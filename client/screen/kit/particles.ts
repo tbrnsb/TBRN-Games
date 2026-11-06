@@ -4,7 +4,7 @@
  */
 
 import { prefersReducedMotion } from "./easing.ts";
-import { colors, scaledSize } from "./theme.ts";
+import { colors, getPlayerColor, scaledSize } from "./theme.ts";
 
 export interface Particle {
   x: number;
@@ -105,13 +105,8 @@ export function emitBurst(config: EmitterConfig): number {
 }
 
 export function emitScoreBurst(x: number, y: number, playerIndex: number, scale: number = 1): void {
-  const playerColors = [
-    "#FF2E97", // P1 magenta
-    "#00E5FF", // P2 cyan
-    "#FFE45E", // P3 amber
-    "#3DFFA2", // P4 success
-  ];
-  const color = playerColors[playerIndex % playerColors.length];
+  // Seat palette (8 seats) so a burst matches the player's colour everywhere.
+  const color = getPlayerColor(playerIndex);
 
   emitBurst({
     x, y,

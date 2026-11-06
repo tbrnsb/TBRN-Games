@@ -25,6 +25,8 @@ import {
   // Utils
   drawRoundRect, clamp, easeOutCubic,
 } from "../../client/screen/kit/index.ts";
+import { seatForIndex } from "../../shared/seat-identity.ts";
+import type { SeatIdentity } from "../../shared/seat-identity.ts";
 
 interface RacingScreenState {
   phase: "countdown" | "racing" | "finished";
@@ -36,9 +38,15 @@ interface RacingScreenState {
     lane: number;
     progress: number;
     speed: number;
+    taps?: number;
+    topSpeed?: number;
     crashed: boolean;
+    seat?: SeatIdentity;
   }>;
   obstacles: Array<{ lane: number; distance: number }>;
+  waitingOn?: string[];
+  caption?: string | null;
+  sound?: string | null;
   finished: boolean;
   winner: { name: string; progress: number } | null;
 }
@@ -210,6 +218,60 @@ function layout(width: number, height: number, scale: number) {
   };
 }
 
+/** One lane column inside the track, with the space its header name may use. */
+export interface RacingLaneBox {
+  index: number;
+  /** Left edge of the lane column. */
+  x: number;
+  /** Full column width; adjacent lanes touch but never overlap. */
+  width: number;
+  /** Centre line the car drives down. */
+  centerX: number;
+  /** Widest the ellipsised header name may be before it crosses the lane edge. */
+  nameMaxWidth: number;
+}
+
+export interface RacingLaneLayout {
+  track: { x: number; y: number; width: number; height: number };
+  laneWidth: number;
+  /** Height of the seat-badge/name strip at the top of the track. */
+  headerHeight: number;
+  badgeSize: number;
+  lanes: RacingLaneBox[];
+}
+
+/**
+ * Lane geometry for 1-8 racers.
+ *
+ * Lanes tile the track left to right with no gaps, so `lane[i].x + width ===
+ * lane[i + 1].x`. The header strip reserves its own height and its name width
+ * is whatever remains inside the lane after the badge, so eight lanes stay
+ * separate and readable at both 1080p and 720p.
+ */
+export function racingLaneLayout(
+  laneCount: number,
+  width: number,
+  height: number,
+  scale: number,
+): RacingLaneLayout {
+  const count = Math.max(1, Math.floor(Number.isFinite(laneCount) ? laneCount : 1));
+  const { track } = layout(width, height, scale);
+  const laneWidth = track.width / count;
+  const headerHeight = scaledSize(34, scale);
+  const badgeSize = scaledSize(18, scale);
+  const inset = scaledSize(2, scale);
+  const pad = scaledSize(6, scale);
+  const gap = scaledSize(5, scale);
+  const nameMaxWidth = Math.max(0, laneWidth - inset * 2 - pad * 2 - badgeSize - gap);
+
+  const lanes: RacingLaneBox[] = Array.from({ length: count }, (_, index) => {
+    const x = track.x + laneWidth * index;
+    return { index, x, width: laneWidth, centerX: x + laneWidth / 2, nameMaxWidth };
+  });
+
+  return { track, laneWidth, headerHeight, badgeSize, lanes };
+}
+
 function renderTrack(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -219,6 +281,9 @@ function renderTrack(
   now: number,
 ): void {
   const { margin, track } = layout(width, height, scale);
+  const laneCount = Math.max(1, state.lanes || state.racers.length);
+  const laneLayout = racingLaneLayout(laneCount, width, height, scale);
+  const { laneWidth, headerHeight } = laneLayout;
 
   // Header
   ctx.textAlign = "left";
@@ -263,13 +328,14 @@ function renderTrack(
   const camStart = clamp(leaderDistance - 70, 0, Math.max(0, state.finishDistance - CAMERA_WINDOW_M));
   const camEnd = camStart + CAMERA_WINDOW_M;
 
-  const laneWidth = track.width / state.lanes;
   const laneX = (lane: number) => track.x + laneWidth * (lane + 0.5);
-  const usableH = track.height - scaledSize(24, scale);
+  const carsTop = track.y + headerHeight;
+  const usableH = track.height - headerHeight - scaledSize(24, scale);
+  const bottomY = track.y + track.height - scaledSize(16, scale);
   const yFor = (distance: number) =>
     clamp(
-      track.y + usableH - ((distance - camStart) / CAMERA_WINDOW_M) * usableH + scaledSize(8, scale),
-      track.y + scaledSize(6, scale),
+      bottomY - ((distance - camStart) / CAMERA_WINDOW_M) * usableH,
+      carsTop + scaledSize(8, scale),
       track.y + track.height - scaledSize(10, scale),
     );
 
@@ -284,14 +350,14 @@ function renderTrack(
     ctx.stroke();
   }
 
-  // Lane separators.
-  for (let i = 1; i < state.lanes; i++) {
+  // Lane separators, below the seat header.
+  for (let i = 1; i < laneCount; i++) {
     const x = track.x + laneWidth * i;
     ctx.strokeStyle = "rgba(0,229,255,0.12)";
     ctx.lineWidth = Math.max(1, scaledSize(2, scale));
     ctx.setLineDash([scaledSize(14, scale), scaledSize(20, scale)]);
     ctx.beginPath();
-    ctx.moveTo(x, track.y);
+    ctx.moveTo(x, carsTop);
     ctx.lineTo(x, track.y + track.height);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -364,30 +430,46 @@ function renderTrack(
 
   for (const { r, i, d } of order) {
     const behindCamera = d < camStart - 8;
-    const stagger = (i - (state.racers.length - 1) / 2) * laneWidth * 0.2;
+    const seat = r.seat ?? seatForIndex(i);
+    // Keep the car inside its own lane: the old free stagger could drift a car
+    // across a neighbour once eight lanes made each column narrow.
+    const carWidth = Math.min(laneWidth * 0.4, scaledSize(46, scale));
+    const maxStagger = Math.max(0, (laneWidth - carWidth) / 2 - scaledSize(4, scale));
+    const stagger = clamp(
+      (i - (state.racers.length - 1) / 2) * laneWidth * 0.2,
+      -maxStagger,
+      maxStagger,
+    );
     const x = laneX(r.lane) + stagger;
     const y = yFor(d);
 
     ctx.save();
     if (behindCamera) ctx.globalAlpha = 0.35;
-    drawCar(ctx, x, y, laneWidth, i, r.crashed, scale);
+    drawCar(ctx, x, y, laneWidth, seat, r.crashed, scale);
 
-    // Name label above the car.
-    ctx.font = `700 ${scaledSize(20, scale)}px ${fonts.display.family}`;
-    const nameW = ctx.measureText(r.name).width + scaledSize(18, scale);
-    drawRoundRect(
-      ctx,
-      x - nameW / 2,
-      y - scaledSize(42, scale),
-      nameW,
-      scaledSize(25, scale),
-      scaledSize(8, scale),
-      "rgba(11,8,32,0.82)",
-    );
-    ctx.fillStyle = colors.player[i % colors.player.length];
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(r.name, x, y - scaledSize(29, scale));
+    // With five or more lanes the header carries every name; a per-car label
+    // would cross into the next lane. 3-4 keep the original label.
+    if (laneCount <= 4) {
+      ctx.font = `700 ${scaledSize(20, scale)}px ${fonts.display.family}`;
+      const nameW = Math.min(ctx.measureText(r.name).width, laneWidth - scaledSize(12, scale)) + scaledSize(18, scale);
+      drawRoundRect(
+        ctx,
+        x - nameW / 2,
+        y - scaledSize(42, scale),
+        nameW,
+        scaledSize(25, scale),
+        scaledSize(8, scale),
+        "rgba(11,8,32,0.82)",
+      );
+      ctx.fillStyle = seat.color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        truncateToWidth(ctx, r.name, nameW - scaledSize(12, scale)),
+        x,
+        y - scaledSize(29, scale),
+      );
+    }
 
     if (r.speed > 0 && !r.crashed && !behindCamera) {
       ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
@@ -398,7 +480,80 @@ function renderTrack(
     ctx.restore();
   }
 
+  // Drawn last so the identity strip stays on top of cars and the finish line.
+  drawLaneHeaders(ctx, laneLayout, state, scale);
+
   ctx.restore();
+}
+
+/**
+ * Seat header strip: one chip per lane with the seat glyph and the player's
+ * name ellipsised inside the lane. This is the identity the TV keeps even when
+ * eight cars bunch up at the finish line.
+ */
+function drawLaneHeaders(
+  ctx: CanvasRenderingContext2D,
+  laneLayout: RacingLaneLayout,
+  state: RacingScreenState,
+  scale: number,
+): void {
+  const { track, lanes, headerHeight, badgeSize } = laneLayout;
+  const inset = scaledSize(2, scale);
+  const pad = scaledSize(6, scale);
+  const gap = scaledSize(5, scale);
+
+  ctx.fillStyle = "rgba(11,8,32,0.72)";
+  ctx.fillRect(track.x, track.y, track.width, headerHeight);
+  ctx.strokeStyle = "rgba(0,229,255,0.18)";
+  ctx.lineWidth = Math.max(1, scaledSize(1.5, scale));
+  ctx.beginPath();
+  ctx.moveTo(track.x, track.y + headerHeight);
+  ctx.lineTo(track.x + track.width, track.y + headerHeight);
+  ctx.stroke();
+
+  for (const lane of lanes) {
+    const racer = state.racers[lane.index];
+    if (!racer) continue;
+    const seat = racer.seat ?? seatForIndex(lane.index);
+    const chipX = lane.x + inset;
+    const chipY = track.y + scaledSize(4, scale);
+    const chipW = Math.max(0, lane.width - inset * 2);
+    const chipH = headerHeight - scaledSize(8, scale);
+
+    drawRoundRect(
+      ctx,
+      chipX,
+      chipY,
+      chipW,
+      chipH,
+      scaledSize(7, scale),
+      `${seat.color}22`,
+      `${seat.color}66`,
+      Math.max(1, scaledSize(1, scale)),
+    );
+
+    const badgeX = chipX + pad;
+    const badgeY = chipY + (chipH - badgeSize) / 2;
+    ctx.fillStyle = seat.color;
+    ctx.beginPath();
+    ctx.arc(badgeX + badgeSize / 2, badgeY + badgeSize / 2, badgeSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = colors.bg0;
+    ctx.font = `700 ${Math.max(9, scaledSize(11, scale))}px ${fonts.title.family}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(seat.emoji, badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 0.5);
+
+    ctx.font = `700 ${Math.max(11, scaledSize(16, scale))}px ${fonts.display.family}`;
+    ctx.fillStyle = colors.text;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      truncateToWidth(ctx, racer.name, lane.nameMaxWidth),
+      badgeX + badgeSize + gap,
+      chipY + chipH / 2,
+    );
+  }
 }
 
 function drawCar(
@@ -406,11 +561,11 @@ function drawCar(
   x: number,
   y: number,
   laneWidth: number,
-  playerIndex: number,
+  seat: SeatIdentity,
   crashed: boolean,
   scale: number,
 ): void {
-  const color = colors.player[playerIndex % colors.player.length];
+  const color = seat.color;
   const w = Math.min(laneWidth * 0.4, scaledSize(46, scale));
   const h = w * 1.7;
 
@@ -443,6 +598,13 @@ function drawCar(
   ctx.shadowBlur = 0;
   ctx.fillStyle = "rgba(8,6,22,0.62)";
   drawRoundRect(ctx, -w * 0.24, -h * 0.12, w * 0.48, h * 0.34, w * 0.18, ctx.fillStyle as string);
+
+  // Seat glyph on the cockpit, so a car is identifiable without colour alone.
+  ctx.fillStyle = seat.color;
+  ctx.font = `700 ${Math.max(7, w * 0.36)}px ${fonts.title.family}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(seat.emoji, 0, h * 0.05);
 
   // Nose light
   ctx.fillStyle = "rgba(255,255,255,0.65)";
@@ -549,20 +711,26 @@ function renderScoreboard(
   ctx.fillStyle = colors.textMuted;
   ctx.fillText("RACE PROGRESS", x + pad, progressTop + scaledSize(22, scale));
 
-  const barW = w - pad * 2 - scaledSize(66, scale);
+  const labelW = scaledSize(78, scale);
+  const barW = w - pad * 2 - labelW;
   const barTop = progressTop + scaledSize(52, scale);
   const rowH = Math.min(scaledSize(40, scale), (progressH - scaledSize(104, scale)) / Math.max(1, ranked.length));
 
   ranked.forEach(({ r, i }, idx) => {
     const rowY = barTop + idx * rowH + rowH / 2;
-    const color = colors.player[i % colors.player.length];
+    const seat = r.seat ?? seatForIndex(i);
+    const color = seat.color;
 
     ctx.font = `600 ${scaledSize(11, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = colors.textMuted;
     ctx.textAlign = "left";
-    ctx.fillText(r.name.slice(0, 7), x + pad, rowY);
+    ctx.fillText(
+      truncateToWidth(ctx, `${seat.emoji} ${r.name}`, labelW - scaledSize(8, scale)),
+      x + pad,
+      rowY,
+    );
 
-    const bx = x + pad + scaledSize(66, scale);
+    const bx = x + pad + labelW;
     const bh = scaledSize(6, scale);
     drawRoundRect(ctx, bx, rowY - bh / 2, barW, bh, bh / 2, "rgba(255,255,255,0.08)");
     drawRoundRect(ctx, bx, rowY - bh / 2, Math.max(bh, barW * clamp(r.progress, 0, 1)), bh, bh / 2, color);
@@ -578,7 +746,22 @@ function renderScoreboard(
     ctx.fillStyle = colors.textMuted;
     ctx.fillText("LEADER", x + pad, ly);
     ctx.font = `700 ${scaledSize(16, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = colors.player[leader.i % colors.player.length];
-    ctx.fillText(leader.r.name, x + pad + scaledSize(66, scale), ly);
+    ctx.fillStyle = (leader.r.seat ?? seatForIndex(leader.i)).color;
+    ctx.fillText(
+      truncateToWidth(ctx, leader.r.name, w - pad * 2 - labelW),
+      x + pad + labelW,
+      ly,
+    );
   }
+}
+
+/** Shrink a label with an ellipsis until it fits the available width. */
+function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return "";
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let out = text;
+  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return `${out}…`;
 }

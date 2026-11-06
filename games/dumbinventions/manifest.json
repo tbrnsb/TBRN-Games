@@ -1,0 +1,9 @@
+{
+  "id": "dumbinventions",
+  "name": "Dumb Inventions",
+  "minPlayers": 3,
+  "maxPlayers": 6,
+  "controllerType": "text",
+  "description": "You get a problem and two random words. Invent a product that uses both, then pitch it.",
+  "howTo": "You get a problem and two words. Name a product and pitch it using both."
+}

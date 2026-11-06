@@ -6,6 +6,7 @@
 // --- Constants ---
 export const MESSAGE_TYPES = {
   JOIN: "join",
+  LEAVE: "leave",
   INPUT: "input",
   PING: "ping",
   JOINED: "joined",
@@ -13,6 +14,7 @@ export const MESSAGE_TYPES = {
   GAME_STATE: "gameState",
   SESSION: "session",
   SESSION_VOTE: "session-vote",
+  REACTION: "reaction",
   ERROR: "error",
   PONG: "pong",
 };
@@ -21,7 +23,23 @@ export const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const ROOM_CODE_LENGTH = 5;
 export const REJOIN_TOKEN_BYTES = 16;
 export const PING_INTERVAL_MS = 10000;
-export const PLAYER_TIMEOUT_MS = 30000;
+// How long a disconnected seat stays reserved before it is reaped. Overridable
+// so tests can exercise the reap path without waiting half a minute.
+// This module is also served to browsers, where `process` does not exist.
+const envPlayerTimeout =
+  typeof process !== "undefined" && process.env
+    ? Number(process.env.PLAYER_TIMEOUT_MS)
+    : NaN;
+export const PLAYER_TIMEOUT_MS = Number.isFinite(envPlayerTimeout) ? envPlayerTimeout : 30000;
+
+// How long a running game waits below its minimum before the host is offered
+// Wait / End game. The game stays paused after this passes. Overridable so
+// tests do not have to sit through a whole minute.
+const envDropoutPause =
+  typeof process !== "undefined" && process.env
+    ? Number(process.env.DROPOUT_PAUSE_MS)
+    : NaN;
+export const DROPOUT_PAUSE_MS = Number.isFinite(envDropoutPause) ? envDropoutPause : 60000;
 
 // --- LAN Utilities ---
 export async function getLanUrls(port, scheme = "http") {

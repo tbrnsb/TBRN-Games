@@ -1,0 +1,33 @@
+{
+  "game": "survive",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    2700,
+    3000,
+    3700,
+    2600
+  ],
+  "standings": [
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 3700
+    },
+    {
+      "playerId": "p1",
+      "rank": 2,
+      "raw": 3000
+    },
+    {
+      "playerId": "p0",
+      "rank": 3,
+      "raw": 2700
+    },
+    {
+      "playerId": "p3",
+      "rank": 4,
+      "raw": 2600
+    }
+  ]
+}

@@ -17,6 +17,7 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp,
 } from "../../client/screen/kit/index.ts";
+import { voteLayout, type VoteLayout } from "../../shared/vote-options.ts";
 
 interface BluffAnswer {
   id: string;
@@ -28,6 +29,7 @@ interface BluffAnswer {
 
 interface BluffScreenState {
   phase: "writing" | "voting" | "reveal" | "finished";
+  contentPack?: string;
   prompt: string | null;
   category: string | null;
   round: number;
@@ -35,8 +37,11 @@ interface BluffScreenState {
   submitted: number;
   playerCount: number;
   voted: number;
+  waitingOn?: string[];
   answers: BluffAnswer[];
   realAnswer: string | null;
+  caption?: string | null;
+  sound?: string | null;
   timeLeft: number;
   scores: Array<{ name: string; score: number }>;
   finished: boolean;
@@ -219,7 +224,11 @@ function drawPrompt(
   ctx.fillStyle = colors.textMuted;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText("FILL THE BLANK", rect.x + scaledSize(24, scale), rect.y + scaledSize(26, scale));
+  ctx.fillText(
+    state.contentPack === "dictionary" ? "DEFINE THE WORD" : "FILL THE BLANK",
+    rect.x + scaledSize(24, scale),
+    rect.y + scaledSize(26, scale),
+  );
 
   const text = state.prompt ?? "Waiting for the next prompt…";
   const qSize = Math.max(scaledSize(22, scale), Math.min(scaledSize(40, scale), rect.height * 0.24));
@@ -290,11 +299,17 @@ function drawPhasePanel(
 
   ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.textMuted;
-  ctx.fillText(
-    writing ? "Everyone is typing on their phones…" : "Pick the answer you think is real",
-    rect.x + rect.width / 2,
-    rect.y + rect.height * 0.62 + scaledSize(34, scale),
-  );
+  const waiting = state.waitingOn ?? [];
+  const hint = waiting.length > 0
+    ? `Waiting on: ${waiting.join(", ")}`
+    : writing
+      ? "Everyone is typing on their phones…"
+      : "Pick the answer you think is real";
+  const hintLines = wrap(ctx, hint, rect.width - scaledSize(60, scale)).slice(0, 2);
+  const hintY = rect.y + rect.height * 0.62 + scaledSize(34, scale);
+  hintLines.forEach((line, i) => {
+    ctx.fillText(line, rect.x + rect.width / 2, hintY + i * scaledSize(20, scale));
+  });
 }
 
 function drawAnswers(
@@ -307,6 +322,22 @@ function drawAnswers(
   drawBentoCard(ctx, rect, { fill: "rgba(18,13,46,0.97)", stroke: colors.border });
 
   const answers = [...state.answers].sort((a, b) => Number(b.isReal) - Number(a.isReal) || b.votes - a.votes);
+  const layout = voteLayout(answers.length);
+  if (layout.columns === 2) {
+    drawAnswerGrid(ctx, rect, answers, layout, scale, now);
+  } else {
+    drawAnswerList(ctx, rect, answers, scale, now);
+  }
+}
+
+/** Up to six answers: one readable row each. */
+function drawAnswerList(
+  ctx: CanvasRenderingContext2D,
+  rect: { x: number; y: number; width: number; height: number },
+  answers: BluffAnswer[],
+  scale: number,
+  now: number,
+): void {
   const gap = scaledSize(10, scale);
   const rowH = Math.min(
     scaledSize(110, scale),
@@ -370,6 +401,112 @@ function drawAnswers(
       ctx.strokeStyle = colors.success;
       ctx.lineWidth = Math.max(1, scaledSize(2, scale));
       drawRoundRect(ctx, rect.x + scaledSize(12, scale), y, rect.width - scaledSize(24, scale), rowH, scaledSize(12, scale));
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  });
+}
+
+/**
+ * Seven or more answers (nine at a full table): two columns with letter
+ * badges. The type floor comes from `voteLayout`, so a 9-answer reveal never
+ * drops below the shared two-column readable minimum at 1080p or 720p.
+ */
+function drawAnswerGrid(
+  ctx: CanvasRenderingContext2D,
+  rect: { x: number; y: number; width: number; height: number },
+  answers: BluffAnswer[],
+  layout: VoteLayout,
+  scale: number,
+  now: number,
+): void {
+  const columns = 2;
+  const rows = Math.max(1, Math.ceil(answers.length / columns));
+  const pad = scaledSize(14, scale);
+  const gap = scaledSize(10, scale);
+  const innerW = rect.width - pad * 2;
+  const innerH = rect.height - pad * 2;
+  const cellW = Math.max(1, (innerW - gap * (columns - 1)) / columns);
+  const cellH = Math.max(1, (innerH - gap * (rows - 1)) / rows);
+
+  const minFont = scaledSize(layout.minFontPx, scale);
+  const maxFont = scaledSize(layout.maxFontPx, scale);
+  const fontPx = Math.max(minFont, Math.min(maxFont, Math.round(cellH * 0.3)));
+  const metaSize = Math.max(scaledSize(12, scale), Math.min(scaledSize(16, scale), cellH * 0.15));
+  const badgeSize = Math.max(
+    scaledSize(20, scale),
+    Math.min(cellH * 0.42, cellW * 0.16, scaledSize(44, scale)),
+  );
+  const innerPad = scaledSize(12, scale);
+  const textGap = scaledSize(10, scale);
+
+  answers.forEach((answer, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const x = rect.x + pad + column * (cellW + gap);
+    const y = rect.y + pad + row * (cellH + gap);
+    const votes = `${answer.votes} ${answer.votes === 1 ? "vote" : "votes"}`;
+
+    ctx.save();
+    drawRoundRect(
+      ctx,
+      x,
+      y,
+      cellW,
+      cellH,
+      scaledSize(12, scale),
+      answer.isReal ? "rgba(61,255,162,0.14)" : "rgba(11,8,32,0.72)",
+      answer.isReal ? colors.success : "rgba(255,255,255,0.07)",
+      answer.isReal ? Math.max(1, scaledSize(2, scale)) : 1,
+    );
+
+    const badgeX = x + innerPad;
+    const badgeY = y + (cellH - badgeSize) / 2;
+    drawRoundRect(
+      ctx,
+      badgeX,
+      badgeY,
+      badgeSize,
+      badgeSize,
+      scaledSize(8, scale),
+      answer.isReal ? colors.success : "rgba(255,255,255,0.10)",
+      answer.isReal ? colors.success : "rgba(255,255,255,0.16)",
+      1,
+    );
+    ctx.fillStyle = answer.isReal ? colors.bg0 : colors.text;
+    ctx.font = `700 ${Math.max(scaledSize(11, scale), Math.round(badgeSize * 0.46))}px ${fonts.display.family}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(layout.letters[index] ?? "", badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 1);
+
+    const textX = badgeX + badgeSize + textGap;
+    const textW = Math.max(scaledSize(24, scale), x + cellW - innerPad - textX);
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 ${metaSize}px ${fonts.body.family}`;
+    ctx.fillStyle = answer.isReal ? colors.success : colors.textMuted;
+    ctx.fillText(
+      answer.isReal ? `THE REAL ANSWER  ·  ${votes}` : `${answer.author}  ·  ${votes}`,
+      textX,
+      y + cellH * 0.28,
+      textW,
+    );
+
+    ctx.font = `600 ${fontPx}px ${fonts.display.family}`;
+    ctx.fillStyle = answer.isReal ? colors.text : "rgba(245,243,255,0.9)";
+    const lines = wrap(ctx, answer.text, textW).slice(0, 2);
+    const lh = fontPx * 1.08;
+    const startY = y + cellH * 0.58;
+    lines.forEach((line, li) => ctx.fillText(line, textX, startY + li * lh));
+
+    if (answer.isReal) {
+      const pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
+      ctx.globalAlpha = 0.25 + 0.35 * pulse;
+      ctx.strokeStyle = colors.success;
+      ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+      drawRoundRect(ctx, x, y, cellW, cellH, scaledSize(12, scale));
       ctx.stroke();
       ctx.globalAlpha = 1;
     }

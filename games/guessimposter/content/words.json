@@ -1,0 +1,2018 @@
+[
+  {
+    "category": "Foods",
+    "word": "Pizza",
+    "lookalike": "Flatbread",
+    "decoys": [
+      "Burrito",
+      "Dumpling",
+      "Lasagna",
+      "Calzone",
+      "Nachos"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Burger",
+    "lookalike": "Hotdog",
+    "decoys": [
+      "Lasagna",
+      "Calzone",
+      "Nachos",
+      "Pretzel",
+      "Gelato"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Pancake",
+    "lookalike": "Waffle",
+    "decoys": [
+      "Nachos",
+      "Pretzel",
+      "Gelato",
+      "Smoothie",
+      "Steak"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Cookie",
+    "lookalike": "Brownie",
+    "decoys": [
+      "Gelato",
+      "Smoothie",
+      "Steak",
+      "Curry",
+      "Burrito"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Soup",
+    "lookalike": "Stew",
+    "decoys": [
+      "Steak",
+      "Curry",
+      "Burrito",
+      "Dumpling",
+      "Lasagna"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Salad",
+    "lookalike": "Coleslaw",
+    "decoys": [
+      "Burrito",
+      "Dumpling",
+      "Lasagna",
+      "Calzone",
+      "Nachos"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Sushi",
+    "lookalike": "Sashimi",
+    "decoys": [
+      "Lasagna",
+      "Calzone",
+      "Nachos",
+      "Pretzel",
+      "Gelato"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Muffin",
+    "lookalike": "Cupcake",
+    "decoys": [
+      "Nachos",
+      "Pretzel",
+      "Gelato",
+      "Smoothie",
+      "Steak"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Pasta",
+    "lookalike": "Noodles",
+    "decoys": [
+      "Gelato",
+      "Smoothie",
+      "Steak",
+      "Curry",
+      "Burrito"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Cheese",
+    "lookalike": "Butter",
+    "decoys": [
+      "Steak",
+      "Curry",
+      "Burrito",
+      "Dumpling",
+      "Lasagna"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Toast",
+    "lookalike": "Cracker",
+    "decoys": [
+      "Burrito",
+      "Dumpling",
+      "Lasagna",
+      "Calzone",
+      "Nachos"
+    ]
+  },
+  {
+    "category": "Foods",
+    "word": "Omelet",
+    "lookalike": "Quiche",
+    "decoys": [
+      "Lasagna",
+      "Calzone",
+      "Nachos",
+      "Pretzel",
+      "Gelato"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Dolphin",
+    "lookalike": "Porpoise",
+    "decoys": [
+      "Squirrel",
+      "Raccoon",
+      "Owl",
+      "Otter",
+      "Buffalo"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Crocodile",
+    "lookalike": "Alligator",
+    "decoys": [
+      "Owl",
+      "Otter",
+      "Buffalo",
+      "Zebra",
+      "Hippo"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Tiger",
+    "lookalike": "Leopard",
+    "decoys": [
+      "Buffalo",
+      "Zebra",
+      "Hippo",
+      "Kangaroo",
+      "Sparrow"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Donkey",
+    "lookalike": "Mule",
+    "decoys": [
+      "Hippo",
+      "Kangaroo",
+      "Sparrow",
+      "Hamster",
+      "Squirrel"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Hawk",
+    "lookalike": "Falcon",
+    "decoys": [
+      "Sparrow",
+      "Hamster",
+      "Squirrel",
+      "Raccoon",
+      "Owl"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Mouse",
+    "lookalike": "Rat",
+    "decoys": [
+      "Squirrel",
+      "Raccoon",
+      "Owl",
+      "Otter",
+      "Buffalo"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Frog",
+    "lookalike": "Toad",
+    "decoys": [
+      "Owl",
+      "Otter",
+      "Buffalo",
+      "Zebra",
+      "Hippo"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Penguin",
+    "lookalike": "Puffin",
+    "decoys": [
+      "Buffalo",
+      "Zebra",
+      "Hippo",
+      "Kangaroo",
+      "Sparrow"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Crab",
+    "lookalike": "Lobster",
+    "decoys": [
+      "Hippo",
+      "Kangaroo",
+      "Sparrow",
+      "Hamster",
+      "Squirrel"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Bee",
+    "lookalike": "Wasp",
+    "decoys": [
+      "Sparrow",
+      "Hamster",
+      "Squirrel",
+      "Raccoon",
+      "Owl"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Camel",
+    "lookalike": "Llama",
+    "decoys": [
+      "Squirrel",
+      "Raccoon",
+      "Owl",
+      "Otter",
+      "Buffalo"
+    ]
+  },
+  {
+    "category": "Animals",
+    "word": "Whale",
+    "lookalike": "Manatee",
+    "decoys": [
+      "Owl",
+      "Otter",
+      "Buffalo",
+      "Zebra",
+      "Hippo"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Surgeon",
+    "lookalike": "Dentist",
+    "decoys": [
+      "Barber",
+      "Janitor",
+      "Mechanic",
+      "Carpenter",
+      "Accountant"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Pilot",
+    "lookalike": "Flight Attendant",
+    "decoys": [
+      "Mechanic",
+      "Carpenter",
+      "Accountant",
+      "Receptionist",
+      "Photographer"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Teacher",
+    "lookalike": "Coach",
+    "decoys": [
+      "Accountant",
+      "Receptionist",
+      "Photographer",
+      "Journalist",
+      "Gardener"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Baker",
+    "lookalike": "Chef",
+    "decoys": [
+      "Photographer",
+      "Journalist",
+      "Gardener",
+      "Security Guard",
+      "Barber"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Vet",
+    "lookalike": "Farmer",
+    "decoys": [
+      "Gardener",
+      "Security Guard",
+      "Barber",
+      "Janitor",
+      "Mechanic"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Firefighter",
+    "lookalike": "Lifeguard",
+    "decoys": [
+      "Barber",
+      "Janitor",
+      "Mechanic",
+      "Carpenter",
+      "Accountant"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Astronaut",
+    "lookalike": "Scientist",
+    "decoys": [
+      "Mechanic",
+      "Carpenter",
+      "Accountant",
+      "Receptionist",
+      "Photographer"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Librarian",
+    "lookalike": "Clerk",
+    "decoys": [
+      "Accountant",
+      "Receptionist",
+      "Photographer",
+      "Journalist",
+      "Gardener"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Plumber",
+    "lookalike": "Electrician",
+    "decoys": [
+      "Photographer",
+      "Journalist",
+      "Gardener",
+      "Security Guard",
+      "Barber"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Artist",
+    "lookalike": "Designer",
+    "decoys": [
+      "Gardener",
+      "Security Guard",
+      "Barber",
+      "Janitor",
+      "Mechanic"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Mail Carrier",
+    "lookalike": "Courier",
+    "decoys": [
+      "Barber",
+      "Janitor",
+      "Mechanic",
+      "Carpenter",
+      "Accountant"
+    ]
+  },
+  {
+    "category": "Jobs",
+    "word": "Nurse",
+    "lookalike": "Paramedic",
+    "decoys": [
+      "Mechanic",
+      "Carpenter",
+      "Accountant",
+      "Receptionist",
+      "Photographer"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Baseball",
+    "lookalike": "Softball",
+    "decoys": [
+      "Bowling",
+      "Curling",
+      "Rowing",
+      "Judo",
+      "Karate"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Soccer",
+    "lookalike": "Rugby",
+    "decoys": [
+      "Rowing",
+      "Judo",
+      "Karate",
+      "Polo",
+      "Surfing"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Tennis",
+    "lookalike": "Badminton",
+    "decoys": [
+      "Karate",
+      "Polo",
+      "Surfing",
+      "Sailing",
+      "Handball"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Boxing",
+    "lookalike": "Wrestling",
+    "decoys": [
+      "Surfing",
+      "Sailing",
+      "Handball",
+      "Fencing",
+      "Bowling"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Sprint",
+    "lookalike": "Marathon",
+    "decoys": [
+      "Handball",
+      "Fencing",
+      "Bowling",
+      "Curling",
+      "Rowing"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Hockey",
+    "lookalike": "Lacrosse",
+    "decoys": [
+      "Bowling",
+      "Curling",
+      "Rowing",
+      "Judo",
+      "Karate"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Swimming",
+    "lookalike": "Diving",
+    "decoys": [
+      "Rowing",
+      "Judo",
+      "Karate",
+      "Polo",
+      "Surfing"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Gymnastics",
+    "lookalike": "Cheerleading",
+    "decoys": [
+      "Karate",
+      "Polo",
+      "Surfing",
+      "Sailing",
+      "Handball"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Golf",
+    "lookalike": "Croquet",
+    "decoys": [
+      "Surfing",
+      "Sailing",
+      "Handball",
+      "Fencing",
+      "Bowling"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Volleyball",
+    "lookalike": "Kickball",
+    "decoys": [
+      "Handball",
+      "Fencing",
+      "Bowling",
+      "Curling",
+      "Rowing"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Skiing",
+    "lookalike": "Snowboarding",
+    "decoys": [
+      "Bowling",
+      "Curling",
+      "Rowing",
+      "Judo",
+      "Karate"
+    ]
+  },
+  {
+    "category": "Sports",
+    "word": "Cycling",
+    "lookalike": "Triathlon",
+    "decoys": [
+      "Rowing",
+      "Judo",
+      "Karate",
+      "Polo",
+      "Surfing"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Library",
+    "lookalike": "Bookstore",
+    "decoys": [
+      "Playground",
+      "Market",
+      "Courthouse",
+      "Office",
+      "Pier"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Cinema",
+    "lookalike": "Theater",
+    "decoys": [
+      "Courthouse",
+      "Office",
+      "Pier",
+      "Farm",
+      "Ranch"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Beach",
+    "lookalike": "Lake",
+    "decoys": [
+      "Pier",
+      "Farm",
+      "Ranch",
+      "Cabin",
+      "Tower"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Bakery",
+    "lookalike": "Cafe",
+    "decoys": [
+      "Ranch",
+      "Cabin",
+      "Tower",
+      "Bridge",
+      "Playground"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Hospital",
+    "lookalike": "Clinic",
+    "decoys": [
+      "Tower",
+      "Bridge",
+      "Playground",
+      "Market",
+      "Courthouse"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Airport",
+    "lookalike": "Train Station",
+    "decoys": [
+      "Playground",
+      "Market",
+      "Courthouse",
+      "Office",
+      "Pier"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Museum",
+    "lookalike": "Gallery",
+    "decoys": [
+      "Courthouse",
+      "Office",
+      "Pier",
+      "Farm",
+      "Ranch"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Park",
+    "lookalike": "Garden",
+    "decoys": [
+      "Pier",
+      "Farm",
+      "Ranch",
+      "Cabin",
+      "Tower"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Castle",
+    "lookalike": "Palace",
+    "decoys": [
+      "Ranch",
+      "Cabin",
+      "Tower",
+      "Bridge",
+      "Playground"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Hostel",
+    "lookalike": "Hotel",
+    "decoys": [
+      "Tower",
+      "Bridge",
+      "Playground",
+      "Market",
+      "Courthouse"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Stadium",
+    "lookalike": "Arena",
+    "decoys": [
+      "Playground",
+      "Market",
+      "Courthouse",
+      "Office",
+      "Pier"
+    ]
+  },
+  {
+    "category": "Places",
+    "word": "Zoo",
+    "lookalike": "Aquarium",
+    "decoys": [
+      "Courthouse",
+      "Office",
+      "Pier",
+      "Farm",
+      "Ranch"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Sailboat",
+    "lookalike": "Yacht",
+    "decoys": [
+      "Locomotive",
+      "Submarine",
+      "Speedboat",
+      "Gondola",
+      "Bulldozer"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Scooter",
+    "lookalike": "Moped",
+    "decoys": [
+      "Speedboat",
+      "Gondola",
+      "Bulldozer",
+      "Hoverboard",
+      "Skateboard"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Bus",
+    "lookalike": "Tram",
+    "decoys": [
+      "Bulldozer",
+      "Hoverboard",
+      "Skateboard",
+      "Caravan",
+      "Tractor"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Helicopter",
+    "lookalike": "Airplane",
+    "decoys": [
+      "Skateboard",
+      "Caravan",
+      "Tractor",
+      "Tugboat",
+      "Locomotive"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Ferry",
+    "lookalike": "Houseboat",
+    "decoys": [
+      "Tractor",
+      "Tugboat",
+      "Locomotive",
+      "Submarine",
+      "Speedboat"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Truck",
+    "lookalike": "Van",
+    "decoys": [
+      "Locomotive",
+      "Submarine",
+      "Speedboat",
+      "Gondola",
+      "Bulldozer"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Bicycle",
+    "lookalike": "Tricycle",
+    "decoys": [
+      "Speedboat",
+      "Gondola",
+      "Bulldozer",
+      "Hoverboard",
+      "Skateboard"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Motorcycle",
+    "lookalike": "Quad Bike",
+    "decoys": [
+      "Bulldozer",
+      "Hoverboard",
+      "Skateboard",
+      "Caravan",
+      "Tractor"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Rocket",
+    "lookalike": "Blimp",
+    "decoys": [
+      "Skateboard",
+      "Caravan",
+      "Tractor",
+      "Tugboat",
+      "Locomotive"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Kayak",
+    "lookalike": "Canoe",
+    "decoys": [
+      "Tractor",
+      "Tugboat",
+      "Locomotive",
+      "Submarine",
+      "Speedboat"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Ambulance",
+    "lookalike": "Fire Engine",
+    "decoys": [
+      "Locomotive",
+      "Submarine",
+      "Speedboat",
+      "Gondola",
+      "Bulldozer"
+    ]
+  },
+  {
+    "category": "Vehicles",
+    "word": "Wagon",
+    "lookalike": "Wheelbarrow",
+    "decoys": [
+      "Speedboat",
+      "Gondola",
+      "Bulldozer",
+      "Hoverboard",
+      "Skateboard"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Sofa",
+    "lookalike": "Loveseat",
+    "decoys": [
+      "Mixer",
+      "Vacuum",
+      "Iron",
+      "Drawer",
+      "Shelf"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Lamp",
+    "lookalike": "Lantern",
+    "decoys": [
+      "Iron",
+      "Drawer",
+      "Shelf",
+      "Blanket",
+      "Towel"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Refrigerator",
+    "lookalike": "Freezer",
+    "decoys": [
+      "Shelf",
+      "Blanket",
+      "Towel",
+      "Bucket",
+      "Candle"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Microwave",
+    "lookalike": "Oven",
+    "decoys": [
+      "Towel",
+      "Bucket",
+      "Candle",
+      "Duster",
+      "Mixer"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Bathtub",
+    "lookalike": "Hot Tub",
+    "decoys": [
+      "Candle",
+      "Duster",
+      "Mixer",
+      "Vacuum",
+      "Iron"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Pillow",
+    "lookalike": "Cushion",
+    "decoys": [
+      "Mixer",
+      "Vacuum",
+      "Iron",
+      "Drawer",
+      "Shelf"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Rug",
+    "lookalike": "Carpet",
+    "decoys": [
+      "Iron",
+      "Drawer",
+      "Shelf",
+      "Blanket",
+      "Towel"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Curtain",
+    "lookalike": "Blinds",
+    "decoys": [
+      "Shelf",
+      "Blanket",
+      "Towel",
+      "Bucket",
+      "Candle"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Broom",
+    "lookalike": "Mop",
+    "decoys": [
+      "Towel",
+      "Bucket",
+      "Candle",
+      "Duster",
+      "Mixer"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Toaster",
+    "lookalike": "Blender",
+    "decoys": [
+      "Candle",
+      "Duster",
+      "Mixer",
+      "Vacuum",
+      "Iron"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Clock",
+    "lookalike": "Hourglass",
+    "decoys": [
+      "Mixer",
+      "Vacuum",
+      "Iron",
+      "Drawer",
+      "Shelf"
+    ]
+  },
+  {
+    "category": "Household",
+    "word": "Washing Machine",
+    "lookalike": "Dryer",
+    "decoys": [
+      "Iron",
+      "Drawer",
+      "Shelf",
+      "Blanket",
+      "Towel"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "River",
+    "lookalike": "Stream",
+    "decoys": [
+      "Marsh",
+      "Prairie",
+      "Cave",
+      "Cliff",
+      "Lagoon"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Volcano",
+    "lookalike": "Geyser",
+    "decoys": [
+      "Cave",
+      "Cliff",
+      "Lagoon",
+      "Oasis",
+      "Delta"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Rainbow",
+    "lookalike": "Aurora",
+    "decoys": [
+      "Lagoon",
+      "Oasis",
+      "Delta",
+      "Summit",
+      "Blossom"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Glacier",
+    "lookalike": "Iceberg",
+    "decoys": [
+      "Delta",
+      "Summit",
+      "Blossom",
+      "Moss",
+      "Marsh"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Meadow",
+    "lookalike": "Pasture",
+    "decoys": [
+      "Blossom",
+      "Moss",
+      "Marsh",
+      "Prairie",
+      "Cave"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Waterfall",
+    "lookalike": "Rapids",
+    "decoys": [
+      "Marsh",
+      "Prairie",
+      "Cave",
+      "Cliff",
+      "Lagoon"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Canyon",
+    "lookalike": "Valley",
+    "decoys": [
+      "Cave",
+      "Cliff",
+      "Lagoon",
+      "Oasis",
+      "Delta"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Pebble",
+    "lookalike": "Boulder",
+    "decoys": [
+      "Lagoon",
+      "Oasis",
+      "Delta",
+      "Summit",
+      "Blossom"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Dune",
+    "lookalike": "Hill",
+    "decoys": [
+      "Delta",
+      "Summit",
+      "Blossom",
+      "Moss",
+      "Marsh"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Sunrise",
+    "lookalike": "Sunset",
+    "decoys": [
+      "Blossom",
+      "Moss",
+      "Marsh",
+      "Prairie",
+      "Cave"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Star",
+    "lookalike": "Meteor",
+    "decoys": [
+      "Marsh",
+      "Prairie",
+      "Cave",
+      "Cliff",
+      "Lagoon"
+    ]
+  },
+  {
+    "category": "Nature",
+    "word": "Forest",
+    "lookalike": "Jungle",
+    "decoys": [
+      "Cave",
+      "Cliff",
+      "Lagoon",
+      "Oasis",
+      "Delta"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Guitar",
+    "lookalike": "Ukulele",
+    "decoys": [
+      "Harp",
+      "Banjo",
+      "Cymbal",
+      "Xylophone",
+      "Accordion"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Drum",
+    "lookalike": "Bongos",
+    "decoys": [
+      "Cymbal",
+      "Xylophone",
+      "Accordion",
+      "Harmonica",
+      "Orchestra"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Piano",
+    "lookalike": "Keyboard",
+    "decoys": [
+      "Accordion",
+      "Harmonica",
+      "Orchestra",
+      "Solo",
+      "Chorus"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Violin",
+    "lookalike": "Cello",
+    "decoys": [
+      "Orchestra",
+      "Solo",
+      "Chorus",
+      "Vinyl",
+      "Harp"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Flute",
+    "lookalike": "Recorder",
+    "decoys": [
+      "Chorus",
+      "Vinyl",
+      "Harp",
+      "Banjo",
+      "Cymbal"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Trumpet",
+    "lookalike": "Trombone",
+    "decoys": [
+      "Harp",
+      "Banjo",
+      "Cymbal",
+      "Xylophone",
+      "Accordion"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Saxophone",
+    "lookalike": "Clarinet",
+    "decoys": [
+      "Cymbal",
+      "Xylophone",
+      "Accordion",
+      "Harmonica",
+      "Orchestra"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Microphone",
+    "lookalike": "Headphones",
+    "decoys": [
+      "Accordion",
+      "Harmonica",
+      "Orchestra",
+      "Solo",
+      "Chorus"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Concert",
+    "lookalike": "Recital",
+    "decoys": [
+      "Orchestra",
+      "Solo",
+      "Chorus",
+      "Vinyl",
+      "Harp"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Album",
+    "lookalike": "Single",
+    "decoys": [
+      "Chorus",
+      "Vinyl",
+      "Harp",
+      "Banjo",
+      "Cymbal"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Choir",
+    "lookalike": "Band",
+    "decoys": [
+      "Harp",
+      "Banjo",
+      "Cymbal",
+      "Xylophone",
+      "Accordion"
+    ]
+  },
+  {
+    "category": "Music",
+    "word": "Melody",
+    "lookalike": "Harmony",
+    "decoys": [
+      "Cymbal",
+      "Xylophone",
+      "Accordion",
+      "Harmonica",
+      "Orchestra"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Sequel",
+    "lookalike": "Prequel",
+    "decoys": [
+      "Montage",
+      "Flashback",
+      "Narrator",
+      "Dubbing",
+      "Episode"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Trailer",
+    "lookalike": "Poster",
+    "decoys": [
+      "Narrator",
+      "Dubbing",
+      "Episode",
+      "Reboot",
+      "Spoiler"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Subtitle",
+    "lookalike": "Caption",
+    "decoys": [
+      "Episode",
+      "Reboot",
+      "Spoiler",
+      "Blooper",
+      "Extra"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Sitcom",
+    "lookalike": "Documentary",
+    "decoys": [
+      "Spoiler",
+      "Blooper",
+      "Extra",
+      "Cliffhanger",
+      "Montage"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Hero",
+    "lookalike": "Villain",
+    "decoys": [
+      "Extra",
+      "Cliffhanger",
+      "Montage",
+      "Flashback",
+      "Narrator"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Scene",
+    "lookalike": "Act",
+    "decoys": [
+      "Montage",
+      "Flashback",
+      "Narrator",
+      "Dubbing",
+      "Episode"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Script",
+    "lookalike": "Storyboard",
+    "decoys": [
+      "Narrator",
+      "Dubbing",
+      "Episode",
+      "Reboot",
+      "Spoiler"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Director",
+    "lookalike": "Producer",
+    "decoys": [
+      "Episode",
+      "Reboot",
+      "Spoiler",
+      "Blooper",
+      "Extra"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Costume",
+    "lookalike": "Mask",
+    "decoys": [
+      "Spoiler",
+      "Blooper",
+      "Extra",
+      "Cliffhanger",
+      "Montage"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Premiere",
+    "lookalike": "Screening",
+    "decoys": [
+      "Extra",
+      "Cliffhanger",
+      "Montage",
+      "Flashback",
+      "Narrator"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Spin-off",
+    "lookalike": "Remake",
+    "decoys": [
+      "Montage",
+      "Flashback",
+      "Narrator",
+      "Dubbing",
+      "Episode"
+    ]
+  },
+  {
+    "category": "Movies & TV",
+    "word": "Cartoon",
+    "lookalike": "Puppet",
+    "decoys": [
+      "Narrator",
+      "Dubbing",
+      "Episode",
+      "Reboot",
+      "Spoiler"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Sneaker",
+    "lookalike": "Slipper",
+    "decoys": [
+      "Vest",
+      "Tie",
+      "Boot",
+      "Sandal",
+      "Helmet"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Scarf",
+    "lookalike": "Shawl",
+    "decoys": [
+      "Boot",
+      "Sandal",
+      "Helmet",
+      "Uniform",
+      "Cape"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Sweater",
+    "lookalike": "Hoodie",
+    "decoys": [
+      "Helmet",
+      "Uniform",
+      "Cape",
+      "Patch",
+      "Ribbon"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Socks",
+    "lookalike": "Leggings",
+    "decoys": [
+      "Cape",
+      "Patch",
+      "Ribbon",
+      "Apron",
+      "Vest"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Gloves",
+    "lookalike": "Mittens",
+    "decoys": [
+      "Ribbon",
+      "Apron",
+      "Vest",
+      "Tie",
+      "Boot"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Cap",
+    "lookalike": "Beret",
+    "decoys": [
+      "Vest",
+      "Tie",
+      "Boot",
+      "Sandal",
+      "Helmet"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Jeans",
+    "lookalike": "Shorts",
+    "decoys": [
+      "Boot",
+      "Sandal",
+      "Helmet",
+      "Uniform",
+      "Cape"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Dress",
+    "lookalike": "Skirt",
+    "decoys": [
+      "Helmet",
+      "Uniform",
+      "Cape",
+      "Patch",
+      "Ribbon"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Belt",
+    "lookalike": "Suspenders",
+    "decoys": [
+      "Cape",
+      "Patch",
+      "Ribbon",
+      "Apron",
+      "Vest"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Raincoat",
+    "lookalike": "Poncho",
+    "decoys": [
+      "Ribbon",
+      "Apron",
+      "Vest",
+      "Tie",
+      "Boot"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Necklace",
+    "lookalike": "Bracelet",
+    "decoys": [
+      "Vest",
+      "Tie",
+      "Boot",
+      "Sandal",
+      "Helmet"
+    ]
+  },
+  {
+    "category": "Clothing",
+    "word": "Pajamas",
+    "lookalike": "Nightgown",
+    "decoys": [
+      "Boot",
+      "Sandal",
+      "Helmet",
+      "Uniform",
+      "Cape"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Pencil",
+    "lookalike": "Pen",
+    "decoys": [
+      "Stapler",
+      "Scissors",
+      "Folder",
+      "Highlighter",
+      "Calculator"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Ruler",
+    "lookalike": "Protractor",
+    "decoys": [
+      "Folder",
+      "Highlighter",
+      "Calculator",
+      "Clipboard",
+      "Globe"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Notebook",
+    "lookalike": "Binder",
+    "decoys": [
+      "Calculator",
+      "Clipboard",
+      "Globe",
+      "Bell",
+      "Paper Clip"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Backpack",
+    "lookalike": "Lunchbox",
+    "decoys": [
+      "Globe",
+      "Bell",
+      "Paper Clip",
+      "Crayon",
+      "Stapler"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Eraser",
+    "lookalike": "Sharpener",
+    "decoys": [
+      "Paper Clip",
+      "Crayon",
+      "Stapler",
+      "Scissors",
+      "Folder"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Chalkboard",
+    "lookalike": "Whiteboard",
+    "decoys": [
+      "Stapler",
+      "Scissors",
+      "Folder",
+      "Highlighter",
+      "Calculator"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Homework",
+    "lookalike": "Worksheet",
+    "decoys": [
+      "Folder",
+      "Highlighter",
+      "Calculator",
+      "Clipboard",
+      "Globe"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Lecture",
+    "lookalike": "Seminar",
+    "decoys": [
+      "Calculator",
+      "Clipboard",
+      "Globe",
+      "Bell",
+      "Paper Clip"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Locker",
+    "lookalike": "Desk",
+    "decoys": [
+      "Globe",
+      "Bell",
+      "Paper Clip",
+      "Crayon",
+      "Stapler"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Diploma",
+    "lookalike": "Report Card",
+    "decoys": [
+      "Paper Clip",
+      "Crayon",
+      "Stapler",
+      "Scissors",
+      "Folder"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Ink",
+    "lookalike": "Chalk",
+    "decoys": [
+      "Stapler",
+      "Scissors",
+      "Folder",
+      "Highlighter",
+      "Calculator"
+    ]
+  },
+  {
+    "category": "School",
+    "word": "Textbook",
+    "lookalike": "Workbook",
+    "decoys": [
+      "Folder",
+      "Highlighter",
+      "Calculator",
+      "Clipboard",
+      "Globe"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Fog",
+    "lookalike": "Mist",
+    "decoys": [
+      "Gust",
+      "Haze",
+      "Monsoon",
+      "Cyclone",
+      "Smog"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Hail",
+    "lookalike": "Sleet",
+    "decoys": [
+      "Monsoon",
+      "Cyclone",
+      "Smog",
+      "Forecast",
+      "Radar"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Drizzle",
+    "lookalike": "Downpour",
+    "decoys": [
+      "Smog",
+      "Forecast",
+      "Radar",
+      "Umbrella",
+      "Overcast"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Blizzard",
+    "lookalike": "Ice Storm",
+    "decoys": [
+      "Radar",
+      "Umbrella",
+      "Overcast",
+      "Sunbeam",
+      "Gust"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Thunder",
+    "lookalike": "Lightning",
+    "decoys": [
+      "Overcast",
+      "Sunbeam",
+      "Gust",
+      "Haze",
+      "Monsoon"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Tornado",
+    "lookalike": "Hurricane",
+    "decoys": [
+      "Gust",
+      "Haze",
+      "Monsoon",
+      "Cyclone",
+      "Smog"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Drought",
+    "lookalike": "Flood",
+    "decoys": [
+      "Monsoon",
+      "Cyclone",
+      "Smog",
+      "Forecast",
+      "Radar"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Humidity",
+    "lookalike": "Heatwave",
+    "decoys": [
+      "Smog",
+      "Forecast",
+      "Radar",
+      "Umbrella",
+      "Overcast"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Wind",
+    "lookalike": "Breeze",
+    "decoys": [
+      "Radar",
+      "Umbrella",
+      "Overcast",
+      "Sunbeam",
+      "Gust"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Frost",
+    "lookalike": "Dew",
+    "decoys": [
+      "Overcast",
+      "Sunbeam",
+      "Gust",
+      "Haze",
+      "Monsoon"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Thunderstorm",
+    "lookalike": "Shower",
+    "decoys": [
+      "Gust",
+      "Haze",
+      "Monsoon",
+      "Cyclone",
+      "Smog"
+    ]
+  },
+  {
+    "category": "Weather",
+    "word": "Thermometer",
+    "lookalike": "Barometer",
+    "decoys": [
+      "Monsoon",
+      "Cyclone",
+      "Smog",
+      "Forecast",
+      "Radar"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Hammer",
+    "lookalike": "Mallet",
+    "decoys": [
+      "File",
+      "Awl",
+      "Rivet",
+      "Hook",
+      "Pulley"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Screwdriver",
+    "lookalike": "Allen Key",
+    "decoys": [
+      "Rivet",
+      "Hook",
+      "Pulley",
+      "Lever",
+      "Anvil"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Wrench",
+    "lookalike": "Pliers",
+    "decoys": [
+      "Pulley",
+      "Lever",
+      "Anvil",
+      "Solder",
+      "Tweezers"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Saw",
+    "lookalike": "Axe",
+    "decoys": [
+      "Anvil",
+      "Solder",
+      "Tweezers",
+      "Magnifier",
+      "File"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Drill",
+    "lookalike": "Sander",
+    "decoys": [
+      "Tweezers",
+      "Magnifier",
+      "File",
+      "Awl",
+      "Rivet"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Tape Measure",
+    "lookalike": "Yardstick",
+    "decoys": [
+      "File",
+      "Awl",
+      "Rivet",
+      "Hook",
+      "Pulley"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Ladder",
+    "lookalike": "Step Stool",
+    "decoys": [
+      "Rivet",
+      "Hook",
+      "Pulley",
+      "Lever",
+      "Anvil"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Shovel",
+    "lookalike": "Rake",
+    "decoys": [
+      "Pulley",
+      "Lever",
+      "Anvil",
+      "Solder",
+      "Tweezers"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Screw",
+    "lookalike": "Nail",
+    "decoys": [
+      "Anvil",
+      "Solder",
+      "Tweezers",
+      "Magnifier",
+      "File"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Crowbar",
+    "lookalike": "Chisel",
+    "decoys": [
+      "Tweezers",
+      "Magnifier",
+      "File",
+      "Awl",
+      "Rivet"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Level",
+    "lookalike": "Plumb Line",
+    "decoys": [
+      "File",
+      "Awl",
+      "Rivet",
+      "Hook",
+      "Pulley"
+    ]
+  },
+  {
+    "category": "Tools",
+    "word": "Paint Brush",
+    "lookalike": "Roller",
+    "decoys": [
+      "Rivet",
+      "Hook",
+      "Pulley",
+      "Lever",
+      "Anvil"
+    ]
+  }
+]
