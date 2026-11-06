@@ -5,7 +5,7 @@ Platform expansion phases 2-6, branch `Games-expansion`. Phase 1 audit is
 committed (`docs/EXPANSION_AUDIT.md`). 36 games in the tree, 22 enabled,
 15 retired but kept (two overlap in the counts via catalog aliases).
 
-Last gate: `npm test` 774/774 · typecheck clean · lint 0 errors (948 warnings)
+Last gate: `npm test` 822/822 · typecheck clean · lint 0 errors (954 warnings)
 · `npm run probe` 130 runs, 0 issues.
 
 ## Done
@@ -28,15 +28,18 @@ Last gate: `npm test` 774/774 · typecheck clean · lint 0 errors (948 warnings)
   between-games and finale cards; session vote UI removed.
 - Phase 6 probe: every enabled game at every valid count (130 runs), with
   `--all` for retired games. Probe 0 issues.
+- Phase 6 secrets: `tests/tv-secrets.test.ts` scans every enabled game at its
+  min and max count — hole cards, roles, secret words, lookalikes, private
+  prompts and unrevealed answers stay off the TV payload in every hidden
+  phase; a coverage matrix fails if a newly enabled game is not scanned.
 
 ## In progress
 Phase 6 verification.
 
 ## Next three actions
-1. TV secret scanner tests for every hidden-phase payload across games.
-2. 3-4 score parity fixtures, scaling bounds, disconnect/rejoin matrix,
+1. 3-4 score parity fixtures, scaling bounds, disconnect/rejoin matrix,
    layout checks (1080p / 720p / 360dp).
-3. `docs/PLAYER_COUNTS.md`, decisions/HANDOFF updates, final critic.
+2. `docs/PLAYER_COUNTS.md`, decisions/HANDOFF updates, final critic.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: it picks a random starting letter and
