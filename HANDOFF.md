@@ -7,10 +7,10 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Unified the paper visual system across all 22 TVs and the host: one 32px
-skin-display header, white cards with ink text on every stock, no duplicate
-ticker when a game owns a score rail, and a full pass over the shelf, Rumble,
-finale, pause, settings and interlude.
+Rebuilt the Archery TV as a paper range: sky/field scene, paper-cutout archer
+with bow and quiver, tripod target, sun and clouds, distance markers, a proper
+turn-ticket strip and a labelled power meter, on top of the unified header
+system across all 22 TVs.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
@@ -44,6 +44,10 @@ finale, pause, settings and interlude.
   `showsScores` turns off the platform ticker for the 20 games that already
   draw a score rail (only Bracket and Mind Meld keep it); the waiting panel no
   longer repeats the phase copy or overflows with eight long names.
+- **Archery**: the empty card + stick figure is gone. The range is now a paper
+  scene with a big paper archer (tunic, cap, bow, quiver), a tripod target,
+  sun/clouds, distance ticks, grass, turn tickets and a POWER meter; all text
+  stays inside the canvas at 1280 and 1920.
 - **Host polish**: the game-box shelf tape moved clear of the kicker, Rumble
   playlists use a 3-column grid plus a "How a Rumble works" note, the Rumble
   sheet covers the launch bar, and the pause Wait button is paper/ink.

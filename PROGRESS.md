@@ -47,6 +47,15 @@ screen renderer and is skinned in the paper system.
 - Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
+## Archery rebuild
+
+`games/archery/screen.ts` now draws a paper range scene instead of an empty
+white card: sky and field bands, paper sun/clouds, a picket-fence line of
+distance markers, a tripod target, a paper-cutout archer with tunic/cap/bow/
+quiver, a labelled POWER meter, a HOLD/PULL/RELEASE tag above the archer, and
+a paper ticket strip for the turn order. The old stick figure and 11px lane
+bars are gone. Re-shot at 1280/1920.
+
 ## Verification
 
 - `npx tsc --noEmit` — clean.
