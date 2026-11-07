@@ -93,29 +93,29 @@ describe("game logic regressions", () => {
     assert.ok(s.holeStrokes[0] <= par + 4, `hole strokes capped (got ${s.holeStrokes[0]})`);
   });
 
-  test("darts: the slider aim decides the throw, not random chance", async () => {
+  test("darts: the timing lock decides the throw, not random chance", async () => {
     const plugin = (await import("../games/darts/server.ts")).default;
     const players = mk(1);
     const inst = plugin.onStart(room("darts", players), players);
     const s = inst.state as any;
 
-    // Dead centre is the bull.
-    plugin.onInput(inst, "p0", { slider: { axis: "x", value: 0.5 } });
-    plugin.onInput(inst, "p0", { slider: { axis: "y", value: 0.5 } });
+    // Half a sweep parks each marker dead centre: lock X, then Y, for the bull.
+    plugin.onTick(inst, 600);
+    plugin.onInput(inst, "p0", { action: "action" });
+    plugin.onTick(inst, 600);
     plugin.onInput(inst, "p0", { action: "action" });
 
     assert.strictEqual(s.throws.length, 1, "the throw must be recorded");
-    assert.strictEqual(s.throws[0].score, 50, "centre aim scores the bull");
+    assert.strictEqual(s.throws[0].score, 50, "locked centre scores the bull");
     assert.strictEqual(s.scores[0], 451, "501 minus 50");
 
-    // Aim at the far edge: outside the board, no score.
-    plugin.onInput(inst, "p0", { slider: { axis: "x", value: 1 } });
-    plugin.onInput(inst, "p0", { slider: { axis: "y", value: 1 } });
+    // A fresh dart arms at 0,0: locking both ends throws off the board.
     plugin.onInput(inst, "p0", { action: "action" });
-    assert.strictEqual(s.throws[1].score, 0, "aiming off the board scores nothing");
+    plugin.onInput(inst, "p0", { action: "action" });
+    assert.strictEqual(s.throws[1].score, 0, "the far corner is a miss");
 
-    // Slider input alone must never throw.
-    plugin.onInput(inst, "p0", { slider: { axis: "x", value: 0.2 } });
+    // Slider input alone must never lock an axis or throw.
+    plugin.onInput(inst, "p0", { slider: { axis: "x", value: 0.5 } });
     assert.strictEqual(s.throws.length, 2, "moving a slider is not a throw");
   });
 

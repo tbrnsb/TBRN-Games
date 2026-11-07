@@ -1041,6 +1041,13 @@
     }
     .slider-readout { font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
     .slider-track.is-disabled { opacity: .5; }
+    .slider-track.is-readonly { cursor: default; }
+    /* Server-driven markers (darts timing lock): a locked axis reads as fixed. */
+    .slider-wrap.locked .slider-label { color: var(--accent, #ffd166); }
+    .slider-wrap.locked .slider-label::after { content: " · LOCKED"; }
+    .slider-wrap.locked .slider-track { border-color: var(--accent, #ffd166); box-shadow: inset 0 0 0 1px var(--accent, #ffd166); }
+    .slider-wrap.locked .slider-knob { background: var(--accent, #ffd166); box-shadow: 0 0 0 3px rgba(255, 209, 102, .25); }
+    .slider-wrap.locked .slider-readout { color: var(--accent, #ffd166); }
 
     .dual-slider { display: flex; flex-direction: column; gap: 12px; padding: 8px; }
     .dual-hint { font-size: 13px; color: var(--muted); text-align: center; }

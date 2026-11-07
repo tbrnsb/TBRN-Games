@@ -697,11 +697,30 @@ function attachSlider(track: HTMLElement, axis: "x" | "y", onInput: (input: unkn
   );
 }
 
-function renderSliderBlock(cls: string, axis: "x" | "y", value: number, label: string, readout: string, disabled: boolean): string {
+interface SliderBlockOptions {
+  disabled: boolean;
+  /** Server-owned marker: draw it, never attach a drag handler. */
+  readOnly?: boolean;
+  /** The axis has been locked in and reads as fixed. */
+  locked?: boolean;
+}
+
+function renderSliderBlock(cls: string, axis: "x" | "y", value: number, label: string, readout: string, options: SliderBlockOptions): string {
+  const classes = [
+    "slider-wrap",
+    axis,
+    cls,
+    options.locked ? "locked" : "",
+  ].filter(Boolean).join(" ");
+  const trackClasses = [
+    "slider-track",
+    options.disabled ? "is-disabled" : "",
+    options.readOnly ? "is-readonly" : "",
+  ].filter(Boolean).join(" ");
   return `
-    <div class="slider-wrap ${axis} ${cls}">
+    <div class="${classes}">
       ${label ? `<div class="slider-label">${escapeHtml(label)}</div>` : ""}
-      <div class="slider-track ${disabled ? "is-disabled" : ""}" style="--v:${value}">
+      <div class="${trackClasses}" style="--v:${value}">
         <div class="slider-fill"></div>
         <div class="slider-knob" style="--v:${value}"></div>
       </div>
@@ -714,7 +733,7 @@ export function createSliderLayout(): ControllerLayout {
     type: "slider",
     render(container, state, onInput) {
       const v = sliderView(state);
-      container.innerHTML = renderSliderBlock("", v.axis, v.value, v.label, v.readout, v.disabled);
+      container.innerHTML = renderSliderBlock("", v.axis, v.value, v.label, v.readout, { disabled: v.disabled });
       const track = container.querySelector<HTMLElement>(".slider-track");
       if (track) attachSlider(track, v.axis, onInput, v.disabled);
     },
@@ -734,14 +753,28 @@ export function createSliderLayout(): ControllerLayout {
 
 // --- Dual slider (horizontal + vertical, darts) ---
 
-function dualView(state: unknown): { x: SliderView; y: SliderView; actionLabel: string; disabled: boolean; hint: string } {
+interface DualSliderView {
+  x: SliderView;
+  y: SliderView;
+  xLocked: boolean;
+  yLocked: boolean;
+  actionLabel: string;
+  disabled: boolean;
+  readOnly: boolean;
+  hint: string;
+}
+
+function dualView(state: unknown): DualSliderView {
   const s = recordOf(recordOf(state).sliders);
   const read = (axis: "x" | "y"): SliderView => sliderView({ slider: { axis, ...recordOf(s[axis]) } });
   return {
     x: read("x"),
     y: read("y"),
+    xLocked: recordOf(s.x).locked === true,
+    yLocked: recordOf(s.y).locked === true,
     actionLabel: typeof s.actionLabel === "string" ? s.actionLabel : "THROW",
     disabled: s.disabled === true,
+    readOnly: s.readOnly === true,
     hint: typeof s.hint === "string" ? s.hint : "",
   };
 }
@@ -754,15 +787,19 @@ export function createDualSliderLayout(): ControllerLayout {
       container.innerHTML = `
         <div class="dual-slider">
           ${v.hint ? `<div class="dual-hint">${escapeHtml(v.hint)}</div>` : ""}
-          ${renderSliderBlock("axis-x", "x", v.x.value, v.x.label, v.x.readout, v.disabled)}
-          ${renderSliderBlock("axis-y", "y", v.y.value, v.y.label, v.y.readout, v.disabled)}
+          ${renderSliderBlock("axis-x", "x", v.x.value, v.x.label, v.x.readout, { disabled: v.disabled, readOnly: v.readOnly, locked: v.xLocked })}
+          ${renderSliderBlock("axis-y", "y", v.y.value, v.y.label, v.y.readout, { disabled: v.disabled, readOnly: v.readOnly, locked: v.yLocked })}
           <button class="action-btn primary dual-action" ${v.disabled ? "disabled" : ""}>${escapeHtml(v.actionLabel)}</button>
         </div>`;
-      const tracks = container.querySelectorAll<HTMLElement>(".slider-track");
-      tracks.forEach((track) => {
-        const axis = track.parentElement?.classList.contains("axis-y") ? "y" : "x";
-        attachSlider(track, axis, onInput, v.disabled);
-      });
+      // A read-only pair is server-driven (darts timing lock): the phone must
+      // never drag it, so the tracks are painted only by `update`.
+      if (!v.readOnly) {
+        const tracks = container.querySelectorAll<HTMLElement>(".slider-track");
+        tracks.forEach((track) => {
+          const axis = track.parentElement?.classList.contains("axis-y") ? "y" : "x";
+          attachSlider(track, axis, onInput, v.disabled);
+        });
+      }
       container.querySelector(".dual-action")?.addEventListener("click", () => {
         if (!v.disabled) onInput({ action: "action" });
       });
@@ -772,14 +809,17 @@ export function createDualSliderLayout(): ControllerLayout {
       const tracks = Array.from(container.querySelectorAll<HTMLElement>(".slider-track"));
       for (const track of tracks) {
         const axis = track.parentElement?.classList.contains("axis-y") ? "y" : "x";
-        if (!isDragging(track)) paintSlider(track, axis === "y" ? v.y.value : v.x.value);
+        // Read-only markers animate from the server state every frame.
+        if (v.readOnly || !isDragging(track)) paintSlider(track, axis === "y" ? v.y.value : v.x.value);
       }
+      container.querySelectorAll<HTMLElement>(".slider-wrap.axis-x").forEach((el) => el.classList.toggle("locked", v.xLocked));
+      container.querySelectorAll<HTMLElement>(".slider-wrap.axis-y").forEach((el) => el.classList.toggle("locked", v.yLocked));
       const readouts = container.querySelectorAll(".slider-readout");
       readouts.forEach((el, i) => { el.textContent = i === 1 ? v.y.readout : v.x.readout; });
     },
     signature(state) {
       const v = dualView(state);
-      return `dual:${v.x.label}:${v.y.label}:${v.actionLabel}:${v.disabled}`;
+      return `dual:${v.x.label}:${v.y.label}:${v.actionLabel}:${v.disabled}:${v.readOnly}`;
     },
   };
 }

@@ -56,13 +56,21 @@ only) · `npm run probe` 130 runs, 0 issues.
   all 22 games treat `options.rounds` as authoritative, so presets run the
   brief's shorter Rumble lengths. Standalone play is unchanged.
 
+- Darts aim rebuilt (human request): a horizontal marker sweeps at constant
+  speed and a press locks X, then the vertical marker sweeps and a press
+  locks Y, throwing at that point. 3 darts a turn, 501 and the scoring maths
+  unchanged; `AIM_SWEEP_MS = 1200`; the dual-slider controller is reused
+  read-only; the TV draws the moving and locked guides; `tests/darts.test.ts`
+  covers the state machine, rings, rotation, cap, options.rounds and the
+  reflection edge.
+
 ## In progress
-None. Final verification passed: final-verifier ACCEPT, critic 9.5/10.
-Pre-existing minor follow-ups: startGameLoop spectator fallback, rounding
-divergence, local type re-declarations, `removeAllListeners("warning")`.
+Darts roster swap: enable darts, disable archery (code kept in the tree),
+replace archery with darts in the two presets, and update every Phase 6
+coverage suite plus PLAYER_COUNTS/GAMES.md/DECISIONS.
 
 ## Next three actions
-1. Queued design-session handoff prompt (separate paper-overhaul worktree).
+1. Roster swap + suite coverage + docs; full gate.
 2. Final report to the human.
 3. Human gates: review, push, merge.
 
