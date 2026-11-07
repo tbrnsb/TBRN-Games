@@ -22,6 +22,16 @@ screen renderer and is skinned in the paper system.
   Frankenanswers, Dumb Inventions, Stowaway, Fakin' It, Blather Round,
   Slide Roulette, Drawful, Slogan Shirts, Slingshot Arena.
 - **Retired games** (15) have no lobby entry and were not migrated.
+- **Post-merge polish**: the 8-seat roster and finale fit 1280x720, shelf names
+  wrap instead of ellipsising, the picker has a visible scrollbar, the canvas
+  controller gained a Done action, and the washi tape moved off the game title.
+- **Playfield repaints**: Poker runs on green felt paper with a paper table,
+  Tap Race uses a printed cream track with ink lane markings, and Guess the
+  Imposter's dark panels/pills became paper. Racing and Imposter accent inks
+  were re-picked for legibility on their papers.
+- **Legacy removal**: the pre-expansion `src/`, `test/`, `public/` trees and the
+  stale `tsconfig.build.json` are gone; the live paths are `server/`, `tests/`,
+  `client/`.
 
 ## Verification
 
@@ -35,8 +45,12 @@ screen renderer and is skinned in the paper system.
   - `design/shots-enabled` — 11 existing enabled games
   - `design/shots-new` — 11 new enabled games
   - `design/shots-a/b/c` — pre-merge 18-game sweep
-- Browser-verified: 8-seat lobby, 22-game shelf, Rumble preset/slot board,
-  paper controller quiz, new game TV boards, 1920/1280 and 390 phone.
+- Browser-verified: 8-seat lobby, 22-game shelf (1280 and 1920), Rumble preset
+  and slot board, Rumble interlude after a real game, finale podium/leaderboard,
+  paper controller quiz, live Slogan Shirts sketch with the Done action, and the
+  11 new game TV boards at 1280/1920 and 390 phone.
+- Critic: 9/10 before the polish; a follow-up review of the contrast fix found
+  no defects.
 
 ## Renderer interface
 

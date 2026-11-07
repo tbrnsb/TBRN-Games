@@ -36,6 +36,11 @@ alleys, finale, controllers and the remaining dark playfields.
   `tsconfig`, CI and `npm test`.
 - **Background fix**: the washi tape no longer covers the top-left game title.
 
+## Verification
+`npx tsc --noEmit` clean; `npm run lint` 0 errors; `npm test` 1018/1018;
+`npm run assets:check` 344 files; `npm run check:design` PASS. Critic follow-up on
+the contrast fix found no defects.
+
 ## In progress
 - None. Working tree is clean at the last commit.
 
