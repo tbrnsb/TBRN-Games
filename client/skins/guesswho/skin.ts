@@ -5,7 +5,7 @@ const skin: Skin = {
   title: "Guess Who",
   vibe: "Detective case file with polaroid mugshots",
   paper: "kraft",
-  inks: ["cobalt","tomato"] as [Skin["inks"][0], Skin["inks"][1]],
+  inks: ["cobalt","ink"] as [Skin["inks"][0], Skin["inks"][1]],
   fonts: { display: "\"Special Elite\", cursive", body: "\"Atkinson Hyperlegible\", sans-serif" },
   props: ["paperclip","tape","coffee-ring"],
   enter: "slide-tilt",

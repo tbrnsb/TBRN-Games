@@ -7,8 +7,9 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Paper polish on the host shelf, alleys, finale, controllers and the remaining
-dark playfields (poker, racing, Guess the Imposter).
+Skin-contrast fix (Racing, Guess the Imposter) and removal of the stale
+`tsconfig.build.json`, on top of the paper polish commit for the host shelf,
+alleys, finale, controllers and the remaining dark playfields.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/

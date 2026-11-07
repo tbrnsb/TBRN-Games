@@ -5,7 +5,7 @@ const skin: Skin = {
   title: "Racing",
   vibe: "Vintage Grand Prix poster",
   paper: "cream",
-  inks: ["tangerine","teal"] as [Skin["inks"][0], Skin["inks"][1]],
+  inks: ["cobalt","teal"] as [Skin["inks"][0], Skin["inks"][1]],
   fonts: { display: "\"Anton\", cursive", body: "\"Atkinson Hyperlegible\", sans-serif" },
   props: ["torn-edge","scribble","star"],
   enter: "slide-tilt",
