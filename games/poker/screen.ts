@@ -354,13 +354,17 @@ function drawTable(
 
   // Pots. One large pill when there is a single pot; a compact row list when
   // side pots exist, so every all-in level stays visible on the TV.
+  // Anchor the pot below the community cards: the old fixed centre made the
+  // preflop card backs collide with the POT / SIDE / current-bet stack.
+  const cardsBottom = cardsY + cardH;
+  const potTop = Math.max(cy + feltRY * 0.30, cardsBottom + scaledSize(26, scale));
+  const potY = potTop + scaledSize(24, scale);
+  let infoY = potY;
   const pots = state.pots.length > 0
     ? state.pots
     : state.pot > 0
       ? [{ amount: state.pot, label: "POT" }]
       : [];
-  const potY = cy + feltRY * 0.36;
-  let infoY = potY;
 
   if (pots.length <= 1) {
     const potText = pots[0] ? String(pots[0].amount) : "—";
@@ -390,7 +394,7 @@ function drawTable(
     ctx.fillText(potText, cx + potW / 2 - scaledSize(18, scale), potY + 1);
     infoY = potY + scaledSize(28, scale);
   } else {
-    infoY = drawPotRows(ctx, cx, cy + scaledSize(16, scale), pots, scale, area.width * 0.72);
+    infoY = drawPotRows(ctx, cx, potTop, pots, scale, area.width * 0.72);
   }
 
   // Current bet

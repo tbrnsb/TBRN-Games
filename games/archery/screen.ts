@@ -254,7 +254,7 @@ function drawRange(
   now: number,
 ): void {
   const range = rangeRect(width, height, scale);
-  drawBentoCard(ctx, { x: range.x, y: range.y, width: range.width, height: range.height }, { stroke: colors.border });
+  drawBentoCard(ctx, { x: range.x, y: range.y, width: range.width, height: range.height }, { stroke: colors.border, tape: false });
 
   const inset = Math.max(3, scaledSize(4, scale));
   const innerX = range.x + inset;
@@ -921,18 +921,4 @@ function drawRail(
   }));
   drawScoreboard(ctx, rect, entries, { title: "SCORES", scale });
 
-  // Round pips.
-  const pipY = rect.y + rect.height + scaledSize(18, scale);
-  for (let i = 0; i < state.maxRounds; i++) {
-    const px = rect.x + scaledSize(6, scale) + i * scaledSize(18, scale);
-    ctx.fillStyle = i < state.round - 1 ? colors.magenta : i === state.round - 1 ? colors.cyan : "rgba(29,27,38,0.16)";
-    ctx.beginPath();
-    ctx.arc(px, pipY, scaledSize(4, scale), 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.font = `600 ${scaledSize(12, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(`Round ${state.round}/${state.maxRounds}`, rect.x + scaledSize(6 + state.maxRounds * 18, scale), pipY);
 }

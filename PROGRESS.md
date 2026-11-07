@@ -47,6 +47,16 @@ screen renderer and is skinned in the paper system.
 - Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
+## Final visual review
+
+The image-capable critic scored 8/10, then 9/10, then **10/10** after:
+removing the zero-progress bar dot, deleting the tiny phase caption under the
+score rail, moving the bento tape top-right (Archery range opts out), giving
+Bracket a paper timer chip, anchoring the Poker pot below the community cards,
+making the pause veil near-opaque and the Rumble sheet full-width, and
+regenerating the finish screens. Evidence: `design/shots-v5/`,
+`design/host-shots/`, `design/review/batches/*-v6.png`.
+
 ## Victory animation
 
 Every game now ends on a shared paper victory screen: winner card with the

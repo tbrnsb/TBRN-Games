@@ -7,11 +7,12 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Added a shared finish celebration for every game: the winner (highest score,
-or the game's declared winner) gets a paper winner card, sorted standings and
-confetti after the final frame. The 11 paper-board games, Bracket, Mind Meld
-and Percentile previously froze on their last board; the eight legacy
-renderers keep their existing victory screens.
+Final visual review pass: zero-progress bars no longer draw a stray dot, the
+tiny phase captions under score rails are gone, card tape moved top-right
+(with an opt-out for the Archery range), Bracket's timer is a header chip, the
+Poker pot sits below the community cards, and the pause veil / Rumble sheet
+cover their surfaces cleanly. Image-capable critic: **10/10** after three
+rounds.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
@@ -66,11 +67,12 @@ renderers keep their existing victory screens.
 
 ## Verification
 `npx tsc --noEmit` clean; `npm run lint` 0 errors; `npm test` 1018/1018;
-`npm run assets:check` 344 files; `npm run check:design` PASS. Critic round 1
-9/10 (only the intentional `cardText` token was questioned); round 2 after the
-clarification and screenshot audit: **10/10, shippable**.
-Evidence on disk (gitignored): `design/shots-v3/<game>/screen-1280.png`,
-`screen-1920.png`, `controller-390.png`; `design/host-shots/*.png`.
+`npm run assets:check` 344 files; `npm run check:design` PASS.
+Image-capable critic: round 1 8/10 (four concrete defects), round 2 9/10
+(four more, all small), round 3 **10/10 — no remaining visual defects**.
+Evidence on disk (gitignored): `design/shots-v5/<game>/screen-1280.png`,
+`screen-1920.png`, `controller-390.png`, `victory-1280.png`;
+`design/host-shots/*.png`; contact sheets in `design/review/batches/`.
 
 ## In progress
 - None. Working tree is clean at the last commit.

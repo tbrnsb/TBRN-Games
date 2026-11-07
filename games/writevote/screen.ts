@@ -10,7 +10,6 @@ import {
   colors, fonts, scaleForViewport, scaledSize,
   drawSynthwaveBackground,
   drawBentoCard, drawScoreboard,
-  emitScoreBurst, updateParticles, drawParticles,
   createShake, triggerShake, applyShakeTransform,
   createTitleCard, showTitleCard, updateTitleCard, drawTitleCard, isTitleCardDone,
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
@@ -89,7 +88,6 @@ export function renderWritevote(
   try {
     drawSynthwaveBackground(ctx, { width, height, time: now });
     applyShakeTransform(ctx, rs.shake, now);
-    updateParticles(dt);
 
     if (state.phase !== rs.lastPhase || state.round !== rs.lastRound) {
       handlePhaseChange(state, rs, now, width, height);
@@ -117,7 +115,6 @@ export function renderWritevote(
     drawPrompt(ctx, width, height, state, scale);
     drawPhasePanel(ctx, width, height, state, scale, now);
     drawRail(ctx, width, height, state, scale);
-    drawParticles(ctx);
   } finally {
     ctx.restore();
   }
@@ -144,7 +141,6 @@ function handlePhaseChange(
 
   if (state.phase === "reveal") {
     triggerShake(rs.shake, 0.18, now);
-    emitScoreBurst(width * 0.45, height * 0.4, 0, scaleForViewport(width, height));
   }
 
   if (state.finished && state.winner) {
@@ -237,15 +233,17 @@ function drawPrompt(
   const progress = clamp(state.timeLeft / total, 0, 1);
   const barY = rect.y + rect.height - scaledSize(18, scale);
   drawRoundRect(ctx, rect.x + scaledSize(24, scale), barY, rect.width - scaledSize(48, scale), scaledSize(6, scale), scaledSize(3, scale), "rgba(255,255,255,0.08)");
-  drawRoundRect(
-    ctx,
-    rect.x + scaledSize(24, scale),
-    barY,
-    Math.max(scaledSize(6, scale), (rect.width - scaledSize(48, scale)) * progress),
-    scaledSize(6, scale),
-    scaledSize(3, scale),
-    progress > 0.3 ? colors.cyan : colors.danger,
-  );
+  if (progress > 0) {
+    drawRoundRect(
+      ctx,
+      rect.x + scaledSize(24, scale),
+      barY,
+      Math.max(scaledSize(6, scale), (rect.width - scaledSize(48, scale)) * progress),
+      scaledSize(6, scale),
+      scaledSize(3, scale),
+      progress > 0.3 ? colors.cyan : colors.danger,
+    );
+  }
 }
 
 function drawPhasePanel(
@@ -285,7 +283,9 @@ function drawPhasePanel(
   const barX = rect.x + (rect.width - barW) / 2;
   const barY = rect.y + rect.height * 0.62;
   drawRoundRect(ctx, barX, barY, barW, scaledSize(10, scale), scaledSize(5, scale), "rgba(255,255,255,0.08)");
-  drawRoundRect(ctx, barX, barY, Math.max(scaledSize(10, scale), barW * progress), scaledSize(10, scale), scaledSize(5, scale), colors.cyan);
+  if (progress > 0) {
+    drawRoundRect(ctx, barX, barY, Math.max(scaledSize(10, scale), barW * progress), scaledSize(10, scale), scaledSize(5, scale), colors.cyan);
+  }
 
   ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.textMuted;
@@ -534,18 +534,6 @@ function drawRail(
     animatedScore: s.score,
   }));
   drawScoreboard(ctx, rect, entries, { title: "SCORES", scale });
-
-  const labels: Record<string, string> = {
-    writing: "Writing",
-    voting: "Voting",
-    reveal: "Reveal",
-    finished: "Final",
-  };
-  ctx.font = `600 ${scaledSize(13, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(labels[state.phase] ?? "", rail.x + scaledSize(4, scale), rect.y + rect.height + scaledSize(18, scale));
 }
 
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {

@@ -58,6 +58,8 @@ export interface CardOptions {
   radius?: number;
   glow?: string; // accent color for active glow
   padding?: number;
+  /** Set false when a card already has a top-right label the tape would cross. */
+  tape?: boolean;
 }
 
 export function drawBentoCard(
@@ -69,6 +71,7 @@ export function drawBentoCard(
     lineWidth = 3,
     radius: r = radius.card,
     padding = 0,
+    tape = true,
     // `fill` is intentionally ignored: every card is the same light paper so
     // the printed page stays one material. `stroke`/`glow` still carry the
     // per-game state accent (correct answer, active turn, score band).
@@ -100,13 +103,17 @@ export function drawBentoCard(
   ctx.stroke();
 
   // Tape corner, one of the three handmade details on every game screen.
-  ctx.save();
-  ctx.translate(x + 18, y - 8);
-  ctx.rotate(-0.05);
-  ctx.fillStyle = "#E9D7A8";
-  ctx.globalAlpha = 0.9;
-  ctx.fillRect(0, 0, Math.min(120, w * 0.28), 20);
-  ctx.restore();
+  // It sits top-right so it never crosses a left-aligned eyebrow label.
+  if (tape) {
+    const tapeW = Math.min(120, w * 0.28);
+    ctx.save();
+    ctx.translate(x + w - tapeW - 18, y - 8);
+    ctx.rotate(0.05);
+    ctx.fillStyle = "#E9D7A8";
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(0, 0, tapeW, 20);
+    ctx.restore();
+  }
 
   ctx.restore();
 }

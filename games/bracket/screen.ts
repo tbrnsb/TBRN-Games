@@ -151,10 +151,18 @@ function drawHeader(
 
   const seconds = Math.ceil(Math.max(0, state.timerMs) / 1000);
   if (seconds > 0) {
-    ctx.textAlign = "right";
-    ctx.font = `700 ${scaledSize(24, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = seconds <= 10 ? colors.danger : colors.text;
-    ctx.fillText(`${seconds}s`, width - frame.margin, frame.margin + scaledSize(26, scale));
+    // A paper timer chip anchored in the header, not loose text over the page.
+    const label = `${seconds}s`;
+    ctx.font = `700 ${Math.max(14, scaledSize(18, scale))}px ${fonts.title.family}`;
+    const tw = ctx.measureText(label).width + Math.max(22, scaledSize(28, scale));
+    const th = Math.max(28, scaledSize(34, scale));
+    const tx = width - frame.margin - tw;
+    const ty = frame.margin + Math.max(4, scaledSize(6, scale));
+    drawRoundRect(ctx, tx, ty, tw, th, th / 2, "#FBE7A1", colors.border, Math.max(2, scaledSize(2.5, scale)));
+    ctx.fillStyle = seconds <= 10 ? colors.danger : colors.border;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, tx + tw / 2, ty + th / 2 + 1);
   }
 }
 
@@ -232,7 +240,9 @@ function drawWritingPanel(
   const barX = rect.x + (rect.width - barW) / 2;
   const barY = rect.y + rect.height * 0.62;
   drawRoundRect(ctx, barX, barY, barW, scaledSize(10, scale), scaledSize(5, scale), "rgba(255,255,255,0.08)");
-  drawRoundRect(ctx, barX, barY, Math.max(scaledSize(10, scale), barW * progress), scaledSize(10, scale), scaledSize(5, scale), colors.cyan);
+  if (progress > 0) {
+    drawRoundRect(ctx, barX, barY, Math.max(scaledSize(10, scale), barW * progress), scaledSize(10, scale), scaledSize(5, scale), colors.cyan);
+  }
 
   const waiting = state.waitingOn ?? [];
   const hint = waiting.length > 0 ? `Waiting on: ${waiting.join(", ")}` : "Everyone is in — building the bracket…";

@@ -241,8 +241,7 @@ main { flex: 1; min-height: 0; display: flex; }
   padding: 14px 16px 12px;
   overflow: auto;
 }
-.rumble-setup { bottom: 0; }
-.session { bottom: 0; }
+.rumble-setup, .session { inset: 56px 0 0 0; }
 .rumble-setup .setup-check { margin-top: auto; }
 .session-label { color: var(--ink); opacity: .7; }
 .preset-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -294,6 +293,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .champion strong { font-family: var(--font-display); color: var(--ink); }
 
 .interlude { background: rgba(29,27,38,.82); }
+.pause-overlay { background: rgba(29,27,38,.9); backdrop-filter: none; }
 .interlude-card, .pause-card {
   background: var(--paper);
   background-image: var(--paper-texture);
