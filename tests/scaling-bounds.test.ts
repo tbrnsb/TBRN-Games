@@ -273,10 +273,11 @@ const CEILINGS: Record<string, (n: number) => number> = {
   // 244-250, settle 311-328.
   percentile: () => 1000,
 
-  // archery: one arrow per seat per round, proximity score at most 100 at
-  // the centre. games/archery/server.ts:89-94 (archeryScore), shot scoring
-  // at lines 206-208.
-  archery: () => 100,
+  // darts: a countdown game — one round is three darts, and the highest
+  // single-dart score is triple 20 = 60, so 3 x 60 = 180 points scored per
+  // player per round. games/darts/server.ts calculateScore (SECTOR_VALUES,
+  // TRIPLE_OUTER) and the 3-dart turn at resolveThrow.
+  darts: () => 180,
 
   // arena: one round win awards exactly +1 to the nearest puck's seat
   // (endRound fires once per round). games/arena/server.ts:248-259.
@@ -918,32 +919,38 @@ const DRIVEN: Record<string, Drive> = {
 
   // --- Skill games: representative rounds with formula ceilings -------------
 
-  // Representative + formula: land one arrow dead centre (the pattern from
-  // tests/archery.test.ts) — archeryScore(0, 0) is the documented 100
-  // maximum, one arrow per seat per round. Attains ceiling.
-  archery: async (count) => {
-    const plugin = await loadPlugin("archery");
+  // Representative + formula: three darts land on the triple-20 bed (60 each)
+  // in one round. Darts counts down, so the measured value is points scored:
+  // 501 minus the score after the third dart, exactly 180 = the ceiling.
+  // Attains ceiling.
+  darts: async (count) => {
+    const plugin = await loadPlugin("darts");
+    const mod = await loadModule("darts");
+    const sweepMs = Number(mod.AIM_SWEEP_MS ?? 1200);
     const players = makePlayers(count);
-    const inst = plugin.onStart(makeRoom(players, "archery"), players);
+    const inst = plugin.onStart(makeRoom(players, "darts"), players);
     const state = inst.state;
-    assert.equal(state.phase, "aiming", `archery ${count}p: the round starts in aiming`);
-    // Drop an arrow straight onto the target centre so the shot is exact.
-    state.currentPlayer = 0;
-    state.phase = "flying";
-    state.isDrawing = false;
-    state.drawPower = 0;
-    state.arrowX = 0;
-    state.arrowY = 0.001;
-    state.arrowVX = 0;
-    state.arrowVY = -1;
-    state.targetX = 0;
-    state.targetSpeed = 0;
-    plugin.onTick(inst, 16);
-    const shot = state.shots[state.shots.length - 1];
-    assert.ok(shot, `archery ${count}p: the landing tick must record a shot`);
-    assert.equal(shot.score, 100, `archery ${count}p: a centred arrow scores the 100 maximum`);
-    const measured = maxGain(zeros(count), scoresOf(inst));
-    return { measured, expect: 100 };
+    assert.equal(state.phase, "aimX", `darts ${count}p: a round starts on the X sweep`);
+    const start = scoresOf(inst)[0];
+    const throwAt = (markerX: number, markerY: number): void => {
+      const playerId = players[state.currentPlayer as number].id;
+      if (markerX > 0) plugin.onTick(inst, markerX * sweepMs);
+      plugin.onInput(inst, playerId, { action: "action" });
+      if (markerY > 0) plugin.onTick(inst, markerY * sweepMs);
+      plugin.onInput(inst, playerId, { action: "action" });
+    };
+    // x = 102.85 (the triple-20 bed), y = 0. Three darts keep the turn on
+    // seat 0, so all three points land on the measured seat.
+    for (let dart = 0; dart < 3; dart++) throwAt(0.8025, 0.5);
+    const throws = state.throws as Array<{ score: number }>;
+    assert.equal(throws.length, 3, `darts ${count}p: three darts landed`);
+    assert.deepEqual(
+      throws.map((dart) => dart.score),
+      [60, 60, 60],
+      `darts ${count}p: each dart lands on triple 20`,
+    );
+    const measured = start - scoresOf(inst)[0];
+    return { measured, expect: 180 };
   },
 
   // Representative + formula: pin seat 0's puck at the centre and let the
@@ -1053,11 +1060,11 @@ function enabledGames(): string[] {
     .sort();
 }
 
-/** Valid N for a game: max(2, minPlayers) .. maxPlayers, per the catalog. */
+/** Valid N for a game: its manifest minimum through its maximum. */
 function countsFor(game: string): number[] {
   const entry = GAME_CATALOG[game];
   assert.ok(entry, `${game}: no catalog entry`);
-  const min = Math.max(2, entry.minPlayers);
+  const min = entry.minPlayers;
   const out: number[] = [];
   for (let n = min; n <= entry.maxPlayers; n++) out.push(n);
   assert.ok(out.length >= 1, `${game}: empty count range`);

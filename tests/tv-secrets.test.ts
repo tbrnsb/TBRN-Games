@@ -494,6 +494,9 @@ function chooseInput(run: RunState, cs: StateRec, playerId: string, playerIndex:
     }
     case "racing":
       return { tap: true };
+    case "darts":
+      // The timing lock takes one press per axis; sliders are ignored now.
+      return { action: "action" };
     default:
       // Archery and anything else: tap-driven, same as the smoke driver.
       return { tap: true };
@@ -1143,7 +1146,16 @@ const SPECS: Record<string, GameSpec> = {
   archery: {
     id: "archery",
     table: "no-secrets",
-    reason: "Physical aim-and-shoot skill game: arrows, target, power and scores are all public by design.",
+    extra: true,
+    reason: "Disabled but kept in the tree: physical aim-and-shoot skill game; arrows, target, power and scores are all public by design.",
+    secrets: () => [],
+    expectExtraction: false,
+    requirePublicSighting: false,
+  },
+  darts: {
+    id: "darts",
+    table: "no-secrets",
+    reason: "Darts has no private data: the moving aim markers, the locked guides, every throw, the remaining scores and the finish order are public board state.",
     secrets: () => [],
     expectExtraction: false,
     requirePublicSighting: false,
@@ -1260,7 +1272,12 @@ async function runScan(spec: GameSpec, playerCount: number): Promise<void> {
     for (const { playerId, input } of inputs) plugin.onInput(instance, playerId, input);
     plugin.onTick(instance, TICK_MS);
 
-    if (phase === "finished" || screen.finished === true) break;
+    if (phase === "finished" || screen.finished === true) {
+      // A game can end without renaming its state phase (darts leaves
+      // aimX/aimY on state), so count the terminal state as its own phase.
+      phases.add("finished");
+      break;
+    }
   }
 
   // --- Anti-vacuity (task section C) ---------------------------------------
@@ -1351,7 +1368,7 @@ describe("tv secrets: coverage matrix", () => {
     assert.ok(tableB.length >= 14, `table B should cover the answer games, found: ${tableB.join(",")}`);
     assert.deepStrictEqual(
       [...noSecrets].sort(),
-      ["archery", "arena", "racing"],
+      ["archery", "arena", "darts", "racing"],
       "the no-secrets allow-list must stay explicit",
     );
   });

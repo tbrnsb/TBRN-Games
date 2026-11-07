@@ -448,19 +448,22 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
       timers: { guess: 30, bet: 15, reveal: 7 },
     }),
   },
-  archery: {
-    id: "archery",
-    displayName: "Archery",
+  darts: {
+    id: "darts",
+    displayName: "Darts",
     enabled: true,
     kind: "skill",
     minPlayers: 1,
-    maxPlayers: 8,
+    maxPlayers: 4,
     idealMin: 2,
-    idealMax: 8,
-    minutes: { standalone: 2, rumble: 2 },
-    dropoutPolicy: "pause",
+    idealMax: 4,
+    minutes: { standalone: 3, rumble: 3 },
+    dropoutPolicy: "continue",
     contentPacks: [],
-    scale: (_playerCount, mode) => ({ rounds: mode === "rumble" ? 3 : 5 }),
+    // Standalone is the twenty-round 501 game; the Rumble runs eight rounds to
+    // fit the 4-7 minute target. The timing-lock aim and scoring maths are the
+    // same in both modes.
+    scale: (_playerCount, mode) => ({ rounds: mode === "rumble" ? 8 : 20 }),
   },
   arena: {
     id: "arena",
@@ -519,19 +522,19 @@ export const GAME_CATALOG: Record<string, GameCatalogEntry> = {
   },
 
   // --- Disabled, kept in the tree ---
-  darts: {
-    id: "darts",
-    displayName: "Darts",
+  archery: {
+    id: "archery",
+    displayName: "Archery",
     enabled: false,
     kind: "skill",
     minPlayers: 1,
-    maxPlayers: 4,
+    maxPlayers: 8,
     idealMin: 2,
-    idealMax: 4,
-    minutes: { standalone: 3, rumble: 3 },
-    dropoutPolicy: "continue",
+    idealMax: 8,
+    minutes: { standalone: 2, rumble: 2 },
+    dropoutPolicy: "pause",
     contentPacks: [],
-    scale: fixedScale(20),
+    scale: (_playerCount, mode) => ({ rounds: mode === "rumble" ? 3 : 5 }),
   },
   golf: {
     id: "golf",

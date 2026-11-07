@@ -12,18 +12,19 @@ lobby and everyone can play again.
 
 ## Precision & aim
 
-### Archery — 1-8 players
+### Archery — 1-8 players (disabled)
 Hold the button to draw the bow: power builds while you hold. Release to fire. The arrow
 flies with gravity toward a target that slides left and right. Score is how close to the
 target's centre you land, up to 100 per arrow. Five rounds; highest total wins. Release too
 early and the shot is cancelled rather than wasted. Players fire in seat order; at eight the
 TV shows every seat's lane and colours each arrow with the owner's seat colour and glyph.
 
-### Darts — 1-4 players (disabled)
-A horizontal slider aims left/right, a vertical slider aims up/down, THROW fires at that
-exact point on the board. Real dartboard scoring: bull 50, outer bull 25, triple ring ×3,
-double ring ×2, misses 0. Three darts a turn, 501 down to exactly zero ends the match.
-Everyone gets equal turns; a 20-round cap decides by lowest score if nobody checks out.
+### Darts — 1-4 players
+A horizontal marker sweeps the board; press to lock it, then a vertical marker sweeps and a
+second press throws at the crossing point. Real dartboard scoring: bull 50, outer bull 25,
+triple ring ×3, double ring ×2, misses 0. Three darts a turn, 501 down to exactly zero ends
+the match. Everyone gets equal turns; a 20-round cap decides by lowest score if nobody
+checks out. A Rumble runs the same rules over eight rounds.
 
 ### Golf — 1-4 players (disabled)
 A joystick points where you want the ball to go, a power slider sets strength, SHOOT fires.

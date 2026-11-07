@@ -1,0 +1,33 @@
+{
+  "game": "darts",
+  "players": 4,
+  "finished": true,
+  "scores": [
+    0,
+    51,
+    51,
+    51
+  ],
+  "standings": [
+    {
+      "playerId": "p1",
+      "rank": 1,
+      "raw": 51
+    },
+    {
+      "playerId": "p2",
+      "rank": 1,
+      "raw": 51
+    },
+    {
+      "playerId": "p3",
+      "rank": 1,
+      "raw": 51
+    },
+    {
+      "playerId": "p0",
+      "rank": 4,
+      "raw": 0
+    }
+  ]
+}

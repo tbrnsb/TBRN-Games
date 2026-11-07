@@ -251,14 +251,17 @@ function drawBoard(
 ): void {
   const { cx, cy, r } = boardRect(width, height, scale);
 
-  // Spotlight behind the board instead of a big empty card.
-  const halo = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 1.45);
+  // Spotlight behind the board instead of a big empty card. Clamp the glow so
+  // the translucent fill never spills past the canvas at 1080p or 720p; the
+  // layout-fit matrix asserts every fill stays inside the canvas.
+  const haloR = Math.min(r * 1.45, cx, width - cx, cy, height - cy);
+  const halo = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, haloR);
   halo.addColorStop(0, "rgba(255,46,151,0.14)");
   halo.addColorStop(0.65, "rgba(255,46,151,0.05)");
   halo.addColorStop(1, "rgba(255,46,151,0)");
   ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2);
+  ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.strokeStyle = "rgba(0,229,255,0.16)";

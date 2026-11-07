@@ -51,6 +51,7 @@ import survivePlugin from "../games/survive/server.ts";
 import bracketPlugin from "../games/bracket/server.ts";
 import quizPlugin from "../games/quiz/server.ts";
 import sloganshirtsPlugin from "../games/sloganshirts/server.ts";
+import dartsPlugin, { AIM_SWEEP_MS, DARTBOARD_RADIUS } from "../games/darts/server.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DRIVER = join(ROOT, "tests", "parity-driver.ts");
@@ -115,6 +116,15 @@ const EXEMPT: Record<string, string> = {
     "mid-draw, now every designer must tap done before the vote opens " +
     "(bugfix logged in .orchestrator/STATE.md parity run; scoring row " +
     "docs/DECISIONS.md 'Slogan Shirts scoring and cap').",
+  darts:
+    "Aim mechanic rebuilt at the human's 2026-11-08 request: the free dual " +
+    "sliders became a constant-speed two-stage timing lock (X then Y, " +
+    "AIM_SWEEP_MS = 1200, commit 087285d). The 501 scoring maths is unchanged, " +
+    "so the seeded run differs only because the input path changed. Darts is " +
+    "a countdown game: the suite measures points scored (previous - current, " +
+    "clamped >= 0) per round against the 180 ceiling (3 darts x 60), and the " +
+    "scripted probe pins bull 50, outer bull 25, triple 20 = 60, double 20 = " +
+    "40 and a miss 0.",
 };
 
 /** Baseline round count every exempt game must still run at 3-4 players. */
@@ -126,6 +136,7 @@ const EXEMPT_ROUNDS: Record<string, number> = {
   bracket: 2,
   quiz: 10,
   sloganshirts: 2,
+  darts: 20,
 };
 
 /**
@@ -142,6 +153,7 @@ const EXEMPT_CEILINGS: Record<string, (players: number) => number> = {
   bracket: (players) => (players === 4 ? 1600 : 1500),
   quiz: () => 1500,
   sloganshirts: () => 2000,
+  darts: () => 180,
 };
 
 /** Baseline games compared deep-equal: everything on the baseline, minus the exemptions. */
@@ -207,21 +219,36 @@ interface RoundGains {
 }
 
 /**
+ * Countdown games score by subtracting from a starting total, so the suite's
+ * usual "score after - score before" gain is negative for them. These games
+ * are measured as points SCORED instead: previous total minus current total,
+ * clamped at zero, with the first round measured against the game's starting
+ * total. Only darts is a countdown game today; every other game keeps the
+ * ordinary gain metric.
+ */
+const COUNTDOWN_GAMES = new Set<string>(["darts"]);
+const COUNTDOWN_START: Record<string, number> = { darts: 501 };
+
+/**
  * Fold the driver's tagged score snapshots into per-seat gains per round:
  * every snapshot in one round tag contributes its own delta, so a round that
  * scores in two steps (Stowaway's catch guess) is still checked as steps
  * while a round's total is the sum of its group against the previous group.
  */
-function perRoundGains(history: readonly ParityScoreSnapshot[], players: number): RoundGains[] {
+function perRoundGains(history: readonly ParityScoreSnapshot[], players: number, game: string): RoundGains[] {
+  const countdown = COUNTDOWN_GAMES.has(game);
   const groups: Array<{ round: number; last: number[] }> = [];
   for (const entry of history) {
     const top = groups[groups.length - 1];
     if (top && top.round === entry.round) top.last = entry.scores;
     else groups.push({ round: entry.round, last: [...entry.scores] });
   }
-  let previous: number[] = new Array<number>(players).fill(0);
+  const start = countdown ? (COUNTDOWN_START[game] ?? 0) : 0;
+  let previous: number[] = new Array<number>(players).fill(start);
   return groups.map((group) => {
-    const gains = group.last.map((score, index) => score - previous[index]);
+    const gains = group.last.map((score, index) =>
+      countdown ? Math.max(0, previous[index] - score) : score - previous[index],
+    );
     previous = group.last;
     return { round: group.round, gains };
   });
@@ -383,7 +410,7 @@ for (const game of Object.keys(EXEMPT)) {
         `${game} ${players}p: configured rounds must be the baseline count`,
       );
 
-      const gains = perRoundGains(run.scoreHistory, players);
+      const gains = perRoundGains(run.scoreHistory, players, game);
       assert.ok(gains.length >= 1, `${game} ${players}p: the run must produce scored rounds`);
       if (game !== "quiz") {
         // Every non-quiz round settles with a payout, so each round must show.
@@ -454,6 +481,7 @@ const probe: Record<string, ProbePlugin> = {
   bracket: probePlugin(bracketPlugin),
   quiz: probePlugin(quizPlugin),
   sloganshirts: probePlugin(sloganshirtsPlugin),
+  darts: probePlugin(dartsPlugin),
 };
 
 function makeProbePlayers(count: number): ProbePlayer[] {
@@ -1075,3 +1103,64 @@ test("probe: sloganshirts @ 5p caps a two-shirt author at exactly 1500", () => {
   );
   assert.equal(inst.state.scores[0], MAX_ROUND_SCORE, "the stacked author lands on exactly 1500");
 });
+
+// --- Darts probes -----------------------------------------------------------
+
+/** Marker position (0..1) for a board coordinate in units (±DARTBOARD_RADIUS). */
+function dartsMarker(coordinate: number): number {
+  return (coordinate / DARTBOARD_RADIUS + 1) / 2;
+}
+
+/**
+ * Aim from rest at one board point and press once per axis. Both markers
+ * reset to 0 after every throw, so a known tick delta positions a marker
+ * exactly: a full 0..1 traverse is AIM_SWEEP_MS = 1200 ms.
+ */
+function dartsThrow(inst: ProbeInstance, x: number, y: number): number {
+  const state = inst.state;
+  const playerId = inst.players[state.currentPlayer as number].id;
+  const markerX = dartsMarker(x);
+  const markerY = dartsMarker(y);
+  if (markerX > 0) probe.darts.onTick(inst, markerX * AIM_SWEEP_MS);
+  probe.darts.onInput(inst, playerId, { action: "action" });
+  if (markerY > 0) probe.darts.onTick(inst, markerY * AIM_SWEEP_MS);
+  probe.darts.onInput(inst, playerId, { action: "action" });
+  const throws = state.throws as Array<{ score: number }>;
+  return throws[throws.length - 1].score;
+}
+
+for (const count of [3, 4]) {
+  test(`probe: darts @ ${count}p maps locked positions to the board score`, () => {
+    const { inst } = startProbe("darts", count);
+    const state = inst.state;
+    assert.equal(state.phase, "aimX", "a fresh dart starts on the horizontal sweep");
+
+    // bull 50, outer bull 25, triple-20 60, double-20 40 and a miss 0.
+    const targets: Array<[number, number, number]> = [
+      [0, 0, 50],
+      [10, 0, 25],
+      [103, 0, 60],
+      [166, 0, 40],
+      [-170, 34, 0],
+    ];
+    const thrown = targets.map(([x, y, expected]) => {
+      const score = dartsThrow(inst, x, y);
+      assert.equal(score, expected, `dart at (${x}, ${y}) must score ${expected}`);
+      return score;
+    });
+    assert.deepEqual(thrown, [50, 25, 60, 40, 0], "the throw-score mapping is exact");
+    assert.deepEqual(
+      (state.throws as Array<{ score: number }>).map((t) => t.score),
+      [50, 25, 60, 40, 0],
+      "every recorded throw keeps the mapped score",
+    );
+
+    // Three darts rotate the turn: seat 0 threw 50+25+60 and seat 1 threw
+    // 40+0. Nobody checked out and no score went negative.
+    const expectedScores = new Array<number>(count).fill(501);
+    expectedScores[0] = 501 - 135;
+    expectedScores[1] = 501 - 40;
+    assert.deepEqual(state.scores, expectedScores, "501 minus the mapped throw scores");
+    assert.equal(state.finished, false, "nobody checked out after five darts");
+  });
+}

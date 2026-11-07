@@ -188,11 +188,11 @@ export function fixtureFileName(game: string, players: number): string {
  * 085eeec. `guessimposter` (phase 4) is excluded: it has no baseline.
  */
 export const PARITY_GAMES: readonly string[] = [
-  "archery",
   "arena",
   "blather",
   "bluff",
   "bracket",
+  "darts",
   "drawful",
   "dumbinventions",
   "fakin",
@@ -217,8 +217,13 @@ export const PARITY_GAMES: readonly string[] = [
 
 const TICK_MS = 500;
 const DEFAULT_BUDGET = 5000;
-/** Same tick budgets the deep probe uses. */
-const BUDGETS: Record<string, number> = { poker: 40000, racing: 4000 };
+/**
+ * Same tick budgets the deep probe uses, plus darts: the timing-lock aim waits
+ * for both markers to reach the chosen sweep position, so a 20-round 4-player
+ * 501 game takes roughly 13 ticks per dart (240 darts) — over 3000 ticks —
+ * and the budget leaves headroom for a checkout-free round-cap finish.
+ */
+const BUDGETS: Record<string, number> = { poker: 40000, racing: 4000, darts: 8000 };
 
 interface GameLike {
   manifest: { minPlayers: number; maxPlayers: number };
@@ -276,7 +281,9 @@ function roundProgress(gameId: string, instance: unknown): { completed: number; 
   const round = state.round;
   const maxRounds = state.maxRounds;
   if (typeof round !== "number" || typeof maxRounds !== "number") return null;
-  return { completed: round + 1, total: maxRounds };
+  // A game that finishes by reaching its round cap can leave `round` equal to
+  // maxRounds; completed rounds can never exceed the configured total.
+  return { completed: Math.min(round + 1, maxRounds), total: maxRounds };
 }
 
 // ---------------------------------------------------------------------------
@@ -417,12 +424,32 @@ function strategyFor(gameId: string, controller: ControllerLike, playerId: strin
       }
       return null;
     }
-    case "archery": {
-      // Hold the draw until the bow is strong, then release.
-      if (controller.isDrawing === true) {
-        return typeof controller.drawPower === "number" && controller.drawPower >= 0.8 ? { tap: true } : null;
+    case "darts": {
+      // Timing-lock aim (commit 087285d): the server owns the sweeping
+      // markers and the phone only presses. `sliders` is read-only here.
+      const sliders = (controller as {
+        sliders?: {
+          x?: { value?: unknown };
+          y?: { value?: unknown };
+          actionLabel?: unknown;
+        };
+      }).sliders;
+      if (!sliders) return null;
+      const label = sliders.actionLabel;
+      // Baseline darts (pre-087285d) aimed with free sliders and threw with a
+      // single action; a fixture recorded from that tree still has to finish.
+      if (label !== "LOCK HORIZONTAL" && label !== "LOCK VERTICAL") {
+        return { action: "action" };
       }
-      return { tap: true };
+      // Land every dart in the outer single of the 1 sector: X marker 10/12
+      // (x = +113.3) and Y marker 7/12 (y = +28.3), distance 117, worth 1
+      // point. That keeps the 20-round cap reachable without a checkout and
+      // makes every round score, so the countdown trace is non-vacuous.
+      const aimingX = label === "LOCK HORIZONTAL";
+      const target = aimingX ? 10 / 12 : 7 / 12;
+      const value = aimingX ? sliders.x?.value : sliders.y?.value;
+      if (typeof value !== "number") return null;
+      return Math.abs(value - target) <= 0.01 ? { action: "action" } : null;
     }
     case "racing":
       return { tap: true };
@@ -575,16 +602,22 @@ export async function runGame(root: string, gameId: string, players: number): Pr
   // the game state says it scored in, so tests can sum per-round gains.
   const scoreHistory: ParityScoreSnapshot[] = [];
   let lastSnapshot: number[] | null = null;
-  const recordSnapshot = (scores: number[]): void => {
+  const recordSnapshot = (scores: number[], roundOverride?: number): void => {
     if (lastSnapshot && lastSnapshot.length === scores.length && lastSnapshot.every((v, i) => v === scores[i])) {
       return;
     }
     const progress = roundProgress(gameId, instance);
-    scoreHistory.push({ round: progress ? progress.completed - 1 : -1, scores: [...scores] });
+    scoreHistory.push({
+      round: roundOverride ?? (progress ? progress.completed - 1 : -1),
+      scores: [...scores],
+    });
     lastSnapshot = [...scores];
   };
 
   for (; ticks < budget; ticks++) {
+    // Darts' round counter advances inside the throw that ends a turn, so the
+    // post-input snapshot below must use the round the tick STARTED in.
+    const roundAtTickStart = gameId === "darts" ? roundProgress(gameId, instance) : null;
     let screen: unknown;
     try {
       screen = plugin.screenState(instance);
@@ -623,6 +656,16 @@ export async function runGame(root: string, gameId: string, players: number): Pr
       if (isFinished(instance)) {
         done = true;
         break;
+      }
+    }
+    // Darts scores change mid-tick and a throw can also advance the round, so
+    // record the change now against the round it was actually thrown in.
+    if (roundAtTickStart) {
+      const after = plugin.screenState(instance);
+      const changed = extractScores(gameId, after, table);
+      if (changed) {
+        lastScores = changed;
+        recordSnapshot(changed, roundAtTickStart.completed - 1);
       }
     }
     if (!done) {
