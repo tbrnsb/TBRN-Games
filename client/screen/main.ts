@@ -1603,11 +1603,31 @@ requestAnimationFrame(frameLoop);
 let lastCueSignature = "";
 let lastCaption = "";
 let lastAnnouncement = "";
+let lastFinishedCue = false;
 
 function resetAudioHooks(): void {
   lastCueSignature = "";
   lastCaption = "";
   lastAnnouncement = "";
+  lastFinishedCue = false;
+}
+
+/**
+ * A spoken turn line. Games may publish an explicit `announce`; otherwise use
+ * the active turn fields the platform already normalises, so the speech toggle
+ * is meaningful beyond Guess the Imposter.
+ */
+function spokenTurnLine(record: Record<string, unknown>): string {
+  const explicit = typeof record.announce === "string" ? record.announce.trim() : "";
+  if (explicit) return explicit;
+  const turn = typeof record.turnName === "string" ? record.turnName.trim() : "";
+  if (turn) return `${turn}, you're up`;
+  const current = typeof record.currentPlayerName === "string" ? record.currentPlayerName.trim() : "";
+  if (current) return `${current}, you're up`;
+  const waiting = Array.isArray(record.waitingOn)
+    ? record.waitingOn.filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+    : [];
+  return waiting.length === 1 ? `${waiting[0].trim()}, you're up` : "";
 }
 
 /**
@@ -1633,6 +1653,14 @@ function syncAudioHooks(): void {
     for (const cue of cues) playCue(cue, { enabled: soundEnabled });
   }
 
+  // Every finish gets a fanfare, even when the game itself only publishes a
+  // reveal cue. Racing publishes "win" and is left alone.
+  const finished = record.finished === true;
+  if (finished && !lastFinishedCue && !cues.includes("win")) {
+    playCue("win", { enabled: soundEnabled });
+  }
+  lastFinishedCue = finished;
+
   // A new caption is a reveal moment, even when the game published no cue.
   const caption = typeof record.caption === "string" ? record.caption.trim() : "";
   if (!caption) {
@@ -1642,7 +1670,7 @@ function syncAudioHooks(): void {
     if (!cues.includes("reveal")) playCue("reveal", { enabled: soundEnabled });
   }
 
-  const line = typeof record.announce === "string" ? record.announce : "";
+  const line = spokenTurnLine(record);
   if (shouldAnnounce(lastAnnouncement, line)) {
     lastAnnouncement = line.trim();
     announce(line, { enabled: speechEnabled });

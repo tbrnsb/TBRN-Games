@@ -47,6 +47,17 @@ screen renderer and is skinned in the paper system.
 - Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
+## Audio verification
+
+Instrumented Chromium checks:
+- TV sound: Most Likely To reveal created 1 AudioContext and 3 oscillators;
+  Quiz produced 2 notes per reveal and a 3-note win at the finish.
+- Sound off (`tbrn_screen_sound=off`): 0 oscillators across a reveal.
+- Speech on: Imposter spoke “P3, you're up”; Archery spoke “S0, you're up”
+  through the turn fallback. Speech off: 0 utterances.
+- Phone haptic: one `navigator.vibrate` call on the join tap.
+- All 22 games publish `sound` cues; audio is synthesised offline, no assets.
+
 ## Full all-surface audit
 
 The image-capable critic reviewed every enabled game at 1280 and 1920, every

@@ -7,13 +7,11 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Full all-games/all-host audit: the lobby has a paper “Scroll for more games”
-affordance, session and finale sheets start at the shelf top (no empty band),
-the finale fills its panel with bottom actions and an awards empty state,
-8-player poker hole cards sit inside the felt, and waiting controllers use an
-“Eyes on the TV” card while text fields stretch to remove dead gaps.
-Image-capable critic: **10/10 across every game, start state, controller and
-host surface**.
+Audio pass: every finished game now plays the win fanfare (including games
+whose screen state only publishes reveal cues), and spoken turn announcements
+fall back to `turnName` / `currentPlayerName` / a single `waitingOn` name in
+addition to Guess the Imposter's authored line. Sound, speech and haptics were
+instrumented and verified in the browser.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
@@ -47,6 +45,11 @@ host surface**.
   `showsScores` turns off the platform ticker for the 20 games that already
   draw a score rail (only Bracket and Mind Meld keep it); the waiting panel no
   longer repeats the phase copy or overflows with eight long names.
+- **Audio**: all 22 games publish screen sound cues; `client/screen/sound.ts`
+  synthesises reveal/vote/win over WebAudio with no assets. The platform adds
+  the win cue on every finish, and the speech hook covers turn-based games as
+  well as the Imposter's own lines. TV sound/speech toggles persist and mute
+  the cues/voice; phone haptics fire on control taps.
 - **Victory animation**: `client/screen/kit/finish.ts` builds the shared
   winner card/standings/confetti from the screen state's score table and is
   used by the paper board and the three custom games that had none. The shared
