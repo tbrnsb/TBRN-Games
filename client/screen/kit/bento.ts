@@ -69,6 +69,10 @@ export function drawBentoCard(
     lineWidth = 3,
     radius: r = radius.card,
     padding = 0,
+    // `fill` is intentionally ignored: every card is the same light paper so
+    // the printed page stays one material. `stroke`/`glow` still carry the
+    // per-game state accent (correct answer, active turn, score band).
+    stroke = options.glow ?? colors.border,
   } = options;
 
   const x = rect.x + padding;
@@ -85,13 +89,13 @@ export function drawBentoCard(
   ctx.shadowOffsetY = 6;
 
   roundRect(ctx, x, y, w, h, r);
-  ctx.fillStyle = colors.bg0;
+  ctx.fillStyle = colors.surface;
   ctx.fill();
 
   ctx.shadowColor = "transparent";
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  ctx.strokeStyle = colors.border;
+  ctx.strokeStyle = stroke;
   ctx.lineWidth = lineWidth;
   ctx.stroke();
 

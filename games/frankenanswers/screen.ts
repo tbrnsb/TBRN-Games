@@ -1,5 +1,8 @@
 import { renderPaperBoard } from "../../client/screen/kit/paperBoard.ts";
 
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
+
 export function render(
   ctx: CanvasRenderingContext2D,
   width: number,

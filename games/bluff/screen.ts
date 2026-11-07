@@ -17,6 +17,7 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { voteLayout, type VoteLayout } from "../../shared/vote-options.ts";
 
 interface BluffAnswer {
@@ -73,6 +74,9 @@ function createBluffRenderState(): BluffRenderState {
 }
 
 const renderState = (globalThis as any)._bluffRenderState ||= createBluffRenderState();
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderBluff(
   ctx: CanvasRenderingContext2D,
@@ -194,13 +198,11 @@ function drawHeader(
   const { margin } = layout(width, height, scale);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("BLUFF", margin, margin + scaledSize(26, scale));
   const w = ctx.measureText("BLUFF").width;
 
-  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   ctx.fillText(
     `Round ${state.round} of ${state.totalRounds}${state.category ? `  ·  ${state.category}` : ""}`,
     margin + w + scaledSize(18, scale),

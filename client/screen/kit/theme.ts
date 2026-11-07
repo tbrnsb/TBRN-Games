@@ -20,6 +20,8 @@ export const colors = {
   border: INKS.ink,
   text: INKS.ink,
   textMuted: "#5B5448",
+  // Cards are always light paper, even on a dark page stock, so text printed
+  // on a card stays ink. Do not swap these with `text` in setLegacySkin().
   cardText: "#1D1B26",
   cardMuted: "#5B5448",
   magenta: INKS.tomato,
@@ -106,6 +108,7 @@ export function setLegacySkin(skin: Skin): void {
   colors.border = INKS.ink;
   colors.text = paper.onPaper;
   colors.textMuted = paper.onPaper === INKS.ink ? "#5B5448" : "#E7E0CC";
+  // cardText/cardMuted stay ink by design: every card is light paper.
   colors.magenta = INKS[skin.inks[0]];
   colors.cyan = INKS[skin.inks[1]];
   colors.violet = INKS.grape;

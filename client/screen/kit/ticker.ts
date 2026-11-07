@@ -490,9 +490,10 @@ export function drawWatchOverlay(
   state: WatchOverlayState,
   now: number,
   reducedMotion: boolean,
+  showTicker = true,
 ): number {
   const scale = scaleForViewport(width, height);
-  const tickerHeight = drawTicker(ctx, width, height, state, now, scale, reducedMotion);
+  const tickerHeight = showTicker ? drawTicker(ctx, width, height, state, now, scale, reducedMotion) : 0;
   drawWaitingBanner(ctx, width, state, now, scale, reducedMotion);
   drawCaption(ctx, width, height, state, now, scale, tickerHeight, reducedMotion);
   drawReveal(ctx, width, height, state, now, scale, reducedMotion);

@@ -4,6 +4,7 @@
  */
 
 import { drawSynthwaveBackground } from "./background.ts";
+import { paperMeta, paperTitle } from "./header.ts";
 import { drawBentoCard, drawScoreboard, roundRect } from "./bento.ts";
 import { colors, fonts, getPlayerColor, scaleForViewport, scaledSize } from "./theme.ts";
 
@@ -79,14 +80,12 @@ function drawHeader(
   ctx.save();
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.font = `800 ${scaledSize(38, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.magenta;
+  paperTitle(ctx, scale);
   ctx.fillText(config.title.toUpperCase(), margin, margin + headerH * 0.35);
 
   const round = Number(state.round ?? 1);
   const maxRounds = Number(state.maxRounds ?? state.rounds ?? 1);
-  ctx.font = `700 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.text;
+  paperMeta(ctx, scale);
   ctx.fillText(`Round ${round} of ${maxRounds}`, margin, margin + headerH * 0.82);
 
   const timer = Number(state.timerMs ?? 0);
@@ -150,7 +149,7 @@ function drawHero(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<strin
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `700 ${size}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.text;
+  ctx.fillStyle = colors.cardText;
   const lines = wrap(ctx, text, rect.width - scaledSize(52, scale), 4);
   const lineH = size * 1.16;
   const startY = rect.y + rect.height / 2 - ((lines.length - 1) * lineH) / 2;
@@ -194,7 +193,7 @@ function drawOptions(
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
     ctx.stroke();
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = colors.cardText;
     ctx.font = `700 ${Math.max(14, Math.min(scaledSize(22, scale), rowH * 0.34))}px ${fonts.body.family}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
@@ -222,10 +221,9 @@ function drawRail(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<strin
 }
 
 function drawFooter(ctx: CanvasRenderingContext2D, width: number, height: number, margin: number, scale: number, state: Record<string, unknown>): void {
-  const waiting = Array.isArray(state.waitingOn) ? state.waitingOn.filter((n): n is string => typeof n === "string") : [];
   const caption = typeof state.caption === "string" ? state.caption : "";
-  const info = waiting.length ? `Waiting on ${waiting.join(", ")}` : caption;
-  if (!info) return;
+  if (!caption) return;
+  const info = caption;
   ctx.save();
   ctx.font = `700 ${scaledSize(16, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.text;
@@ -237,17 +235,18 @@ function drawFooter(ctx: CanvasRenderingContext2D, width: number, height: number
 
 function drawWaitingPanel(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<string, unknown>, scale: number): void {
   drawBentoCard(ctx, rect);
-  const phase = String(state.phase ?? "");
   const waiting = Array.isArray(state.waitingOn) ? state.waitingOn.filter((n): n is string => typeof n === "string") : [];
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `700 ${scaledSize(30, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.text;
-  ctx.fillText(phaseCopy(phase), rect.x + rect.width / 2, rect.y + rect.height * 0.36);
-  ctx.font = `700 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
-  ctx.fillText(waiting.length ? `Waiting on ${waiting.join(", ")}` : "Play on your phone", rect.x + rect.width / 2, rect.y + rect.height * 0.52);
+  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.body.family}`;
+  ctx.fillStyle = colors.cardText;
+  const waitingLabel = waiting.length ? `Waiting on ${waiting.join(", ")}` : "Play on your phone";
+  ctx.fillText(
+    ellipsize(ctx, waitingLabel, rect.width - scaledSize(40, scale)),
+    rect.x + rect.width / 2,
+    rect.y + rect.height * 0.36,
+  );
 
   const players = Array.isArray(state.players) ? state.players as Array<Record<string, unknown>> : [];
   const chips = players.length > 0 ? players : (Array.isArray(state.scores) ? state.scores as Array<Record<string, unknown>> : []);
@@ -269,7 +268,7 @@ function drawWaitingPanel(ctx: CanvasRenderingContext2D, rect: Rect, state: Reco
     ctx.fillStyle = getPlayerColor(i);
     ctx.fillRect(x + 5, y + 6, 10, chipH - 12);
     ctx.strokeRect(x + 5, y + 6, 10, chipH - 12);
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = colors.cardText;
     ctx.textAlign = "left";
     ctx.font = `700 ${scaledSize(14, scale)}px ${fonts.body.family}`;
     ctx.fillText(ellipsize(ctx, String(chip.name ?? `Player ${i + 1}`), chipW - 28), x + 22, y + chipH / 2);
@@ -292,7 +291,7 @@ function drawDrawing(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<st
   for (const raw of strokes) {
     const stroke = raw as { points?: Array<[number, number]>; color?: string };
     if (!Array.isArray(stroke.points) || stroke.points.length === 0) continue;
-    ctx.strokeStyle = stroke.color ?? colors.text;
+    ctx.strokeStyle = stroke.color ?? colors.cardText;
     ctx.lineWidth = Math.max(2, scale * 3);
     ctx.beginPath();
     stroke.points.forEach(([x, y], i) => {
@@ -303,7 +302,7 @@ function drawDrawing(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<st
     ctx.stroke();
   }
   if (strokes.length === 0) {
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardMuted;
     ctx.font = `700 ${scaledSize(22, scale)}px ${fonts.body.family}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -316,7 +315,7 @@ function drawShirts(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<str
   drawBentoCard(ctx, rect);
   const shirts = Array.isArray(state.shirts) ? state.shirts : [];
   if (shirts.length === 0) {
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardMuted;
     ctx.font = `700 ${scaledSize(22, scale)}px ${fonts.body.family}`;
     ctx.textAlign = "center";
     ctx.fillText("Designing…", rect.x + rect.width / 2, rect.y + rect.height / 2);
@@ -339,7 +338,7 @@ function drawShirts(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<str
     const design = Array.isArray(shirt.design) ? shirt.design : [];
     for (const stroke of design) {
       if (!Array.isArray(stroke.points) || stroke.points.length === 0) continue;
-      ctx.strokeStyle = stroke.color ?? colors.text;
+      ctx.strokeStyle = stroke.color ?? colors.cardText;
       ctx.lineWidth = Math.max(1, scale * 2);
       ctx.beginPath();
       stroke.points.forEach(([px, py], j) => {
@@ -349,7 +348,7 @@ function drawShirts(ctx: CanvasRenderingContext2D, rect: Rect, state: Record<str
       });
       ctx.stroke();
     }
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = colors.cardText;
     ctx.font = `700 ${Math.max(11, scaledSize(14, scale))}px ${fonts.body.family}`;
     ctx.textAlign = "center";
     ctx.fillText(ellipsize(ctx, String(shirt.slogan ?? shirt.text ?? ""), cw - 12), x + cw / 2, y + ch - scaledSize(12, scale));

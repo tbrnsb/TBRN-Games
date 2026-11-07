@@ -64,7 +64,7 @@ export function createGameBox(game: ShelfGame, options: ShelfOptions): HTMLButto
       ${available ? "" : `<span class="box-note" style="font-family:var(--font-hand)">${escapeHtml(reason.toUpperCase())}</span>`}
     </span>
   `;
-  box.appendChild(prop("tape", { x: "38%", y: "-9px", size: 86, rotate: -3, opacity: 0.9 }));
+  box.appendChild(prop("tape", { x: "66%", y: "-9px", size: 64, rotate: -3, opacity: 0.9 }));
   if (game.id.length % 2 === 0) box.appendChild(prop("pin", { x: "84%", y: "-9px", size: 22, rotate: 8 }));
   box.addEventListener("click", () => {
     if (!available) return;

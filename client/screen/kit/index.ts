@@ -39,3 +39,4 @@ export * from "./vote.ts";
 // Utilities
 export * from "./utils.ts";
 export * from "./paperBoard.ts";
+export * from "./header.ts";

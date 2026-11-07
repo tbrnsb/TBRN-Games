@@ -25,6 +25,7 @@ import {
   // Utils
   drawRoundRect,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 
 interface QuizScreenState {
   mode?: "standard" | "fast";
@@ -69,6 +70,9 @@ function createRenderState(): RenderState {
 }
 
 const renderState = (globalThis as any)._quizRenderState ||= createRenderState();
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderQuiz(ctx: CanvasRenderingContext2D, width: number, height: number, state: QuizScreenState): void {
   const scale = scaleForViewport(width, height);
@@ -218,15 +222,15 @@ function renderQuestion(
   // Eyebrow: game name + question progress. Sentence case, not tracked caps.
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(30, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
-  ctx.fillText(state.mode === "fast" ? "QUIZ · FAST" : "QUIZ", margin, margin + scaledSize(28, scale));
+  const quizTitle = state.mode === "fast" ? "QUIZ · FAST" : "QUIZ";
+  paperTitle(ctx, scale);
+  ctx.fillText(quizTitle, margin, margin + scaledSize(28, scale));
+  const quizTitleWidth = ctx.measureText(quizTitle).width;
 
-  ctx.font = `600 ${scaledSize(22, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   ctx.fillText(
     `Question ${currentQuestion} of ${totalQuestions}`,
-    margin + scaledSize(state.mode === "fast" ? 196 : 120, scale),
+    margin + quizTitleWidth + scaledSize(18, scale),
     margin + scaledSize(26, scale),
   );
 
@@ -295,7 +299,7 @@ function renderOptions(
     let stroke: string = colors.border;
     if (revealed) {
       fill = isCorrect ? "#16352B" : "#100C28";
-      stroke = isCorrect ? colors.success : "rgba(255,255,255,0.06)";
+      stroke = isCorrect ? colors.success : colors.border;
     }
 
     // Pop-in on the first 400ms of the question.
@@ -433,7 +437,7 @@ function renderTimer(
 
   drawRoundRect(ctx, margin, y, mainWidth, barH, barH / 2, "rgba(255,255,255,0.08)");
   if (progress > 0) {
-    const color = progress > 0.35 ? colors.cyan : progress > 0.15 ? colors.amber : colors.danger;
+    const color = progress > 0.35 ? colors.magenta : progress > 0.15 ? colors.amber : colors.danger;
     drawRoundRect(ctx, margin, y, Math.max(barH, mainWidth * progress), barH, barH / 2, color);
   }
 

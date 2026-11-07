@@ -16,6 +16,7 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
 
 interface MostLikelyScreenState {
@@ -55,6 +56,9 @@ function createMostLikelyRenderState(): MostLikelyRenderState {
 }
 
 const renderState = (globalThis as any)._mostLikelyRenderState ||= createMostLikelyRenderState();
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderMostlikely(
   ctx: CanvasRenderingContext2D,
@@ -175,13 +179,11 @@ function drawHeader(
   const { margin } = layout(width, height, scale);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("MOST LIKELY TO", margin, margin + scaledSize(26, scale));
   const w = ctx.measureText("MOST LIKELY TO").width;
 
-  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   ctx.fillText(
     `Prompt ${state.currentPrompt} of ${state.totalPrompts}`,
     margin + w + scaledSize(18, scale),

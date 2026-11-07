@@ -15,6 +15,7 @@ import {
   colors, fonts, scaleForViewport, scaledSize,
   drawSynthwaveBackground, drawBentoCard, drawScoreboard, wrapText,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 
 interface PercentileReveal {
   guess?: number;
@@ -55,6 +56,9 @@ interface Rect {
 }
 
 const MAX_QUESTION_LINES = 3;
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderPercentile(
   ctx: CanvasRenderingContext2D,
@@ -105,13 +109,12 @@ function drawHeader(
   scale: number,
   state: PercentileScreenState,
 ): void {
-  ctx.fillStyle = colors.text;
-  ctx.font = `700 ${scaledSize(58, scale)}px ${fonts.display.family}`;
-  ctx.fillText("PERCENTILE", margin, margin);
+  ctx.textBaseline = "alphabetic";
+  paperTitle(ctx, scale);
+  ctx.fillText("PERCENTILE", margin, margin + scaledSize(26, scale));
 
   ctx.textAlign = "right";
-  ctx.fillStyle = colors.textMuted;
-  ctx.font = `600 ${scaledSize(28, scale)}px ${fonts.body.family}`;
+  paperMeta(ctx, scale);
   const round = Number.isFinite(state.round) ? Math.max(1, state.round) : 1;
   const total = Number.isFinite(state.maxRounds) ? Math.max(round, state.maxRounds) : round;
   ctx.fillText(`Round ${round}/${total}`, width - margin, margin + scaledSize(16, scale));
@@ -160,7 +163,7 @@ function drawQuestion(
   const innerWidth = rect.width - scaledSize(56, scale);
   const unit = typeof state.unit === "string" && state.unit.trim() ? state.unit.trim() : "";
 
-  ctx.fillStyle = colors.magenta;
+  ctx.fillStyle = colors.cardText;
   ctx.font = `700 ${scaledSize(22, scale)}px ${fonts.title.family}`;
   ctx.fillText(unit ? `ESTIMATE IN ${unit.toUpperCase()}` : "ESTIMATE THE STATISTIC", innerX, rect.y + scaledSize(24, scale));
 
@@ -168,7 +171,7 @@ function drawQuestion(
   const maxSize = scaledSize(54, scale);
   const minSize = scaledSize(30, scale);
   const size = Math.max(minSize, Math.min(maxSize, rect.height * 0.16));
-  ctx.fillStyle = colors.text;
+  ctx.fillStyle = colors.cardText;
   ctx.font = `700 ${size}px ${fonts.display.family}`;
   const lines = wrapText(ctx, text, innerWidth).slice(0, MAX_QUESTION_LINES);
   const lineHeight = size * 1.15;
@@ -195,7 +198,7 @@ function drawWaiting(
     ctx.fillStyle = colors.cyan;
     ctx.font = `700 ${scaledSize(64, scale)}px ${fonts.display.family}`;
     ctx.fillText(state.guesserName || "Someone", centerX, centerY - scaledSize(56, scale));
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardMuted;
     ctx.font = `600 ${scaledSize(30, scale)}px ${fonts.body.family}`;
     ctx.fillText("is estimating...", centerX, centerY + scaledSize(24, scale));
     drawWaitingNames(ctx, rect, scale, state.waitingOn ?? []);
@@ -205,7 +208,7 @@ function drawWaiting(
   ctx.fillStyle = colors.amber;
   ctx.font = `700 ${scaledSize(52, scale)}px ${fonts.display.family}`;
   ctx.fillText("HIGHER OR LOWER?", centerX, centerY - scaledSize(52, scale));
-  ctx.fillStyle = colors.textMuted;
+  ctx.fillStyle = colors.cardMuted;
   ctx.font = `600 ${scaledSize(26, scale)}px ${fonts.body.family}`;
   ctx.fillText("The guess stays hidden until the reveal.", centerX, centerY + scaledSize(16, scale));
   drawWaitingNames(ctx, rect, scale, state.waitingOn ?? []);
@@ -220,7 +223,7 @@ function drawWaitingNames(
   const waiting = names.filter((name) => typeof name === "string" && name.trim());
   if (waiting.length === 0) return;
   const label = `Waiting on: ${waiting.join(", ")}`;
-  ctx.fillStyle = colors.text;
+  ctx.fillStyle = colors.cardText;
   ctx.font = `600 ${scaledSize(24, scale)}px ${fonts.body.family}`;
   const maxWidth = rect.width - scaledSize(56, scale);
   ctx.fillText(trimToWidth(ctx, label, maxWidth), rect.x + rect.width / 2, rect.y + rect.height - scaledSize(44, scale));
@@ -260,7 +263,7 @@ function drawReveal(
     };
     drawBentoCard(ctx, box, { fill: colors.bg1, stroke: column.color });
     ctx.textAlign = "center";
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardMuted;
     ctx.font = `600 ${scaledSize(22, scale)}px ${fonts.body.family}`;
     ctx.fillText(column.label, box.x + box.width / 2, box.y + scaledSize(24, scale));
     ctx.fillStyle = column.color;
@@ -270,7 +273,7 @@ function drawReveal(
 
   const footerY = rect.y + padding + boxHeight + scaledSize(22, scale);
   ctx.textAlign = "left";
-  ctx.fillStyle = colors.textMuted;
+  ctx.fillStyle = colors.cardMuted;
   ctx.font = `500 ${scaledSize(22, scale)}px ${fonts.body.family}`;
   const source = typeof reveal.source === "string" ? reveal.source : state.source;
   const year = typeof reveal.year === "number" ? reveal.year : state.year;
@@ -278,7 +281,7 @@ function drawReveal(
   ctx.fillText(trimToWidth(ctx, `Source: ${credit}`, rect.width - padding * 2), rect.x + padding, footerY);
 
   if (points !== null) {
-    ctx.fillStyle = points > 0 ? colors.success : colors.textMuted;
+    ctx.fillStyle = points > 0 ? colors.success : colors.cardMuted;
     ctx.font = `700 ${scaledSize(34, scale)}px ${fonts.display.family}`;
     const label = points > 0 ? `Guesser +${points}` : "Guesser scored 0";
     ctx.fillText(label, rect.x + padding, footerY + scaledSize(34, scale));
@@ -294,7 +297,7 @@ function drawFinished(
 ): void {
   drawBentoCard(ctx, rect, { fill: colors.surface, stroke: colors.amber, glow: colors.amber });
   ctx.textAlign = "center";
-  ctx.fillStyle = colors.textMuted;
+  ctx.fillStyle = colors.cardMuted;
   ctx.font = `600 ${scaledSize(28, scale)}px ${fonts.body.family}`;
   ctx.fillText("WINNER", rect.x + rect.width / 2, rect.y + rect.height * 0.24);
   ctx.fillStyle = colors.amber;
@@ -304,7 +307,7 @@ function drawFinished(
     rect.x + rect.width / 2,
     rect.y + rect.height * 0.4,
   );
-  ctx.fillStyle = colors.textMuted;
+  ctx.fillStyle = colors.cardMuted;
   ctx.font = `600 ${scaledSize(26, scale)}px ${fonts.body.family}`;
   ctx.fillText("Final scores", rect.x + rect.width / 2, rect.y + rect.height * 0.66);
   ctx.textAlign = "left";

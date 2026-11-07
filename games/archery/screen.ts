@@ -17,6 +17,7 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
 import type { SeatIdentity } from "../../shared/seat-identity.ts";
 
@@ -82,6 +83,9 @@ const renderState = (globalThis as any)._archeryRenderState ||= createArcheryRen
 
 const WORLD_MIN = -1;
 const WORLD_MAX = 1.5;
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderArchery(
   ctx: CanvasRenderingContext2D,
@@ -227,14 +231,12 @@ function drawHeader(
   const margin = scaledSize(48, scale);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("ARCHERY", margin, margin + scaledSize(26, scale));
   const w = ctx.measureText("ARCHERY").width;
 
   const player = state.scores[state.currentPlayer];
-  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   ctx.fillText(
     `Round ${state.round} of ${state.maxRounds}${player ? `  ·  ${player.name}` : ""}`,
     margin + w + scaledSize(18, scale),
@@ -273,7 +275,7 @@ function drawRange(
 
   // Distance ticks.
   ctx.font = `500 ${scaledSize(11, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = "rgba(245,243,255,0.28)";
+  ctx.fillStyle = "rgba(29,27,38,0.18)";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   for (let i = 1; i <= 4; i++) {
@@ -313,7 +315,7 @@ function drawRange(
     const barH = range.height * 0.34;
     const bx = archerX + scaledSize(46, scale);
     const by = range.groundY - barH - scaledSize(4, scale);
-    drawRoundRect(ctx, bx, by, barW, barH, barW / 2, "rgba(11,8,32,0.7)", "rgba(255,255,255,0.1)", 1);
+    drawRoundRect(ctx, bx, by, barW, barH, barW / 2, "#FFFDF5", "rgba(29,27,38,0.25)", 1);
     if (state.drawPower > 0) {
       const fillH = barH * clamp(state.drawPower, 0, 1);
       drawRoundRect(ctx, bx, by + barH - fillH, barW, fillH, barW / 2, state.drawPower > 0.8 ? colors.danger : colors.amber);
@@ -386,8 +388,8 @@ function drawTurnLanes(
       chipW,
       chipH,
       chipH / 2,
-      isCurrent ? `${seat.color}33` : "rgba(255,255,255,0.05)",
-      isCurrent ? seat.color : "rgba(255,255,255,0.12)",
+      isCurrent ? `${seat.color}33` : "rgba(29,27,38,0.06)",
+      isCurrent ? seat.color : "rgba(29,27,38,0.22)",
       1,
     );
 
@@ -492,15 +494,15 @@ function drawTarget(
   scale: number,
 ): void {
   const rings = [
-    { at: 1, fill: "#F5F3FF" },
-    { at: 0.8, fill: "#1B1545" },
+    { at: 1, fill: "#FFFDF5" },
+    { at: 0.8, fill: colors.text },
     { at: 0.6, fill: colors.cyan },
     { at: 0.4, fill: colors.magenta },
     { at: 0.2, fill: colors.amber },
   ];
   ctx.save();
-  ctx.shadowColor = colors.magenta;
-  ctx.shadowBlur = scaledSize(18, scale);
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
   for (const ring of rings) {
     ctx.fillStyle = ring.fill;
     ctx.beginPath();
@@ -508,7 +510,7 @@ function drawTarget(
     ctx.fill();
   }
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = "rgba(245,243,255,0.45)";
+  ctx.strokeStyle = colors.border;
   ctx.lineWidth = Math.max(1, scaledSize(2, scale));
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -524,7 +526,7 @@ function drawArcher(
   drawing: boolean,
   scale: number,
 ): void {
-  const ink = "rgba(245,243,255,0.82)";
+  const ink = colors.text;
   const lw = Math.max(2, scaledSize(3, scale));
   const headR = scaledSize(7, scale);
 
@@ -567,7 +569,7 @@ function drawArcher(
 
   // Bow string, pulled by draw power.
   const stringX = bowX - draw * scaledSize(12, scale);
-  ctx.strokeStyle = "rgba(245,243,255,0.55)";
+  ctx.strokeStyle = "rgba(29,27,38,0.55)";
   ctx.lineWidth = Math.max(1, scaledSize(1.5, scale));
   ctx.beginPath();
   ctx.moveTo(bowX + Math.cos(-Math.PI * 0.42) * scaledSize(24, scale), armY + Math.sin(-Math.PI * 0.42) * scaledSize(24, scale));
@@ -577,7 +579,7 @@ function drawArcher(
 
   // Nocked arrow.
   if (!drawing || draw < 0.02) {
-    ctx.strokeStyle = "rgba(245,243,255,0.5)";
+    ctx.strokeStyle = "rgba(29,27,38,0.5)";
     ctx.beginPath();
     ctx.moveTo(stringX, armY);
     ctx.lineTo(bowX + scaledSize(12, scale), armY);
@@ -643,7 +645,7 @@ function drawRail(
   const pipY = rect.y + rect.height + scaledSize(18, scale);
   for (let i = 0; i < state.maxRounds; i++) {
     const px = rect.x + scaledSize(6, scale) + i * scaledSize(18, scale);
-    ctx.fillStyle = i < state.round - 1 ? colors.magenta : i === state.round - 1 ? colors.cyan : "rgba(245,243,255,0.16)";
+    ctx.fillStyle = i < state.round - 1 ? colors.magenta : i === state.round - 1 ? colors.cyan : "rgba(29,27,38,0.16)";
     ctx.beginPath();
     ctx.arc(px, pipY, scaledSize(4, scale), 0, Math.PI * 2);
     ctx.fill();

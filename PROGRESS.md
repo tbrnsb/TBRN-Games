@@ -34,6 +34,19 @@ screen renderer and is skinned in the paper system.
   stale `tsconfig.build.json` are gone; the live paths are `server/`, `tests/`,
   `client/`.
 
+## Visual consistency pass
+
+- One header system: `client/screen/kit/header.ts` (`paperTitle` 32px skin
+  display, first ink; `paperMeta` 18px body, muted) used by all 22 renderers.
+- `drawBentoCard` is light paper on every stock; `stroke`/`glow` carry state
+  accents. Paper-board cards print in `cardText`/`cardMuted`; page text stays
+  `text`/`textMuted`.
+- 20 games export `showsScores` and suppress the duplicate platform ticker;
+  only Bracket and Mind Meld rely on it.
+- All 22 TVs and controllers re-shot at 1280/1920 and 390: `design/shots-v3/`.
+- Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
+  session slots, finale 1280/1920, settings, pause, interlude).
+
 ## Verification
 
 - `npx tsc --noEmit` — clean.

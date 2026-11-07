@@ -197,7 +197,7 @@ main { flex: 1; min-height: 0; display: flex; }
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 .picker .game-box { min-height: 148px; }
-.picker .box-lid { min-height: 140px; padding: 7px 7px 5px; }
+.picker .box-lid { min-height: 140px; padding: 9px 7px 5px; }
 .picker .box-title { font-size: 15px; line-height: .95; overflow-wrap: break-word; }
 .picker .box-tight .box-title { font-size: 12.5px; letter-spacing: -0.01em; }
 .picker .box-kicker {
@@ -228,6 +228,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .launch .v { font-family: var(--font-display); color: var(--ink); }
 
 .rumble-setup, .session, .session-final, .guess-settings {
+  margin: 0;
   position: absolute;
   inset: 56px 12px 10px 12px;
   z-index: 10;
@@ -240,8 +241,11 @@ main { flex: 1; min-height: 0; display: flex; }
   padding: 14px 16px 12px;
   overflow: auto;
 }
+.rumble-setup { bottom: 0; }
+.session { bottom: 0; }
+.rumble-setup .setup-check { margin-top: auto; }
 .session-label { color: var(--ink); opacity: .7; }
-.preset-grid { gap: 8px; }
+.preset-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
 .preset-card {
   background: #FFFDF5;
   color: var(--ink);
@@ -250,6 +254,18 @@ main { flex: 1; min-height: 0; display: flex; }
   border-radius: 5px;
 }
 .preset-card.on { background: #FBE7A1; border-color: var(--ink); }
+.preset-note {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 3px dashed var(--ink);
+  border-radius: 5px;
+  color: var(--ink);
+}
+.preset-note .name { font-family: var(--font-display); font-size: 18px; font-weight: 800; }
+.preset-note .vibe { font-size: 13px; line-height: 1.4; opacity: .75; }
 .preset-card .name { font-family: var(--font-display); color: var(--ink); }
 .preset-card .vibe, .preset-card .range { color: var(--ink); opacity: .72; }
 .slot-row {
@@ -288,6 +304,7 @@ main { flex: 1; min-height: 0; display: flex; }
 }
 .interlude-title, .pause-title { font-family: var(--font-display); color: var(--ink); }
 .pause-actions button { background: #FFFDF5; color: var(--ink); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+.pause-actions #pauseWait { background: #FFFDF5; color: var(--ink); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
 .pause-actions #pauseEnd { background: var(--ink-1); color: #FFF7E8; }
 
 .playing canvas { box-shadow: 8px 8px 0 rgba(0,0,0,.55); }

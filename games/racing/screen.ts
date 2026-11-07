@@ -25,6 +25,7 @@ import {
   // Utils
   drawRoundRect, clamp, easeOutCubic,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
 import type { SeatIdentity } from "../../shared/seat-identity.ts";
 
@@ -79,6 +80,9 @@ const renderState = (globalThis as any)._racingRenderState ||= createRacingRende
 
 /** How many metres of road the camera shows at once. */
 const CAMERA_WINDOW_M = 230;
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderRacing(
   ctx: CanvasRenderingContext2D,
@@ -288,13 +292,11 @@ function renderTrack(
   // Header
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("RACE", track.x, margin + scaledSize(26, scale));
   const raceW = ctx.measureText("RACE").width;
 
-  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   ctx.fillText(
     `First to ${state.finishDistance} m`,
     track.x + raceW + scaledSize(18, scale),
@@ -461,7 +463,7 @@ function renderTrack(
         scaledSize(8, scale),
         "#FFFDF5",
       );
-      ctx.fillStyle = seat.color;
+      ctx.fillStyle = colors.cardText;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(

@@ -13,6 +13,7 @@ import {
   colors, fonts, scaleForViewport, scaledSize, getPlayerColor,
   drawSynthwaveBackground, drawBentoCard, wrapText,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
 
 interface MindMeldAnswer {
@@ -90,13 +91,11 @@ function drawHeader(
   scale: number,
   state: MindMeldScreenState,
 ): void {
-  ctx.fillStyle = colors.text;
-  ctx.font = `700 ${scaledSize(58, scale)}px ${fonts.display.family}`;
-  ctx.fillText("Mind Meld", margin, margin);
+  paperTitle(ctx, scale);
+  ctx.fillText("MIND MELD", margin, margin + scaledSize(26, scale));
 
   ctx.textAlign = "right";
-  ctx.fillStyle = colors.textMuted;
-  ctx.font = `600 ${scaledSize(30, scale)}px ${fonts.body.family}`;
+  paperMeta(ctx, scale);
   const round = Number.isFinite(state.round) ? Math.max(1, state.round) : 1;
   const total = Number.isFinite(state.maxRounds) ? Math.max(round, state.maxRounds) : round;
   ctx.fillText(`Round ${round}/${total}`, width - margin, margin + scaledSize(14, scale));

@@ -855,6 +855,14 @@ function renderPresetPicker(): void {
     `;
     rumblePresetsEl.appendChild(card);
   }
+
+  const note = document.createElement("div");
+  note.className = "preset-note";
+  note.innerHTML = `
+    <span class="name">How a Rumble works</span>
+    <span class="vibe">Each game plays once in order. Points add up, the host can swap the next game, and the last game pays double.</span>
+  `;
+  rumblePresetsEl.appendChild(note);
 }
 
 function openRumbleSetup(): void {
@@ -1445,6 +1453,8 @@ interludeSkipBtn.addEventListener("click", dismissInterlude);
 type ScreenRenderer = (ctx: CanvasRenderingContext2D, width: number, height: number, state: unknown) => void;
 const rendererCache = new Map<string, ScreenRenderer | null>();
 const rendererLoading = new Set<string>();
+/** Games whose renderer already draws a score rail; their ticker is redundant. */
+const rendererShowsScores = new Map<string, boolean>();
 
 async function loadCustomRenderer(gameId: string): Promise<ScreenRenderer | null> {
   if (rendererCache.has(gameId)) return rendererCache.get(gameId) ?? null;
@@ -1459,6 +1469,7 @@ async function loadCustomRenderer(gameId: string): Promise<ScreenRenderer | null
         break;
       }
     }
+    rendererShowsScores.set(gameId, mod.showsScores === true);
     // Multi-word ids (seabattle → renderSeaBattle) cannot be derived from the
     // directory name; accept the module's single `render*` export instead.
     if (!fn) {
@@ -1560,7 +1571,15 @@ function drawWatchLayer(width: number, height: number): void {
     now,
     reducedMotion: prefersReducedMotion,
   });
-  drawWatchOverlay(ctx, width, height, watchOverlay, now, prefersReducedMotion);
+  drawWatchOverlay(
+    ctx,
+    width,
+    height,
+    watchOverlay,
+    now,
+    prefersReducedMotion,
+    currentGameId ? !rendererShowsScores.get(currentGameId) : true,
+  );
 }
 
 /** Continuous frame loop so particles, cards and victory screens animate smoothly. */

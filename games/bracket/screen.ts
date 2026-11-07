@@ -20,6 +20,7 @@ import {
   drawRoundRect,
   clamp,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
 
 interface BracketScreenDuel {
@@ -132,16 +133,14 @@ function drawHeader(
 ): void {
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("BRACKET BRAWL", frame.margin, frame.margin + scaledSize(26, scale));
   const titleWidth = ctx.measureText("BRACKET BRAWL").width;
 
   const rounds = state.maxRounds <= 1
     ? "One bracket"
     : `Bracket ${state.round} of ${state.maxRounds}`;
-  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   ctx.fillText(
     `${rounds}  ·  ${state.playerCount} players`,
     frame.margin + titleWidth + scaledSize(18, scale),
@@ -152,7 +151,7 @@ function drawHeader(
   if (seconds > 0) {
     ctx.textAlign = "right";
     ctx.font = `700 ${scaledSize(24, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = colors.amber;
+    ctx.fillStyle = seconds <= 10 ? colors.danger : colors.text;
     ctx.fillText(`${seconds}s`, width - frame.margin, frame.margin + scaledSize(26, scale));
   }
 }

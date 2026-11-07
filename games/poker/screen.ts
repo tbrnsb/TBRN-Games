@@ -24,6 +24,7 @@ import {
   // Utils
   drawRoundRect, drawPill, clamp,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 
 type Suit = "hearts" | "diamonds" | "clubs" | "spades";
 interface CardDisplay {
@@ -87,6 +88,9 @@ function createPokerRenderState(): PokerRenderState {
 }
 
 const renderState = (globalThis as any)._pokerRenderState ||= createPokerRenderState();
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderPoker(
   ctx: CanvasRenderingContext2D,
@@ -188,13 +192,11 @@ function drawHeader(
   const margin = scaledSize(48, scale);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("POKER", margin, margin + scaledSize(26, scale));
   const wordW = ctx.measureText("POKER").width;
 
-  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   const meta = `Hand ${Math.max(1, state.handNumber)} of ${state.maxHands}  ·  ${phaseLabel(state.phase)}`;
   ctx.fillText(meta, margin + wordW + scaledSize(18, scale), margin + scaledSize(25, scale));
 
@@ -368,7 +370,7 @@ function drawTable(
     ctx.fillText("POT", cx - potW / 2 + scaledSize(18, scale), potY);
     ctx.textAlign = "right";
     ctx.font = `700 ${scaledSize(32, scale)}px ${fonts.display.family}`;
-    ctx.fillStyle = colors.amber;
+    ctx.fillStyle = colors.cardText;
     ctx.fillText(potText, cx + potW / 2 - scaledSize(18, scale), potY + 1);
     infoY = potY + scaledSize(24, scale);
   } else {
@@ -462,7 +464,7 @@ function drawPotRows(
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = font;
-      ctx.fillStyle = colors.amber;
+      ctx.fillStyle = colors.cardText;
       ctx.fillText(cell.text, x + cell.width / 2, y + height / 2 + 1);
       x += cell.width + gap;
     }
@@ -559,7 +561,7 @@ function drawSeat(
 
   // Chips
   ctx.font = `700 ${scaledSize(30, scale)}px ${fonts.display.family}`;
-  ctx.fillStyle = colors.amber;
+  ctx.fillStyle = colors.cardText;
   ctx.fillText(String(player.chips), left + scaledSize(14, scale), top + h - scaledSize(22, scale));
 
   // Bet / last action (hidden at showdown, where the hand name takes this space).

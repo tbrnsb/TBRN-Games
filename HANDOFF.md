@@ -7,9 +7,10 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Restored the pre-merge paper game-box shelf on the host picker: six boxes per
-row, flat two-ink box art, per-game paper, tape and pins, on top of the skin
-contrast fix and the paper polish commit.
+Unified the paper visual system across all 22 TVs and the host: one 32px
+skin-display header, white cards with ink text on every stock, no duplicate
+ticker when a game owns a score rail, and a full pass over the shelf, Rumble,
+finale, pause, settings and interlude.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
@@ -37,11 +38,23 @@ contrast fix and the paper polish commit.
   its tests and the synthwave `theme.css`) were dead paths, excluded from
   `tsconfig`, CI and `npm test`.
 - **Background fix**: the washi tape no longer covers the top-left game title.
+- **Visual consistency pass**: `client/screen/kit/header.ts` gives every game
+  the same title/meta treatment; `drawBentoCard` keeps light cards and uses
+  `stroke`/`glow` only for state accents; paper-board cards use ink text;
+  `showsScores` turns off the platform ticker for the 20 games that already
+  draw a score rail (only Bracket and Mind Meld keep it); the waiting panel no
+  longer repeats the phase copy or overflows with eight long names.
+- **Host polish**: the game-box shelf tape moved clear of the kicker, Rumble
+  playlists use a 3-column grid plus a "How a Rumble works" note, the Rumble
+  sheet covers the launch bar, and the pause Wait button is paper/ink.
 
 ## Verification
 `npx tsc --noEmit` clean; `npm run lint` 0 errors; `npm test` 1018/1018;
-`npm run assets:check` 344 files; `npm run check:design` PASS. Critic follow-up on
-the contrast fix found no defects.
+`npm run assets:check` 344 files; `npm run check:design` PASS. Critic round 1
+9/10 (only the intentional `cardText` token was questioned); round 2 after the
+clarification and screenshot audit: **10/10, shippable**.
+Evidence on disk (gitignored): `design/shots-v3/<game>/screen-1280.png`,
+`screen-1920.png`, `controller-390.png`; `design/host-shots/*.png`.
 
 ## In progress
 - None. Working tree is clean at the last commit.

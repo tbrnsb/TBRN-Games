@@ -20,6 +20,7 @@ import {
   createVictoryScreen, showVictoryScreen, updateVictoryScreen, drawVictoryScreen, buildRankedEntries,
   drawRoundRect, clamp, easeOutCubic,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
 
 // --- Payload (mirrors games/guessimposter/server.ts `screenState`) ---------
@@ -159,6 +160,9 @@ const renderState: ImposterRenderState =
   (globalThis as any)._imposterRenderState ||= createImposterRenderState();
 
 // --- Entry point -----------------------------------------------------------
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 export function renderGuessimposter(
   ctx: CanvasRenderingContext2D,
@@ -326,12 +330,10 @@ function drawHeader(
   const { margin } = frame;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(22, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("GUESS THE IMPOSTER", margin, margin + scaledSize(24, scale));
 
-  ctx.font = `600 ${smallSize(15, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale, 16);
   ctx.fillText(
     `Word ${state.round} of ${state.maxRounds}`,
     margin,
