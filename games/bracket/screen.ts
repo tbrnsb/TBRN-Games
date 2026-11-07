@@ -19,6 +19,7 @@ import {
   drawBentoCard,
   drawRoundRect,
   clamp,
+  drawFinishVictory,
 } from "../../client/screen/kit/index.ts";
 import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
@@ -111,6 +112,7 @@ export function renderBracket(
   ctx.save();
   try {
     drawSynthwaveBackground(ctx, { width, height, time: now });
+    if (drawFinishVictory(ctx, width, height, state, "Bracket Brawl", "wins")) return;
     drawHeader(ctx, width, frame, state, scale);
     drawPrompt(ctx, frame, state, scale);
     if (state.duels.length === 0) {

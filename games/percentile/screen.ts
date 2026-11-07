@@ -13,7 +13,7 @@
 
 import {
   colors, fonts, scaleForViewport, scaledSize,
-  drawSynthwaveBackground, drawBentoCard, drawScoreboard, wrapText,
+  drawSynthwaveBackground, drawBentoCard, drawScoreboard, wrapText, drawFinishVictory,
 } from "../../client/screen/kit/index.ts";
 import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 
@@ -72,6 +72,7 @@ export function renderPercentile(
   ctx.save();
   try {
     drawSynthwaveBackground(ctx, { width, height, time: now });
+    if (drawFinishVictory(ctx, width, height, state, "Percentile")) return;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
 

@@ -190,7 +190,7 @@ export function drawVictoryScreen(
 
     ctx.textAlign = "center";
     ctx.font = `800 ${scaledSize(18, scale)}px ${fonts.title.family}`;
-    ctx.fillStyle = colors.border;
+    ctx.fillStyle = colors.text;
     ctx.fillText("WINNER", centerX, cardY + scaledSize(38, scale));
 
     ctx.font = `800 ${scaledSize(56, scale)}px ${fonts.display.family}`;
@@ -228,7 +228,7 @@ export function drawVictoryScreen(
 
     ctx.textAlign = "left";
     ctx.font = `700 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-    ctx.fillStyle = colors.text;
+    ctx.fillStyle = colors.cardText;
     ctx.fillText(`${entry.rank}. ${entry.name}`, panelX + scaledSize(50, scale), y + (rowH - scaledSize(5, scale)) / 2);
 
     ctx.textAlign = "right";

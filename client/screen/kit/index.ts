@@ -40,3 +40,4 @@ export * from "./vote.ts";
 export * from "./utils.ts";
 export * from "./paperBoard.ts";
 export * from "./header.ts";
+export * from "./finish.ts";

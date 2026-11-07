@@ -5,6 +5,7 @@
 
 import { drawSynthwaveBackground } from "./background.ts";
 import { paperMeta, paperTitle } from "./header.ts";
+import { drawFinishVictory } from "./finish.ts";
 import { drawBentoCard, drawScoreboard, roundRect } from "./bento.ts";
 import { colors, fonts, getPlayerColor, scaleForViewport, scaledSize } from "./theme.ts";
 
@@ -34,6 +35,7 @@ export function renderPaperBoard(
   const mainW = railX - margin - scaledSize(18, scale);
 
   drawSynthwaveBackground(ctx, { width, height, time: performance.now() });
+  if (drawFinishVictory(ctx, width, height, state, config.title)) return;
   drawHeader(ctx, width, height, margin, headerH, scale, config, state);
   drawProps(ctx, width, height, scale);
 

@@ -47,6 +47,17 @@ screen renderer and is skinned in the paper system.
 - Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
+## Victory animation
+
+Every game now ends on a shared paper victory screen: winner card with the
+highest score (or the game's declared winner), sorted standings with seat
+colours, and a confetti burst. `client/screen/kit/finish.ts` derives it from
+the screen state's `scores`/`players` and `winner`; the paper board and the
+three custom games that previously had no victory (Bracket, Mind Meld,
+Percentile) call it. The eight legacy renderers keep their own `victory.ts`
+screens, which also gained the card-ink ranking fix. Evidence:
+`design/shots-v3/*/victory-1280.png`.
+
 ## Texas Hold'em host board
 
 The TV cards now share the phone's design: `#F5F3FF` faces with a big rank and

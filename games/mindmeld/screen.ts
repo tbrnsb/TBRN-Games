@@ -11,7 +11,7 @@
 
 import {
   colors, fonts, scaleForViewport, scaledSize, getPlayerColor,
-  drawSynthwaveBackground, drawBentoCard, wrapText,
+  drawSynthwaveBackground, drawBentoCard, wrapText, drawFinishVictory,
 } from "../../client/screen/kit/index.ts";
 import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 import { seatForIndex } from "../../shared/seat-identity.ts";
@@ -60,6 +60,7 @@ export function renderMindmeld(
   ctx.save();
   try {
     drawSynthwaveBackground(ctx, { width, height, time: now });
+    if (drawFinishVictory(ctx, width, height, state, "Mind Meld")) return;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
 
