@@ -25,6 +25,7 @@ import {
   drawRoundRect, drawPill, clamp,
 } from "../../client/screen/kit/index.ts";
 import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
+import { seatForIndex } from "../../shared/seat-identity.ts";
 
 type Suit = "hearts" | "diamonds" | "clubs" | "spades";
 interface CardDisplay {
@@ -205,7 +206,8 @@ function drawHeader(
     ctx.textAlign = "right";
     ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.display.family}`;
     ctx.fillStyle = colors.amber;
-    ctx.fillText(`${state.turnName} to act`, width - margin, margin + scaledSize(24, scale));
+    const seconds = Math.max(0, Math.ceil(state.timeLeft / 1000));
+    ctx.fillText(`${state.turnName} to act${seconds > 0 ? ` · ${seconds}s` : ""}`, width - margin, margin + scaledSize(24, scale));
   }
   void height;
 }
@@ -298,42 +300,55 @@ function drawTable(
 ): void {
   const { area, cx, cy, feltRX, feltRY } = tableGeometry(width, height);
 
-  // Felt
+  // Paper table: flat mint stock, ink rim, cream inlay and a stitched line.
   ctx.save();
-  const felt = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(feltRX, feltRY));
-  felt.addColorStop(0, "#EAF7F0");
-  felt.addColorStop(0.72, "#D9EFE4");
-  felt.addColorStop(1, "#C4E3D4");
-  ctx.fillStyle = felt;
+  ctx.shadowColor = "rgba(29,27,38,0.28)";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = Math.max(4, scaledSize(7, scale));
+  ctx.shadowOffsetY = Math.max(4, scaledSize(7, scale));
+  ctx.fillStyle = "#E4F2EA";
   ctx.beginPath();
   ctx.ellipse(cx, cy, feltRX, feltRY, 0, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.strokeStyle = "#1D1B26";
+  ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(3, scaledSize(5, scale));
+  ctx.stroke();
+  ctx.strokeStyle = "#FFFDF5";
   ctx.lineWidth = Math.max(1, scaledSize(2, scale));
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(29,27,38,0.16)";
-  ctx.lineWidth = Math.max(1, scaledSize(8, scale));
   ctx.beginPath();
-  ctx.ellipse(cx, cy, feltRX - scaledSize(12, scale), feltRY - scaledSize(12, scale), 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, cy, feltRX - Math.max(6, scaledSize(9, scale)), feltRY - Math.max(6, scaledSize(9, scale)), 0, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.setLineDash([Math.max(6, scaledSize(9, scale)), Math.max(6, scaledSize(9, scale))]);
+  ctx.strokeStyle = "rgba(29,27,38,0.18)";
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, feltRX - Math.max(16, scaledSize(24, scale)), feltRY - Math.max(16, scaledSize(24, scale)), 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
-  // Community cards
-  const cardW = scaledSize(96, scale);
-  const cardH = scaledSize(132, scale);
-  const cardGap = scaledSize(10, scale);
+  // Community cards. Undealt slots are the same striped back as the phone.
+  const cardW = scaledSize(108, scale);
+  const cardH = scaledSize(150, scale);
+  const cardGap = scaledSize(12, scale);
   const totalW = 5 * cardW + 4 * cardGap;
   const cardsX = cx - totalW / 2;
-  const cardsY = cy - feltRY * 0.46;
+  const cardsY = cy - feltRY * 0.48;
+
+  ctx.font = `700 ${Math.max(10, scaledSize(13, scale))}px ${fonts.body.family}`;
+  ctx.fillStyle = "rgba(29,27,38,0.55)";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.fillText("COMMUNITY", cx, cardsY - Math.max(7, scaledSize(10, scale)));
 
   for (let i = 0; i < 5; i++) {
     const x = cardsX + i * (cardW + cardGap);
     if (i < state.community.length) {
       drawCard(ctx, x, cardsY, cardW, cardH, state.community[i], scale);
     } else {
-      drawCardPlaceholder(ctx, x, cardsY, cardW, cardH, scale);
+      drawCardBack(ctx, x, cardsY, cardW, cardH, scale, 0.92);
     }
   }
 
@@ -344,35 +359,36 @@ function drawTable(
     : state.pot > 0
       ? [{ amount: state.pot, label: "POT" }]
       : [];
-  const potY = cy + feltRY * 0.34;
+  const potY = cy + feltRY * 0.36;
   let infoY = potY;
 
   if (pots.length <= 1) {
     const potText = pots[0] ? String(pots[0].amount) : "—";
-    ctx.font = `700 ${scaledSize(26, scale)}px ${fonts.display.family}`;
-    const potLabelW = ctx.measureText(potText).width + scaledSize(96, scale);
-    const potW = Math.max(scaledSize(150, scale), potLabelW);
+    ctx.font = `700 ${scaledSize(30, scale)}px ${fonts.display.family}`;
+    const potLabelW = ctx.measureText(potText).width + scaledSize(104, scale);
+    const potW = Math.max(scaledSize(164, scale), potLabelW);
+    drawChipStack(ctx, cx - potW / 2 - scaledSize(34, scale), potY, scale);
     drawPill(
       ctx,
       cx - potW / 2,
-      potY - scaledSize(22, scale),
+      potY - scaledSize(24, scale),
       potW,
-      scaledSize(44, scale),
+      scaledSize(48, scale),
       "#FFFDF5",
-      "rgba(255,179,71,0.5)",
-      Math.max(1, scaledSize(2, scale)),
+      colors.border,
+      Math.max(2, scaledSize(2.5, scale)),
     );
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `600 ${scaledSize(16, scale)}px ${fonts.body.family}`;
+    ctx.font = `700 ${scaledSize(15, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = colors.cardMuted;
     ctx.textAlign = "left";
     ctx.fillText("POT", cx - potW / 2 + scaledSize(18, scale), potY);
     ctx.textAlign = "right";
-    ctx.font = `700 ${scaledSize(32, scale)}px ${fonts.display.family}`;
+    ctx.font = `700 ${scaledSize(34, scale)}px ${fonts.display.family}`;
     ctx.fillStyle = colors.cardText;
     ctx.fillText(potText, cx + potW / 2 - scaledSize(18, scale), potY + 1);
-    infoY = potY + scaledSize(24, scale);
+    infoY = potY + scaledSize(28, scale);
   } else {
     infoY = drawPotRows(ctx, cx, cy + scaledSize(16, scale), pots, scale, area.width * 0.72);
   }
@@ -403,9 +419,53 @@ function drawTable(
   const seatRX = feltRX + scaledSize(78, scale);
   const seatRY = feltRY + scaledSize(64, scale);
   const positions = seatPositions(n, cx, cy, seatRX, seatRY);
+
+  // Two face-down hole cards in front of every live seat, using the phone's
+  // striped back. The TV never sees the faces, so this is the honest view.
+  const holeW = scaledSize(40, scale);
+  const holeH = scaledSize(54, scale);
+  const holeGap = scaledSize(6, scale);
+  const holeTotal = holeW * 2 + holeGap;
+  const panelW = scaledSize(280, scale);
+  const panelH = scaledSize(116, scale);
   state.players.forEach((player, i) => {
-    drawSeat(ctx, positions[i].x, positions[i].y, player, state, scale);
+    if (player.out || player.folded) return;
+    const pos = positions[i];
+    const dx = cx - pos.x;
+    const dy = cy - pos.y;
+    let px = pos.x;
+    let py = pos.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      px = pos.x + Math.sign(dx) * (panelW / 2 + holeTotal / 2 + scaledSize(8, scale));
+    } else {
+      py = pos.y + Math.sign(dy) * (panelH / 2 + holeH / 2 + scaledSize(8, scale));
+    }
+    drawCardBack(ctx, px - holeTotal / 2, py - holeH / 2, holeW, holeH, scale, 0.95);
+    drawCardBack(ctx, px - holeTotal / 2 + holeW + holeGap, py - holeH / 2, holeW, holeH, scale, 0.95);
   });
+
+  state.players.forEach((player, i) => {
+    drawSeat(ctx, positions[i].x, positions[i].y, player, i, state, scale);
+  });
+}
+
+/** A short stack of paper chips, for the pot. */
+function drawChipStack(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  const chipW = Math.max(20, scaledSize(30, scale));
+  const chipH = Math.max(7, scaledSize(10, scale));
+  const colours = ["#F0453A", "#FFFDF5", "#0E8C8C", "#FFFDF5", "#F0453A"];
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    const cy = y + chipH * 1.2 - i * chipH * 0.78;
+    ctx.fillStyle = colours[i];
+    ctx.strokeStyle = colors.border;
+    ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+    ctx.beginPath();
+    ctx.ellipse(x, cy, chipW / 2 - (i % 2) * 1.5, chipH / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /**
@@ -513,6 +573,7 @@ function drawSeat(
   x: number,
   y: number,
   player: PlayerDisplay,
+  playerIndex: number,
   state: PokerScreenState,
   scale: number,
 ): void {
@@ -520,7 +581,7 @@ function drawSeat(
   const h = scaledSize(116, scale);
   const left = x - w / 2;
   const top = y - h / 2;
-  const color = colors.player[state.players.indexOf(player) % colors.player.length];
+  const seat = seatForIndex(playerIndex);
   const isTurn = state.turnName === player.name;
   const isWinner = !!state.showdown?.some((s) => s.name === player.name && s.handName.length > 0)
     && !!state.potBreakdown?.some((p) => p.winners.includes(player.name));
@@ -537,44 +598,50 @@ function drawSeat(
     h,
     scaledSize(16, scale),
     "#FFFDF5",
-    isTurn ? color : isWinner ? colors.success : "rgba(29,27,38,0.18)",
-    isTurn || isWinner ? Math.max(1, scaledSize(2, scale)) : 1,
+    isTurn ? seat.color : isWinner ? colors.success : "rgba(29,27,38,0.18)",
+    isTurn || isWinner ? Math.max(2, scaledSize(3, scale)) : 1,
   );
 
-  // Turn glow
-  if (isTurn) {
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    drawRoundRect(ctx, left, top, w, h, scaledSize(16, scale));
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  }
+  // Seat badge, so the TV uses the same colour/shape identity as the phones.
+  const badge = scaledSize(28, scale);
+  const badgeX = left + scaledSize(14, scale);
+  const badgeY = top + scaledSize(18, scale);
+  ctx.fillStyle = seat.color;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+  ctx.beginPath();
+  ctx.arc(badgeX + badge / 2, badgeY + badge / 2, badge / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#FFFDF5";
+  ctx.font = `700 ${Math.max(9, badge * 0.46)}px ${fonts.title.family}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(seat.emoji, badgeX + badge / 2, badgeY + badge / 2 + 0.5);
 
   // Name
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.font = `700 ${scaledSize(24, scale)}px ${fonts.display.family}`;
   ctx.fillStyle = player.folded || player.out ? colors.cardMuted : colors.cardText;
-  ctx.fillText(player.name, left + scaledSize(14, scale), top + scaledSize(26, scale));
+  ctx.fillText(player.name, badgeX + badge + scaledSize(8, scale), top + scaledSize(28, scale));
 
   // Chips
   ctx.font = `700 ${scaledSize(30, scale)}px ${fonts.display.family}`;
   ctx.fillStyle = colors.cardText;
-  ctx.fillText(String(player.chips), left + scaledSize(14, scale), top + h - scaledSize(22, scale));
+  ctx.fillText(String(player.chips), left + scaledSize(14, scale), top + h - scaledSize(24, scale));
 
   // Bet / last action (hidden at showdown, where the hand name takes this space).
   if (!showdown && player.lastAction) {
     ctx.textAlign = "right";
     ctx.font = `500 ${scaledSize(16, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = colors.cardMuted;
-    ctx.fillText(player.lastAction, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
+    ctx.fillText(player.lastAction, left + w - scaledSize(14, scale), top + h - scaledSize(24, scale));
   } else if (!showdown && player.bet > 0) {
     ctx.textAlign = "right";
     ctx.font = `600 ${scaledSize(20, scale)}px ${fonts.display.family}`;
     ctx.fillStyle = colors.cyan;
-    ctx.fillText(`bet ${player.bet}`, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
+    ctx.fillText(`bet ${player.bet}`, left + w - scaledSize(14, scale), top + h - scaledSize(24, scale));
   }
 
   // Status pill (dealer / SB / BB / ALL IN / OUT / FOLDED)
@@ -596,16 +663,16 @@ function drawSeat(
 
   // Blinds / dealer badges along the top edge.
   const badges: Array<{ text: string; color: string }> = [];
-  if (player.isDealer) badges.push({ text: "D", color: colors.amber });
-  if (player.isSB) badges.push({ text: "SB", color: colors.cyan });
-  if (player.isBB) badges.push({ text: "BB", color: colors.magenta });
+  if (player.isDealer) badges.push({ text: "D", color: "#FFC21A" });
+  if (player.isSB) badges.push({ text: "SB", color: "#0E8C8C" });
+  if (player.isBB) badges.push({ text: "BB", color: "#F0453A" });
   badges.forEach((badge, bi) => {
-    const bw = scaledSize(badge.text.length > 1 ? 30 : 22, scale);
-    const bh = scaledSize(20, scale);
+    const bw = Math.max(24, scaledSize(badge.text.length > 1 ? 34 : 26, scale));
+    const bh = Math.max(20, scaledSize(24, scale));
     const bx = left + w - scaledSize(14, scale) - (bi + 1) * (bw + scaledSize(6, scale));
     drawPill(ctx, bx, top - scaledSize(12, scale), bw, bh, badge.color);
-    ctx.fillStyle = colors.bg0;
-    ctx.font = `700 ${scaledSize(10, scale)}px ${fonts.title.family}`;
+    ctx.fillStyle = "#FFFDF5";
+    ctx.font = `700 ${Math.max(10, scaledSize(12, scale))}px ${fonts.title.family}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(badge.text, bx + bw / 2, top - scaledSize(2, scale));
@@ -618,7 +685,7 @@ function drawSeat(
     ctx.textBaseline = "middle";
     ctx.font = `600 ${scaledSize(15, scale)}px ${fonts.body.family}`;
     ctx.fillStyle = isWinner ? colors.success : colors.cardMuted;
-    ctx.fillText(showdown.handName, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
+    ctx.fillText(showdown.handName, left + w - scaledSize(14, scale), top + h - scaledSize(24, scale));
   }
 
   ctx.restore();
@@ -626,7 +693,7 @@ function drawSeat(
   // Turn timer bar along the bottom edge.
   if (isTurn && state.timeLeft > 0) {
     const progress = clamp(state.timeLeft / ACTION_TIMEOUT_MS, 0, 1);
-    const barH = scaledSize(5, scale);
+    const barH = Math.max(6, scaledSize(9, scale));
     drawRoundRect(ctx, left + scaledSize(8, scale), top + h - barH - scaledSize(3, scale), w - scaledSize(16, scale), barH, barH / 2, "rgba(29,27,38,0.18)");
     drawRoundRect(
       ctx,
@@ -635,7 +702,7 @@ function drawSeat(
       Math.max(barH, (w - scaledSize(16, scale)) * progress),
       barH,
       barH / 2,
-      progress > 0.3 ? color : colors.danger,
+      progress > 0.3 ? seat.color : colors.danger,
     );
   }
 }
@@ -648,54 +715,102 @@ function drawCard(
   h: number,
   card: CardDisplay,
   scale: number,
-  mini = false,
 ): void {
   const red = card.suit === "hearts" || card.suit === "diamonds";
-  const ink = red ? colors.magenta : colors.cardText;
+  const ink = red ? "#D6204E" : colors.cardText;
 
   ctx.save();
-  drawRoundRect(ctx, x, y, w, h, scaledSize(8, scale), "#FFFDF5", "#1D1B26", 1);
+  ctx.shadowColor = "rgba(29,27,38,0.35)";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = Math.max(3, scaledSize(5, scale));
+  ctx.shadowOffsetY = Math.max(3, scaledSize(5, scale));
+  drawRoundRect(
+    ctx,
+    x,
+    y,
+    w,
+    h,
+    Math.max(6, scaledSize(10, scale)),
+    "#F5F3FF",
+    colors.border,
+    Math.max(2, scaledSize(2.5, scale)),
+  );
+  ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
-  const suit = suitGlyph(card.suit);
-  const rankSize = Math.max(scaledSize(mini ? 12 : 22, scale), w * (mini ? 0.34 : 0.24));
+  const rankSize = Math.max(scaledSize(18, scale), h * 0.28);
+  const suitSize = Math.max(scaledSize(18, scale), h * 0.30);
   ctx.fillStyle = ink;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.font = `700 ${rankSize}px ${fonts.display.family}`;
-  ctx.fillText(card.rank, x + w * 0.1, y + h * 0.06);
-
-  const suitSize = Math.max(scaledSize(mini ? 12 : 26, scale), w * (mini ? 0.34 : 0.28));
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  ctx.font = `700 ${rankSize}px ${fonts.title.family}`;
+  ctx.fillText(card.rank, x + w / 2, y + h * 0.33);
   ctx.font = `700 ${suitSize}px ${fonts.display.family}`;
-  ctx.fillText(suit, x + w / 2, y + h * (mini ? 0.66 : 0.62));
+  ctx.fillText(suitGlyph(card.suit), x + w / 2, y + h * 0.68);
 
-  if (!mini) {
-    // Mirrored corner mark, classic playing-card detail.
-    ctx.save();
-    ctx.translate(x + w * 0.9, y + h * 0.94);
-    ctx.rotate(Math.PI);
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.font = `700 ${rankSize}px ${fonts.display.family}`;
-    ctx.fillText(card.rank, 0, 0);
-    ctx.restore();
-  }
+  // Tiny corner pip, like the phone's card but quieter.
+  ctx.font = `700 ${Math.max(9, h * 0.10)}px ${fonts.display.family}`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(suitGlyph(card.suit), x + w * 0.12, y + h * 0.06);
   ctx.restore();
 }
 
-function drawCardPlaceholder(
+/**
+ * The phone's face-down card: tomato stock, cream diagonal stripes, "?".
+ * Used for every undealt community slot so the board matches the controller.
+ */
+function drawCardBack(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
   h: number,
   scale: number,
+  alpha = 1,
 ): void {
   ctx.save();
-  ctx.setLineDash([scaledSize(8, scale), scaledSize(8, scale)]);
-  drawRoundRect(ctx, x, y, w, h, scaledSize(8, scale), "#FFFDF5", "rgba(29,27,38,0.25)", 1);
-  ctx.setLineDash([]);
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = "rgba(29,27,38,0.35)";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = Math.max(3, scaledSize(5, scale));
+  ctx.shadowOffsetY = Math.max(3, scaledSize(5, scale));
+  drawRoundRect(
+    ctx,
+    x,
+    y,
+    w,
+    h,
+    Math.max(6, scaledSize(10, scale)),
+    "#F0453A",
+    colors.border,
+    Math.max(2, scaledSize(2.5, scale)),
+  );
+  ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + 3, y + 3, w - 6, h - 6);
+  ctx.clip();
+  ctx.strokeStyle = "rgba(255,253,245,0.26)";
+  ctx.lineWidth = Math.max(1, scaledSize(2, scale));
+  const step = Math.max(7, scaledSize(10, scale));
+  for (let d = -h; d < w + h; d += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + d, y);
+    ctx.lineTo(x + d + h, y + h);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.fillStyle = "#FFFDF5";
+  ctx.font = `700 ${Math.max(16, h * 0.28)}px ${fonts.display.family}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("?", x + w / 2, y + h / 2);
   ctx.restore();
 }
 

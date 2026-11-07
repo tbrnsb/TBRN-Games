@@ -47,6 +47,16 @@ screen renderer and is skinned in the paper system.
 - Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
+## Texas Hold'em host board
+
+The TV cards now share the phone's design: `#F5F3FF` faces with a big rank and
+suit, `#D6204E` red ink, ink borders and a hard shadow; undealt community slots
+and every live seat's two hole cards use the phone's tomato striped back with a
+"?" mark. The table is a flat mint oval with an ink rim, cream inlay and a
+stitched betting line; the pot has a paper chip stack; seat panels gained seat
+badges and larger D/SB/BB pills; the active seat has a thicker timer bar and the
+header shows the countdown. Evidence: `design/shots-v3/poker/`.
+
 ## Archery rebuild
 
 `games/archery/screen.ts` now draws a paper range scene instead of an empty

@@ -7,10 +7,10 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Rebuilt the Archery TV as a paper range: sky/field scene, paper-cutout archer
-with bow and quiver, tripod target, sun and clouds, distance markers, a proper
-turn-ticket strip and a labelled power meter, on top of the unified header
-system across all 22 TVs.
+Rebuilt the Texas Hold'em host board: the phone's lavender card face and
+tomato striped back are now used on the TV, undealt community slots are card
+backs, every live seat gets two face-down hole cards, and the table, pot chip
+stack, seat badges, blinds badges and turn timer are clearer.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
@@ -44,6 +44,12 @@ system across all 22 TVs.
   `showsScores` turns off the platform ticker for the 20 games that already
   draw a score rail (only Bracket and Mind Meld keep it); the waiting panel no
   longer repeats the phase copy or overflows with eight long names.
+- **Poker**: the TV now uses the same card design as the phone (lavender face,
+  big rank + suit, red/black inks; tomato striped back with "?"), with card
+  backs in every undealt community slot and two hole-card backs per live seat.
+  The table has a flat mint top, ink rim, cream inlay and stitched line; the
+  pot has a chip stack; seat badges, D/SB/BB pills and the turn timer are
+  larger and colour-coded.
 - **Archery**: the empty card + stick figure is gone. The range is now a paper
   scene with a big paper archer (tunic, cap, bow, quiver), a tripod target,
   sun/clouds, distance ticks, grass, turn tickets and a POWER meter; all text
