@@ -7,12 +7,13 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Final visual review pass: zero-progress bars no longer draw a stray dot, the
-tiny phase captions under score rails are gone, card tape moved top-right
-(with an opt-out for the Archery range), Bracket's timer is a header chip, the
-Poker pot sits below the community cards, and the pause veil / Rumble sheet
-cover their surfaces cleanly. Image-capable critic: **10/10** after three
-rounds.
+Full all-games/all-host audit: the lobby has a paper “Scroll for more games”
+affordance, session and finale sheets start at the shelf top (no empty band),
+the finale fills its panel with bottom actions and an awards empty state,
+8-player poker hole cards sit inside the felt, and waiting controllers use an
+“Eyes on the TV” card while text fields stretch to remove dead gaps.
+Image-capable critic: **10/10 across every game, start state, controller and
+host surface**.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
@@ -68,11 +69,10 @@ rounds.
 ## Verification
 `npx tsc --noEmit` clean; `npm run lint` 0 errors; `npm test` 1018/1018;
 `npm run assets:check` 344 files; `npm run check:design` PASS.
-Image-capable critic: round 1 8/10 (four concrete defects), round 2 9/10
-(four more, all small), round 3 **10/10 — no remaining visual defects**.
-Evidence on disk (gitignored): `design/shots-v5/<game>/screen-1280.png`,
-`screen-1920.png`, `controller-390.png`, `victory-1280.png`;
-`design/host-shots/*.png`; contact sheets in `design/review/batches/`.
+Image-capable critic full audit of all 22 games at 1280/1920, starts,
+controllers, host states and victories: **10/10 — no concrete visual
+defects**. Evidence on disk (gitignored): `design/shots-v6/<game>/...`,
+`design/host-shots/*.png`; contact sheets `design/review/batches/*-v7.png`.
 
 ## In progress
 - None. Working tree is clean at the last commit.

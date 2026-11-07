@@ -652,6 +652,12 @@ function renderFinal(view: SessionView): void {
     ? view.awards.map((award) => ({ name: award.name, playerName: award.playerName, detail: award.detail }))
     : view.trophies.map((trophy) => ({ name: trophy.name, playerName: trophy.playerName, detail: trophy.detail }));
   sessionAwardsEl.innerHTML = "";
+  if (awardRows.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "award-empty";
+    empty.textContent = "Awards appear after a few games. The standings are on the left.";
+    sessionAwardsEl.appendChild(empty);
+  }
   for (const award of awardRows) {
     const card = document.createElement("div");
     card.className = "award";

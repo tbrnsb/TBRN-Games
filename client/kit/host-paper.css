@@ -146,6 +146,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .seat.empty .swatch { border: 2px dashed rgba(29,27,38,.35); box-shadow: none; }
 
 .shelf {
+  position: relative;
   background: #E7E0CC;
   background-image: url("/assets/paper/newsprint.webp");
   background-size: 512px 512px;
@@ -182,12 +183,47 @@ main { flex: 1; min-height: 0; display: flex; }
   overflow-y: auto;
   overflow-x: hidden;
   margin-top: 9px;
-  padding: 10px 6px 8px;
+  padding: 10px 12px 8px 6px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(29, 27, 38, .32) transparent;
+  scrollbar-color: rgba(29, 27, 38, .55) rgba(29, 27, 38, .08);
 }
-.picker::-webkit-scrollbar { width: 8px; }
-.picker::-webkit-scrollbar-thumb { background: rgba(29, 27, 38, .3); border-radius: 4px; }
+.picker::-webkit-scrollbar { width: 10px; }
+.picker::-webkit-scrollbar-track { background: rgba(29, 27, 38, .08); border-left: 1px solid rgba(29, 27, 38, .18); }
+.picker::-webkit-scrollbar-thumb { background: rgba(29, 27, 38, .5); border-radius: 5px; }
+.shelf::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 10px;
+  bottom: 58px;
+  height: 44px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(transparent, #E7E0CC 78%);
+}
+.shelf::after {
+  content: "Scroll for more games ↓";
+  position: absolute;
+  left: 50%;
+  bottom: 60px;
+  z-index: 3;
+  transform: translateX(-50%) rotate(-1deg);
+  padding: 4px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: #FFFDF5;
+  box-shadow: 2px 2px 0 var(--ink);
+  pointer-events: none;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.shelf:has(.session:not(.hidden))::before,
+.shelf:has(.session:not(.hidden))::after,
+.shelf:has(.rumble-setup:not(.hidden))::before,
+.shelf:has(.rumble-setup:not(.hidden))::after { display: none; }
 .picker .shelf-strip {
   background: transparent;
   border: 0;
@@ -227,7 +263,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .launch .k { color: var(--ink); opacity: .65; }
 .launch .v { font-family: var(--font-display); color: var(--ink); }
 
-.rumble-setup, .session, .session-final, .guess-settings {
+.rumble-setup, .session, .guess-settings {
   margin: 0;
   position: absolute;
   inset: 56px 12px 10px 12px;
@@ -241,7 +277,7 @@ main { flex: 1; min-height: 0; display: flex; }
   padding: 14px 16px 12px;
   overflow: auto;
 }
-.rumble-setup, .session { inset: 56px 0 0 0; }
+.rumble-setup, .session { inset: 0; }
 .rumble-setup .setup-check { margin-top: auto; }
 .session-label { color: var(--ink); opacity: .7; }
 .preset-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -311,7 +347,32 @@ main { flex: 1; min-height: 0; display: flex; }
 
 /* The paper kit's `.podium` min-height (250px) is for the canvas victory
    screen; the host finale reuses the class name and must size to content. */
-.session-final { gap: 8px; padding-bottom: 4px; }
+.session-final {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  gap: 8px;
+  padding: 14px 16px 12px;
+  background: var(--paper);
+  background-image: var(--paper-texture);
+  background-size: 512px 512px;
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  box-shadow: 8px 8px 0 rgba(0,0,0,.5);
+  overflow: auto;
+}
+.session-final .setup-actions { margin-top: auto; }
+.final-columns { gap: 28px; }
+.final-block + .final-block { border-left: 2px dashed rgba(29,27,38,.22); padding-left: 20px; }
+.award-empty {
+  padding: 14px;
+  border: 2px dashed rgba(29,27,38,.3);
+  border-radius: 6px;
+  color: var(--ink);
+  opacity: .72;
+  font-size: 13px;
+  line-height: 1.4;
+}
 .session-final .podium { min-height: 0; margin: 0; gap: 12px; }
 .session-final .podium-place { padding: 10px; }
 .session-final .champion strong { font-size: 34px; }

@@ -262,6 +262,18 @@ export function createChoiceLayout(): ControllerLayout {
         : twoColumn
           ? "choices two-column"
           : "choices";
+      if (options.length === 0) {
+        const info = state && typeof state === "object" && "info" in state
+          ? String((state as { info?: unknown }).info ?? "").trim()
+          : "";
+        container.innerHTML = `
+          <div class="wait-card">
+            <span class="wait-eyes" aria-hidden="true">👀</span>
+            <strong>Eyes on the TV</strong>
+            <p>${escapeHtml(info || "The next move is on the shared screen.")}</p>
+          </div>`;
+        return;
+      }
       container.innerHTML = `
         <div class="${layoutClass}">
           ${options.map((opt, index) => `

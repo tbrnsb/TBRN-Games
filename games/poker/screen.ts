@@ -430,20 +430,13 @@ function drawTable(
   const holeH = scaledSize(54, scale);
   const holeGap = scaledSize(6, scale);
   const holeTotal = holeW * 2 + holeGap;
-  const panelW = scaledSize(280, scale);
-  const panelH = scaledSize(116, scale);
   state.players.forEach((player, i) => {
     if (player.out || player.folded) return;
     const pos = positions[i];
-    const dx = cx - pos.x;
-    const dy = cy - pos.y;
-    let px = pos.x;
-    let py = pos.y;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      px = pos.x + Math.sign(dx) * (panelW / 2 + holeTotal / 2 + scaledSize(8, scale));
-    } else {
-      py = pos.y + Math.sign(dy) * (panelH / 2 + holeH / 2 + scaledSize(8, scale));
-    }
+    // Sit the pair inside the felt, clearly inboard of the seat plate. The old
+    // panel-edge anchor tucked the outer card under the plate at 8 seats.
+    const px = cx + (pos.x - cx) * 0.66;
+    const py = cy + (pos.y - cy) * 0.66;
     drawCardBack(ctx, px - holeTotal / 2, py - holeH / 2, holeW, holeH, scale, 0.95);
     drawCardBack(ctx, px - holeTotal / 2 + holeW + holeGap, py - holeH / 2, holeW, holeH, scale, 0.95);
   });

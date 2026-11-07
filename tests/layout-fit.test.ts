@@ -2241,6 +2241,8 @@ const CLASS_MODIFIERS = new Set([
   "v-selected",
   "v-X",
   "v-picked",
+  "wait-card",
+  "wait-eyes",
 ]);
 
 /** Pointer surfaces that are divs (not <button>) in the layout templates. */

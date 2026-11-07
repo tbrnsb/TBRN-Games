@@ -47,6 +47,16 @@ screen renderer and is skinned in the paper system.
 - Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
+## Full all-surface audit
+
+The image-capable critic reviewed every enabled game at 1280 and 1920, every
+start state, all 22 controllers, the host lobby (both sizes), Rumble picker and
+session, finale (both sizes), settings, pause, interlude, poker table states
+and the finish celebrations. Final: **10/10, no concrete defects** after fixing
+the lobby scroll affordance, host sheet/finale geometry, 8-player poker hole
+cards, and controller waiting/text layouts. Evidence: `design/review/batches/
+*-v7.png`, `design/shots-v6/`, `design/host-shots/`.
+
 ## Final visual review
 
 The image-capable critic scored 8/10, then 9/10, then **10/10** after:
