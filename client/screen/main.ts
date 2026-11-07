@@ -25,6 +25,7 @@ import {
 import { drawVoteOptions, type VoteOption } from "./kit/vote.ts";
 import { scaleForViewport, setLegacySkin } from "@legacy-kit/theme.ts";
 import { skinFor } from "../skins/index.ts";
+import { createShelf } from "../kit/shelf.ts";
 import {
   createWatchOverlay,
   drawWatchOverlay,
@@ -396,41 +397,29 @@ async function loadGames(): Promise<void> {
 
 function renderPicker(): void {
   picker.innerHTML = "";
-
-  for (const g of manifests) {
-    const reason = unavailableReason(g);
-    const available = reason === null;
-    const selected = selectedGameId === g.id;
-
-    const tile = document.createElement("button");
-    tile.type = "button";
-    tile.className = `game-tile${selected ? " selected" : ""}`;
-    tile.disabled = !available;
-    tile.dataset.game = g.id;
-    if (reason) tile.title = `${capitalise(reason)} — ${playerCount} at the table`;
-
-    const dots = Array.from(
-      { length: g.maxPlayers },
-      (_, i) => `<i class="${i < g.minPlayers ? "on" : ""}"></i>`,
-    ).join("");
-
-    const meta = available
-      ? `<span class="dots" aria-hidden="true">${dots}</span><span>${g.minPlayers}–${g.maxPlayers}</span>`
-      : `<span>${capitalise(reason)}</span>`;
-
-    tile.innerHTML = `
-      <span class="name">${escapeHtml(gameName(g))}</span>
-      <span class="meta">${meta}</span>
-      <span class="desc">${escapeHtml(g.description)}</span>
-    `;
-
-    tile.addEventListener("click", () => {
-      selectedGameId = g.id;
-      renderPicker();
-      updateLaunchBar();
-    });
-    picker.appendChild(tile);
-  }
+  const shelf = createShelf(
+    manifests.map((g) => ({
+      id: g.id,
+      name: gameName(g),
+      description: g.description,
+      minPlayers: g.minPlayers,
+      maxPlayers: g.maxPlayers,
+    })),
+    {
+      selectedId: selectedGameId,
+      playerCount,
+      unavailable: (game) => {
+        const manifest = manifests.find((m) => m.id === game.id);
+        return manifest ? unavailableReason(manifest) : "unavailable";
+      },
+      onSelect: (id) => {
+        selectedGameId = id;
+        renderPicker();
+        updateLaunchBar();
+      },
+    },
+  );
+  picker.appendChild(shelf);
 }
 
 function capitalise(text: string): string {

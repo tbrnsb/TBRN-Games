@@ -7,16 +7,18 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-Skin-contrast fix (Racing, Guess the Imposter) and removal of the stale
-`tsconfig.build.json`, on top of the paper polish commit for the host shelf,
-alleys, finale, controllers and the remaining dark playfields.
+Restored the pre-merge paper game-box shelf on the host picker: six boxes per
+row, flat two-ink box art, per-game paper, tape and pins, on top of the skin
+contrast fix and the paper polish commit.
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
   interlude/host controls/finale, score ticker, pause, results/awards, settings,
   presence/reactions, sound/TTS.
-- **Host board**: paper table, 8-seat roster (all eight fit at 1280x720), 22-game
-  shelf with readable names and a visible scrollbar, paper Rumble preset picker,
+- **Host board**: paper table, 8-seat roster (all eight fit at 1280x720), the
+  old game-box shelf restored (six illustrated boxes per row with tape, pins and
+  per-game paper; `NEEDS n` / `MAX n` notes when the table does not fit), paper
+  Rumble preset picker,
   slot progress, swap controls, finals podium/leaderboard/awards (fits 720p with
   eight rows), interlude and pause overlays, paper settings sheet.
 - **All 22 enabled renderers**: 11 new expansion games use the shared paper

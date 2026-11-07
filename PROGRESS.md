@@ -6,8 +6,9 @@ screen renderer and is skinned in the paper system.
 
 ## Current state
 
-- **Host board**: 8 fixed seats with colour + emoji/shape identity, 22-game
-  paper shelf, 8-player names, new Rumble preset picker, slot progress, swap
+- **Host board**: 8 fixed seats with colour + emoji/shape identity, the
+  pre-merge illustrated game-box shelf (six per row, box art, tape, pins,
+  per-game paper), 22 games, 8-player names, new Rumble preset picker, slot progress, swap
   controls, interlude, pause overlay, settings, ticker and paper finale
   podium/leaderboard/awards.
 - **Controllers**: paper shell over every new layout (`one-button`, `left-right`,
