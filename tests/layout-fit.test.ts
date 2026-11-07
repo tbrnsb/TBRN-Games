@@ -2056,6 +2056,14 @@ const TAP_ROWS: TapRow[] = [
     note: "48x48px brush-size chip; three chips fit beside the wrapped palette",
   },
   {
+    covers: ["canvas-done"],
+    selector: ".canvas-done",
+    types: ["canvas"],
+    kind: "size",
+    measured: 54,
+    note: "primary Done action beside Clear; sends the done action so a sketch phase can close early",
+  },
+  {
     covers: ["rank-item"],
     selector: ".rank-item",
     types: ["rank"],

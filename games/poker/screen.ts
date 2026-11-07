@@ -299,19 +299,19 @@ function drawTable(
   // Felt
   ctx.save();
   const felt = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(feltRX, feltRY));
-  felt.addColorStop(0, "#2A1A5C");
-  felt.addColorStop(0.72, "#18103C");
-  felt.addColorStop(1, "#0E0A26");
+  felt.addColorStop(0, "#EAF7F0");
+  felt.addColorStop(0.72, "#D9EFE4");
+  felt.addColorStop(1, "#C4E3D4");
   ctx.fillStyle = felt;
   ctx.beginPath();
   ctx.ellipse(cx, cy, feltRX, feltRY, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = "rgba(255,46,151,0.45)";
+  ctx.strokeStyle = "#1D1B26";
   ctx.lineWidth = Math.max(1, scaledSize(2, scale));
   ctx.stroke();
 
-  ctx.strokeStyle = "rgba(0,229,255,0.10)";
+  ctx.strokeStyle = "rgba(29,27,38,0.16)";
   ctx.lineWidth = Math.max(1, scaledSize(8, scale));
   ctx.beginPath();
   ctx.ellipse(cx, cy, feltRX - scaledSize(12, scale), feltRY - scaledSize(12, scale), 0, 0, Math.PI * 2);
@@ -356,14 +356,14 @@ function drawTable(
       potY - scaledSize(22, scale),
       potW,
       scaledSize(44, scale),
-      "rgba(11,8,32,0.72)",
+      "#FFFDF5",
       "rgba(255,179,71,0.5)",
       Math.max(1, scaledSize(2, scale)),
     );
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `600 ${scaledSize(16, scale)}px ${fonts.body.family}`;
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardMuted;
     ctx.textAlign = "left";
     ctx.fillText("POT", cx - potW / 2 + scaledSize(18, scale), potY);
     ctx.textAlign = "right";
@@ -380,7 +380,7 @@ function drawTable(
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardMuted;
     ctx.fillText(`Current bet ${state.currentBet}`, cx, infoY + scaledSize(18, scale));
   }
 
@@ -390,7 +390,7 @@ function drawTable(
     ctx.textAlign = "center";
     state.results.slice(0, 2).forEach((line, i) => {
       ctx.font = `${i === 0 ? 700 : 500} ${scaledSize(i === 0 ? 20 : 15, scale)}px ${fonts.display.family}`;
-      ctx.fillStyle = i === 0 ? colors.success : colors.textMuted;
+      ctx.fillStyle = i === 0 ? colors.success : colors.cardMuted;
       ctx.fillText(line, cx, startY + i * scaledSize(24, scale));
     });
   }
@@ -455,7 +455,7 @@ function drawPotRows(
         y,
         cell.width,
         height,
-        "rgba(11,8,32,0.78)",
+        "#FFFDF5",
         "rgba(255,179,71,0.5)",
         Math.max(1, scaledSize(1.5, scale)),
       );
@@ -534,15 +534,15 @@ function drawSeat(
     w,
     h,
     scaledSize(16, scale),
-    "rgba(18,13,46,0.92)",
-    isTurn ? color : isWinner ? colors.success : "rgba(255,255,255,0.10)",
+    "#FFFDF5",
+    isTurn ? color : isWinner ? colors.success : "rgba(29,27,38,0.18)",
     isTurn || isWinner ? Math.max(1, scaledSize(2, scale)) : 1,
   );
 
   // Turn glow
   if (isTurn) {
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 22;
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
     drawRoundRect(ctx, left, top, w, h, scaledSize(16, scale));
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
@@ -554,7 +554,7 @@ function drawSeat(
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.font = `700 ${scaledSize(24, scale)}px ${fonts.display.family}`;
-  ctx.fillStyle = player.folded || player.out ? colors.textMuted : colors.text;
+  ctx.fillStyle = player.folded || player.out ? colors.cardMuted : colors.cardText;
   ctx.fillText(player.name, left + scaledSize(14, scale), top + scaledSize(26, scale));
 
   // Chips
@@ -566,7 +566,7 @@ function drawSeat(
   if (!showdown && player.lastAction) {
     ctx.textAlign = "right";
     ctx.font = `500 ${scaledSize(16, scale)}px ${fonts.body.family}`;
-    ctx.fillStyle = colors.textMuted;
+    ctx.fillStyle = colors.cardMuted;
     ctx.fillText(player.lastAction, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
   } else if (!showdown && player.bet > 0) {
     ctx.textAlign = "right";
@@ -615,7 +615,7 @@ function drawSeat(
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
     ctx.font = `600 ${scaledSize(15, scale)}px ${fonts.body.family}`;
-    ctx.fillStyle = isWinner ? colors.success : colors.textMuted;
+    ctx.fillStyle = isWinner ? colors.success : colors.cardMuted;
     ctx.fillText(showdown.handName, left + w - scaledSize(14, scale), top + h - scaledSize(22, scale));
   }
 
@@ -625,7 +625,7 @@ function drawSeat(
   if (isTurn && state.timeLeft > 0) {
     const progress = clamp(state.timeLeft / ACTION_TIMEOUT_MS, 0, 1);
     const barH = scaledSize(5, scale);
-    drawRoundRect(ctx, left + scaledSize(8, scale), top + h - barH - scaledSize(3, scale), w - scaledSize(16, scale), barH, barH / 2, "rgba(255,255,255,0.10)");
+    drawRoundRect(ctx, left + scaledSize(8, scale), top + h - barH - scaledSize(3, scale), w - scaledSize(16, scale), barH, barH / 2, "rgba(29,27,38,0.18)");
     drawRoundRect(
       ctx,
       left + scaledSize(8, scale),
@@ -649,10 +649,10 @@ function drawCard(
   mini = false,
 ): void {
   const red = card.suit === "hearts" || card.suit === "diamonds";
-  const ink = red ? "#D6204E" : "#1B1545";
+  const ink = red ? colors.magenta : colors.cardText;
 
   ctx.save();
-  drawRoundRect(ctx, x, y, w, h, scaledSize(8, scale), "#F5F3FF", "rgba(255,255,255,0.35)", 1);
+  drawRoundRect(ctx, x, y, w, h, scaledSize(8, scale), "#FFFDF5", "#1D1B26", 1);
 
   const suit = suitGlyph(card.suit);
   const rankSize = Math.max(scaledSize(mini ? 12 : 22, scale), w * (mini ? 0.34 : 0.24));
@@ -692,7 +692,7 @@ function drawCardPlaceholder(
 ): void {
   ctx.save();
   ctx.setLineDash([scaledSize(8, scale), scaledSize(8, scale)]);
-  drawRoundRect(ctx, x, y, w, h, scaledSize(8, scale), "rgba(255,255,255,0.03)", "rgba(255,255,255,0.12)", 1);
+  drawRoundRect(ctx, x, y, w, h, scaledSize(8, scale), "#FFFDF5", "rgba(29,27,38,0.25)", 1);
   ctx.setLineDash([]);
   ctx.restore();
 }

@@ -304,9 +304,9 @@ function renderTrack(
   // Track surface
   ctx.save();
   const asphalt = ctx.createLinearGradient(track.x, track.y, track.x, track.y + track.height);
-  asphalt.addColorStop(0, "rgba(24,18,60,0.99)");
-  asphalt.addColorStop(0.5, "rgba(12,10,32,0.995)");
-  asphalt.addColorStop(1, "rgba(8,6,22,0.995)");
+  asphalt.addColorStop(0, "#F7F0DF");
+  asphalt.addColorStop(0.5, "#EFE6D2");
+  asphalt.addColorStop(1, "#E4D8BE");
   drawRoundRect(
     ctx,
     track.x,
@@ -315,7 +315,7 @@ function renderTrack(
     track.height,
     scaledSize(20, scale),
     asphalt,
-    "rgba(255,46,151,0.35)",
+    "#1D1B26",
     Math.max(1, scaledSize(2, scale)),
   );
 
@@ -340,7 +340,7 @@ function renderTrack(
     );
 
   // Rolling speed lines.
-  ctx.strokeStyle = "rgba(255,255,255,0.03)";
+  ctx.strokeStyle = "rgba(29,27,38,0.05)";
   ctx.lineWidth = 1;
   const lineScroll = (now * 0.05) % 70;
   for (let y = track.y - 70 + lineScroll; y < track.y + track.height; y += 70) {
@@ -353,7 +353,7 @@ function renderTrack(
   // Lane separators, below the seat header.
   for (let i = 1; i < laneCount; i++) {
     const x = track.x + laneWidth * i;
-    ctx.strokeStyle = "rgba(0,229,255,0.12)";
+    ctx.strokeStyle = "rgba(29,27,38,0.20)";
     ctx.lineWidth = Math.max(1, scaledSize(2, scale));
     ctx.setLineDash([scaledSize(14, scale), scaledSize(20, scale)]);
     ctx.beginPath();
@@ -369,13 +369,13 @@ function renderTrack(
   ctx.textBaseline = "middle";
   for (let d = Math.ceil(camStart / 50) * 50; d <= camEnd; d += 50) {
     const y = yFor(d);
-    ctx.strokeStyle = "rgba(245,243,255,0.12)";
+    ctx.strokeStyle = "rgba(29,27,38,0.18)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(track.x + track.width - scaledSize(16, scale), y);
     ctx.lineTo(track.x + track.width, y);
     ctx.stroke();
-    ctx.fillStyle = "rgba(245,243,255,0.52)";
+    ctx.fillStyle = "#5B5448";
     ctx.fillText(`${d}`, track.x + track.width - scaledSize(22, scale), y);
   }
 
@@ -384,7 +384,7 @@ function renderTrack(
     const finishY = yFor(state.finishDistance);
     const square = scaledSize(12, scale);
     for (let i = 0; i * square < track.width; i++) {
-      ctx.fillStyle = i % 2 === 0 ? "rgba(245,243,255,0.92)" : "rgba(11,8,32,0.92)";
+      ctx.fillStyle = i % 2 === 0 ? "#FFFDF5" : "#1D1B26";
       ctx.fillRect(track.x + i * square, finishY - square, square, square);
     }
     ctx.fillStyle = colors.success;
@@ -403,8 +403,8 @@ function renderTrack(
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = "rgba(255,77,109,0.18)";
-    ctx.strokeStyle = "rgba(255,77,109,0.8)";
+    ctx.fillStyle = "rgba(240,69,58,0.16)";
+    ctx.strokeStyle = "rgba(240,69,58,0.8)";
     ctx.lineWidth = Math.max(1, scaledSize(2, scale));
     ctx.beginPath();
     ctx.moveTo(0, -size * 0.55);
@@ -414,7 +414,7 @@ function renderTrack(
     ctx.fill();
     ctx.stroke();
 
-    ctx.strokeStyle = "rgba(255,77,109,0.5)";
+    ctx.strokeStyle = "rgba(240,69,58,0.5)";
     ctx.beginPath();
     ctx.moveTo(0, -size * 0.18);
     ctx.lineTo(size * 0.3, size * 0.22);
@@ -459,7 +459,7 @@ function renderTrack(
         nameW,
         scaledSize(25, scale),
         scaledSize(8, scale),
-        "rgba(11,8,32,0.82)",
+        "#FFFDF5",
       );
       ctx.fillStyle = seat.color;
       ctx.textAlign = "center";
@@ -473,7 +473,7 @@ function renderTrack(
 
     if (r.speed > 0 && !r.crashed && !behindCamera) {
       ctx.font = `500 ${scaledSize(14, scale)}px ${fonts.body.family}`;
-      ctx.fillStyle = "rgba(245,243,255,0.5)";
+      ctx.fillStyle = "#5B5448";
       ctx.textBaseline = "top";
       ctx.fillText(`${Math.round(r.speed)} m/s`, x, y + scaledSize(20, scale));
     }
@@ -502,9 +502,9 @@ function drawLaneHeaders(
   const pad = scaledSize(6, scale);
   const gap = scaledSize(5, scale);
 
-  ctx.fillStyle = "rgba(11,8,32,0.72)";
+  ctx.fillStyle = "#F4EBD9";
   ctx.fillRect(track.x, track.y, track.width, headerHeight);
-  ctx.strokeStyle = "rgba(0,229,255,0.18)";
+  ctx.strokeStyle = "rgba(29,27,38,0.35)";
   ctx.lineWidth = Math.max(1, scaledSize(1.5, scale));
   ctx.beginPath();
   ctx.moveTo(track.x, track.y + headerHeight);
@@ -574,7 +574,7 @@ function drawCar(
   if (crashed) ctx.rotate(Math.sin(performance.now() * 0.05) * 0.07);
 
   // Wheels
-  ctx.fillStyle = "rgba(5,4,14,0.98)";
+  ctx.fillStyle = "#2B2620";
   drawRoundRect(ctx, -w / 2 - w * 0.08, -h * 0.3, w * 0.18, h * 0.2, w * 0.05, ctx.fillStyle as string);
   drawRoundRect(ctx, w / 2 - w * 0.1, -h * 0.3, w * 0.18, h * 0.2, w * 0.05, ctx.fillStyle as string);
   drawRoundRect(ctx, -w / 2 - w * 0.08, h * 0.1, w * 0.18, h * 0.22, w * 0.05, ctx.fillStyle as string);
@@ -582,7 +582,7 @@ function drawCar(
 
   // Body: pointed nose, wide rear.
   ctx.shadowColor = crashed ? colors.danger : color;
-  ctx.shadowBlur = crashed ? 26 : 18;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(0, -h / 2);
@@ -596,7 +596,7 @@ function drawCar(
 
   // Cockpit
   ctx.shadowBlur = 0;
-  ctx.fillStyle = "rgba(8,6,22,0.62)";
+  ctx.fillStyle = "rgba(29,27,38,0.16)";
   drawRoundRect(ctx, -w * 0.24, -h * 0.12, w * 0.48, h * 0.34, w * 0.18, ctx.fillStyle as string);
 
   // Seat glyph on the cockpit, so a car is identifiable without colour alone.
@@ -607,7 +607,7 @@ function drawCar(
   ctx.fillText(seat.emoji, 0, h * 0.05);
 
   // Nose light
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.fillStyle = "#FFFDF5";
   drawRoundRect(ctx, -w * 0.14, -h * 0.47, w * 0.28, h * 0.06, w * 0.03, ctx.fillStyle as string);
 
   if (crashed) {
@@ -647,8 +647,8 @@ function drawCountdownNumber(
   ctx.fillStyle = colors.text;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.shadowColor = colors.magenta;
-  ctx.shadowBlur = 40;
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
   ctx.fillText(String(count), 0, 0);
   ctx.restore();
 
@@ -702,7 +702,7 @@ function renderScoreboard(
   if (progressH <= 0) return;
 
   const progressRect = { x, y: progressTop, width: w, height: progressH };
-  drawBentoCard(ctx, progressRect, { fill: "rgba(18,13,46,0.76)", stroke: colors.border });
+  drawBentoCard(ctx, progressRect, { fill: "#FFFDF5", stroke: colors.border });
 
   const pad = scaledSize(20, scale);
   ctx.textAlign = "left";
@@ -732,7 +732,7 @@ function renderScoreboard(
 
     const bx = x + pad + labelW;
     const bh = scaledSize(6, scale);
-    drawRoundRect(ctx, bx, rowY - bh / 2, barW, bh, bh / 2, "rgba(255,255,255,0.08)");
+    drawRoundRect(ctx, bx, rowY - bh / 2, barW, bh, bh / 2, "rgba(29,27,38,0.12)");
     drawRoundRect(ctx, bx, rowY - bh / 2, Math.max(bh, barW * clamp(r.progress, 0, 1)), bh, bh / 2, color);
   });
 

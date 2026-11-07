@@ -354,8 +354,8 @@ function drawHeader(
     pillW,
     pillH,
     pillH / 2,
-    "rgba(11,8,32,0.72)",
-    "rgba(255,255,255,0.14)",
+    "#FFFDF5",
+    "#1D1B26",
     1,
   );
   ctx.fillStyle = state.phase === "finalGuess" ? colors.danger : colors.cyan;
@@ -577,8 +577,8 @@ function drawCountdown(
   ctx.fillStyle = colors.text;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.shadowColor = colors.magenta;
-  ctx.shadowBlur = 30 * pop;
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
   ctx.fillText(String(step), 0, 0);
   ctx.restore();
 
@@ -1136,8 +1136,8 @@ function drawBallotRow(
     width,
     height,
     scaledSize(8, scale),
-    "rgba(11,8,32,0.72)",
-    "rgba(255,255,255,0.06)",
+    "#FFFDF5",
+    "#1D1B26",
     1,
   );
 
@@ -1402,8 +1402,8 @@ function drawWinnerRow(
       chipW,
       chipH,
       chipH / 2,
-      "rgba(11,8,32,0.6)",
-      "rgba(255,255,255,0.12)",
+      "#FFFDF5",
+      "#1D1B26",
       1,
     );
     drawSeatBadge(ctx, x + scaledSize(4, scale), y + (chipH - badge) / 2, badge, chip.seat);
@@ -1469,8 +1469,8 @@ function drawGuessGrid(
       cellW,
       cellH,
       scaledSize(8, scale),
-      isWord ? "rgba(61,255,162,0.16)" : picked ? "rgba(255,77,109,0.14)" : "rgba(11,8,32,0.7)",
-      isWord ? colors.success : picked ? colors.danger : "rgba(255,255,255,0.07)",
+      isWord ? "rgba(47,181,106,0.16)" : picked ? "rgba(240,69,58,0.12)" : "#FFFDF5",
+      isWord ? colors.success : picked ? colors.danger : "#1D1B26",
       isWord ? Math.max(1, scaledSize(2, scale)) : 1,
     );
 

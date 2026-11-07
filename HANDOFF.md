@@ -7,40 +7,43 @@ are skinned in the paper-and-ink system; the host board and phones use the new
 8-seat, preset-Rumble structure.
 
 ## Last commit
-`040259d` — spread paper-and-ink across the expanded game catalog.
+Paper polish on the host shelf, alleys, finale, controllers and the remaining
+dark playfields (poker, racing, Guess the Imposter).
 
 ## Done
 - **Merge**: new catalog, 8 seats, 22 enabled games, Rumble presets/slots/
   interlude/host controls/finale, score ticker, pause, results/awards, settings,
   presence/reactions, sound/TTS.
-- **Host board**: paper table, 8-seat roster, 22-game shelf, paper Rumble preset
-  picker, slot progress, swap controls, finals podium/leaderboard/awards,
-  interlude and pause overlays, paper settings sheet.
+- **Host board**: paper table, 8-seat roster (all eight fit at 1280x720), 22-game
+  shelf with readable names and a visible scrollbar, paper Rumble preset picker,
+  slot progress, swap controls, finals podium/leaderboard/awards (fits 720p with
+  eight rows), interlude and pause overlays, paper settings sheet.
 - **All 22 enabled renderers**: 11 new expansion games use the shared paper
-  board (`client/screen/kit/paperBoard.ts`); existing renderers inherit paper
-  backgrounds, score cards, paper title/victory, per-game paper/inks/fonts via
-  the restyled legacy canvas kit and `setLegacySkin`.
+  board; existing renderers inherit paper backgrounds, cards, score rail, title
+  and victory. Poker (green felt paper + paper table), Tap Race (paper track and
+  ink lane markings) and Guess the Imposter's dark panels were repainted.
 - **Controllers**: paper shell for all new layouts, seat badge, large stamped
-  controls, reactions, haptics.
+  controls, reactions, haptics. The canvas layout gained a **Done** action so
+  Slogan Shirts/Drawful can close the sketch phase early, and the sketch surface
+  is capped so the tools sit near the fold.
 - **11 new renderers**: Split the Room, Survive the Internet, Frankenanswers,
   Dumb Inventions, Stowaway, Fakin' It, Blather Round, Slide Roulette, Drawful,
   Slogan Shirts, Slingshot Arena.
 - **Skins** added for the expansion IDs (33 skins total).
 - **Legacy tree removed**: `src/`, `test/` and `public/` (pre-expansion engine,
   its tests and the synthwave `theme.css`) were dead paths, excluded from
-  `tsconfig`, CI and `npm test`. The live paths are `server/`, `tests/`,
-  `client/`. This also removed the stale 4-player `MAX_PLAYERS`.
+  `tsconfig`, CI and `npm test`.
+- **Background fix**: the washi tape no longer covers the top-left game title.
 
 ## In progress
 - None. Working tree is clean at the last commit.
 
 ## Next three actions
-1. Browser-verify the Rumble interlude, finale podium, full leaderboard, awards,
-   ticker/results/pause, and the new controller layouts (`slider`, `rank`,
-   `draw`, `chat`, `role`, `aim`, `numpad`).
-2. Per-game signature art/sound pass for the 22 enabled games; the shell is done,
-   but several playfields still carry their old in-game art.
-3. Retired games only if asked.
+1. Per-game signature art/sound pass for the 22 enabled games; the shell is done,
+   but several playfields still carry their pre-paper in-game art.
+2. Retired games only if asked.
+3. Optional: collapse the reaction bar during active drawing on phones so the
+   sketch tools fit without a scroll.
 
 ## How to run & test
 ```bash
@@ -57,13 +60,12 @@ Open `http://localhost:3101`.
 
 ## Failing tests / known issues
 - None failing.
-- Some existing playfield art is still the pre-paper game art (golf green,
-  poker table, racing track, dark arena boards). The shell, scores, titles and
-  victory screens are paper.
+- Some existing playfields still keep their old in-game art (golf green, dark
+  arena boards). The shell, scores, titles and victory screens are paper.
 - The new 11 renderers share a board; they are functional and skinned but not
   yet one-off signature compositions.
-- Ticker/reaction canvas colours are paper, but some old game renderers still
-  have their own in-game palettes.
+- Drawing controllers need a short scroll to reach the colour tools on a 360dp
+  phone at 1.5x text; the Done action is reachable there.
 - No push; branch stays local.
 
 ## Decisions
@@ -74,3 +76,5 @@ Open `http://localhost:3101`.
 4. All 22 enabled games are in scope; the 15 retired games are not.
 5. The pre-expansion `src/`/`test/`/`public/` trees are deleted rather than
    restyled; git history keeps them.
+6. The canvas controller sends `{ action: "action" }` on Done; both Drawful and
+   Slogan Shirts already accept that input.

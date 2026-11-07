@@ -82,7 +82,8 @@ export function drawSynthwaveBackground(ctx: CanvasRenderingContext2D, config: B
   ctx.globalAlpha = 1;
 
   // Tape strip, pin and coffee ring: three handmade details on every game.
-  drawTape(ctx, width * 0.06, height * 0.045, scale);
+  // Keep the tape on the top edge so it never covers a game title.
+  drawTape(ctx, width * 0.40, 10 * scale, scale);
   drawPin(ctx, width - scale * 54, height * 0.075, scale);
   drawCoffeeRing(ctx, width * 0.09, height * 0.86, scale);
 

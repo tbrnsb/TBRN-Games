@@ -256,3 +256,19 @@ body::after {
 .host-btn.danger { background: var(--ink-1); color: #FFF7E8; }
 .reaction-btn { background: var(--paper); font-size: 24px; }
 .error-toast { background: var(--ink-1) !important; color: #FFF7E8 !important; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+
+/* Drawing and multi-field layouts can exceed a short phone; let the play
+   column scroll instead of clipping the tools and submit button. */
+.play {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 27, 38, .35) transparent;
+}
+.play::-webkit-scrollbar { width: 6px; }
+.play::-webkit-scrollbar-thumb { background: rgba(29, 27, 38, .35); border-radius: 3px; }
+
+/* Keep the sketch surface square but short enough that the colour tools and
+   the Done action stay near the fold on a 360dp phone. */
+.draw-surface { max-width: min(100%, 38vh); align-self: center; }
+.canvas-tools .canvas-done { flex: 1 1 120px; }

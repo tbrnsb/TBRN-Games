@@ -1181,6 +1181,7 @@ export function createCanvasLayout(): ControllerLayout {
               ${[3, 6, 12].map((w, i) => `<button class="canvas-size ${i === 1 ? "active" : ""}" data-width="${w}"><span style="--dot:${w}px"></span></button>`).join("")}
             </div>
             <button class="action-btn clear-drawing" ${v.disabled ? "disabled" : ""}>Clear</button>
+            <button class="action-btn primary canvas-done" ${v.disabled ? "disabled" : ""}>Done</button>
           </div>
         </div>`;
 
@@ -1256,6 +1257,9 @@ export function createCanvasLayout(): ControllerLayout {
         points = [];
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         onInput({ stroke: { points: [], color: v.color } });
+      });
+      container.querySelector(".canvas-done")?.addEventListener("click", () => {
+        onInput({ action: "action" });
       });
     },
     update(_container, _state) {},
