@@ -21,10 +21,10 @@ const ENABLED = Object.values(GAME_CATALOG)
   .map((entry) => entry.id);
 
 const EXPECTED_SLOTS: string[][] = [
-  ["mostlikely", "quiz", "bluff", "racing", "drawful", "splitroom", "guessimposter", "archery"],
+  ["mostlikely", "quiz", "bluff", "racing", "drawful", "splitroom", "guessimposter", "darts"],
   ["writevote", "dumbinventions", "blather", "sloganshirts", "survive", "slideroulette", "splitroom", "bracket"],
   ["mindmeld", "mostlikely", "drawful", "fakin", "frankenanswers", "sloganshirts", "dumbinventions", "slideroulette"],
-  ["quiz", "percentile", "bluff", "mindmeld", "archery", "arena", "racing", "poker"],
+  ["quiz", "percentile", "bluff", "mindmeld", "darts", "arena", "racing", "poker"],
   ["mostlikely", "fakin", "bluff", "racing", "stowaway", "survive", "splitroom", "guessimposter"],
 ];
 
@@ -156,17 +156,25 @@ describe("rumble presets", () => {
 
   test("swaps carry a one-line announcement naming the reason", () => {
     const { slots, swaps } = resolvePreset(RUMBLE_PRESETS[3], 8);
+
+    // Darts is the first 1-4 game in Big Brain Sunday, so it takes the first
+    // free bench slot (Split the Room) at eight players.
+    const dartsSwap = swaps.find((swap) => swap.from === "darts");
+    assert.ok(dartsSwap, "Darts should be swapped at eight players");
+    assert.strictEqual(dartsSwap.to, "splitroom");
+    assert.match(dartsSwap.reason, /Darts needs 1-4 players/);
+
     const arenaSwap = swaps.find((swap) => swap.from === "arena");
     assert.ok(arenaSwap, "Slingshot Arena should be swapped at eight players");
-    assert.strictEqual(arenaSwap.to, "splitroom");
+    assert.strictEqual(arenaSwap.to, "writevote");
     assert.match(arenaSwap.reason, /Slingshot Arena needs 2-4 players/);
     assert.strictEqual(
       arenaSwap.announcement,
-      "Slingshot Arena needs 2-4 players, so we're playing Split the Room.",
+      "Slingshot Arena needs 2-4 players, so we're playing Write & Vote.",
     );
 
     const arenaSlot = slots.find((slot) => slot.originalId === "arena");
-    assert.strictEqual(arenaSlot?.gameId, "splitroom");
+    assert.strictEqual(arenaSlot?.gameId, "writevote");
     assert.strictEqual(arenaSlot?.announcement, arenaSwap.announcement);
     assert.strictEqual(arenaSlot?.options, undefined, "the kept game's options must not leak");
 
@@ -209,19 +217,22 @@ describe("rumble presets", () => {
   });
 
   test("bench games are tried in order before the same-kind fallback", () => {
-    const preset = fixture(["arena"], ["racing", "archery"]);
+    // At eight players the arena slot cannot run; the bench wins in order.
+    const preset = fixture(["arena"], ["racing", "mindmeld"]);
 
     assert.strictEqual(resolvePreset(preset, 8).slots[0].gameId, "racing");
-    assert.strictEqual(resolvePreset(preset, 8, ["racing"]).slots[0].gameId, "archery");
+    assert.strictEqual(resolvePreset(preset, 8, ["racing"]).slots[0].gameId, "mindmeld");
   });
 
   test("same kind is the last resort and follows catalog order", () => {
     const preset = fixture(["arena"], []);
     const { slots, swaps } = resolvePreset(preset, 8);
 
-    assert.strictEqual(slots[0].gameId, "archery");
-    assert.strictEqual(GAME_CATALOG.archery.kind, GAME_CATALOG.arena.kind);
-    assert.strictEqual(swaps[0].to, "archery");
+    // Archery is disabled now, so Tap Race is the first enabled skill game
+    // that fits eight players in catalog order.
+    assert.strictEqual(slots[0].gameId, "racing");
+    assert.strictEqual(GAME_CATALOG.racing.kind, GAME_CATALOG.arena.kind);
+    assert.strictEqual(swaps[0].to, "racing");
   });
 
   test("skips a slot when nothing valid is left", () => {
@@ -270,7 +281,7 @@ describe("rumble presets", () => {
           { gameId: "bluff" },
           { gameId: "quiz" },
         ],
-        bench: ["darts", "bluff"],
+        bench: ["golf", "bluff"],
       },
     ];
 
@@ -280,10 +291,10 @@ describe("rumble presets", () => {
 
     assert.ok(has('unknown game id "no-such-game"'), messages.join(" | "));
     assert.ok(has('game "mostlikely" appears twice'), messages.join(" | "));
-    assert.ok(has('bench game "darts" is not enabled'), messages.join(" | "));
+    assert.ok(has('bench game "golf" is not enabled'), messages.join(" | "));
     assert.ok(has('bench game "bluff" also appears in the slots'), messages.join(" | "));
     assert.ok(has("5 slots, expected 8"), messages.join(" | "));
-    assert.ok(has('enabled game "archery" never appears'), messages.join(" | "));
+    assert.ok(has('enabled game "darts" never appears'), messages.join(" | "));
     assert.ok(problems.some((problem) => problem.presetId === null), "roster gap should be preset-less");
   });
 });

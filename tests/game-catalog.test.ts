@@ -48,14 +48,14 @@ const ENABLED = [
   "quiz",
   "mindmeld",
   "percentile",
-  "archery",
+  "darts",
   "arena",
   "poker",
   "racing",
 ].sort();
 
 const DISABLED = [
-  "darts",
+  "archery",
   "golf",
   "knifethrow",
   "spinwar",
@@ -162,7 +162,7 @@ describe("game catalog", () => {
       quiz: 10,
       mindmeld: 6,
       percentile: 5,
-      archery: 5,
+      darts: 20,
       arena: 3,
       poker: 12,
       racing: 1,
@@ -382,6 +382,29 @@ describe("gameAvailability", () => {
     }
   });
 
+  test("darts replaces archery on the shelf at 1-4 with 20 / 8 rounds", () => {
+    const darts = GAME_CATALOG.darts;
+    assert.strictEqual(darts.enabled, true, "darts must be enabled");
+    assert.strictEqual(darts.minPlayers, 1);
+    assert.strictEqual(darts.maxPlayers, 4);
+    assert.strictEqual(darts.idealMin, 2);
+    assert.strictEqual(darts.idealMax, 4);
+    assert.strictEqual(gameAvailability(darts, 0), "needs 1-4");
+    assert.strictEqual(gameAvailability(darts, 1), null);
+    assert.strictEqual(gameAvailability(darts, 4), null);
+    assert.strictEqual(gameAvailability(darts, 5), "max 4");
+    for (let count = 1; count <= 4; count++) {
+      assert.strictEqual(darts.scale(count, "standalone").rounds, 20, `${count}: standalone`);
+      assert.strictEqual(darts.scale(count, "rumble").rounds, 8, `${count}: rumble`);
+    }
+
+    const archery = GAME_CATALOG.archery;
+    assert.strictEqual(archery.enabled, false, "archery stays in the tree, disabled");
+    assert.strictEqual(archery.minPlayers, 1);
+    assert.strictEqual(archery.maxPlayers, 8);
+    assert.strictEqual(archery.scale(4, "standalone").rounds, 5, "archery keeps its old scale");
+  });
+
   test("poker moved from 2-4 to 2-8 with eight rumble hands", () => {
     const poker = GAME_CATALOG.poker;
     assert.strictEqual(gameAvailability(poker, 1), "needs 2+");
@@ -437,7 +460,8 @@ describe("gameAvailability", () => {
     assert.strictEqual(catalogEntry("bluff")?.displayName, "Bluff");
     assert.strictEqual(catalogEntry("not-a-game"), undefined);
     assert.strictEqual(isGameEnabled("bluff"), true);
-    assert.strictEqual(isGameEnabled("darts"), false);
+    assert.strictEqual(isGameEnabled("darts"), true);
+    assert.strictEqual(isGameEnabled("archery"), false);
     assert.strictEqual(isGameEnabled("not-a-game"), false);
   });
 });
@@ -524,10 +548,11 @@ describe("game registry over HTTP", () => {
     const bots = await createBots(1, wsUrl, "DisabledBot");
     const screen = await connectScreen(bots[0].roomId);
     try {
+      // Golf is retired but stays in the tree, so it is the known-disabled id.
       const res = await fetch(`${httpUrl}/api/rooms/${bots[0].roomId}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-host-token": screen.hostToken },
-        body: JSON.stringify({ gameId: "darts" }),
+        body: JSON.stringify({ gameId: "golf" }),
       });
       assert.strictEqual(res.status, 400);
       const body = (await res.json()) as { code?: string };

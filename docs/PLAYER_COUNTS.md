@@ -14,10 +14,10 @@ read; a test fails if a manifest and the catalog disagree on hard limits.
 
 | Game | Players | Ideal | Kind |
 |---|---|---|---|
-| Archery (`archery`) | 1-8 | 2-8 | skill |
 | Blather Round (`blather`) | 3-8 | 4-8 | party |
 | Bluff (`bluff`) | 3-8 | 4-8 | writing |
 | Bracket Brawl (`bracket`) | 3-6 | 4-6 | writing |
+| Darts (`darts`) | 1-4 | 2-4 | skill |
 | Drawful (`drawful`) | 3-8 | 4-8 | drawing |
 | Dumb Inventions (`dumbinventions`) | 3-6 | 4-6 | writing |
 | Fakin' It (`fakin`) | 3-8 | 4-8 | deduction |
@@ -44,8 +44,8 @@ can be re-enabled without a re-audit.
 
 | Game | Players | Ideal | Kind |
 |---|---|---|---|
+| Archery (`archery`) | 1-8 | 2-8 | skill |
 | Blind Date Chat (`bdate`) | 3-4 | 3-4 | party |
-| Darts (`darts`) | 1-4 | 2-4 | skill |
 | Dictionarium (`dictionarium`) | 3-4 | 3-4 | writing |
 | Golf (`golf`) | 1-4 | 2-4 | skill |
 | Guess Who (`guesswho`) | 2-4 | 2-4 | deduction |

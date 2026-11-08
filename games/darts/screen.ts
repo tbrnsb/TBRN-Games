@@ -35,9 +35,19 @@ interface DartThrow {
   timestamp: number;
 }
 
+interface DartsAim {
+  x: number;
+  y: number;
+  phase: "aimX" | "aimY";
+  lockedX: number | null;
+  lockedY: number | null;
+  active: boolean;
+}
+
 interface DartsScreenState {
   players: DartPlayer[];
   throws: DartThrow[];
+  aim?: DartsAim;
   finished: boolean;
   winner: string | null;
   gameMode: string;
@@ -218,10 +228,13 @@ function drawHeader(
   const w = ctx.measureText("DARTS").width;
 
   const current = state.players.find((p) => p.isCurrent);
+  const aimHint = !state.finished && state.aim?.active
+    ? state.aim.phase === "aimX" ? "lock the horizontal marker" : "lock the vertical marker"
+    : "";
   ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
   ctx.fillStyle = colors.textMuted;
   ctx.fillText(
-    `${state.gameMode}${current ? `  ·  ${current.name} to throw` : ""}`,
+    `${state.gameMode}${current ? `  ·  ${current.name} to throw` : ""}${aimHint ? `  ·  ${aimHint}` : ""}`,
     margin + w + scaledSize(18, scale),
     margin + scaledSize(25, scale),
   );
@@ -238,14 +251,17 @@ function drawBoard(
 ): void {
   const { cx, cy, r } = boardRect(width, height, scale);
 
-  // Spotlight behind the board instead of a big empty card.
-  const halo = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 1.45);
+  // Spotlight behind the board instead of a big empty card. Clamp the glow so
+  // the translucent fill never spills past the canvas at 1080p or 720p; the
+  // layout-fit matrix asserts every fill stays inside the canvas.
+  const haloR = Math.min(r * 1.45, cx, width - cx, cy, height - cy);
+  const halo = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, haloR);
   halo.addColorStop(0, "rgba(255,46,151,0.14)");
   halo.addColorStop(0.65, "rgba(255,46,151,0.05)");
   halo.addColorStop(1, "rgba(255,46,151,0)");
   ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2);
+  ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.strokeStyle = "rgba(0,229,255,0.16)";
@@ -315,6 +331,8 @@ function drawBoard(
 
   ctx.restore();
 
+  drawAim(ctx, cx, cy, r, state.aim, scale);
+
   // Throws.
   state.throws.slice(-12).forEach((dart, idx, list) => {
     const px = cx + (dart.x / BOARD_R) * r;
@@ -376,6 +394,77 @@ function drawBoard(
     );
     ctx.restore();
   }
+}
+
+/**
+ * Timing-lock crosshair. The active axis is a bright guide plus a dot at the
+ * live intersection; every locked axis stays as an amber dashed guide under
+ * the next sweep. Aim coordinates arrive as 0..1 with 0.5 at dead centre.
+ */
+function drawAim(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  aim: DartsAim | undefined,
+  scale: number,
+): void {
+  if (!aim || !aim.active) return;
+
+  const px = cx + (clamp(aim.x, 0, 1) * 2 - 1) * r;
+  const py = cy + (clamp(aim.y, 0, 1) * 2 - 1) * r;
+  const aimingX = aim.phase === "aimX";
+
+  ctx.save();
+  if (aim.lockedX !== null) {
+    drawGuide(ctx, true, cx + (clamp(aim.lockedX, 0, 1) * 2 - 1) * r, cx, cy, r, scale, colors.amber, true);
+  }
+  if (aim.lockedY !== null) {
+    drawGuide(ctx, false, cy + (clamp(aim.lockedY, 0, 1) * 2 - 1) * r, cx, cy, r, scale, colors.amber, true);
+  }
+
+  if (aimingX) drawGuide(ctx, true, px, cx, cy, r, scale, colors.cyan, false);
+  else drawGuide(ctx, false, py, cx, cy, r, scale, colors.cyan, false);
+
+  // Dot at the live aim: the moving guide crosses the board's centre on the
+  // first sweep, then the locked X guide on the second.
+  const dotY = aimingX ? cy : py;
+  ctx.beginPath();
+  ctx.arc(px, dotY, Math.max(4, scaledSize(7, scale)), 0, Math.PI * 2);
+  ctx.fillStyle = colors.text;
+  ctx.fill();
+  ctx.strokeStyle = colors.cyan;
+  ctx.lineWidth = Math.max(2, scaledSize(2, scale));
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGuide(
+  ctx: CanvasRenderingContext2D,
+  vertical: boolean,
+  position: number,
+  cx: number,
+  cy: number,
+  r: number,
+  scale: number,
+  color: string,
+  dashed: boolean,
+): void {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = dashed ? 0.7 : 0.95;
+  ctx.lineWidth = Math.max(dashed ? 2 : 2.5, scaledSize(dashed ? 2 : 3, scale));
+  if (dashed) ctx.setLineDash([scaledSize(10, scale), scaledSize(8, scale)]);
+  ctx.beginPath();
+  if (vertical) {
+    ctx.moveTo(position, cy - r);
+    ctx.lineTo(position, cy + r);
+  } else {
+    ctx.moveTo(cx - r, position);
+    ctx.lineTo(cx + r, position);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawRail(

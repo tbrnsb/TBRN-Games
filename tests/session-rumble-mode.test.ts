@@ -106,7 +106,7 @@ const ROUND_FIELD: Record<string, string> = {
   quiz: "questions.length",
   mindmeld: "maxRounds",
   percentile: "maxRounds",
-  archery: "maxRounds",
+  darts: "maxRounds",
   arena: "rounds",
   poker: "maxHands",
   racing: "maxRaces",
@@ -131,7 +131,7 @@ const READ: Record<string, (state: Record<string, unknown>) => number> = {
   quiz: (s) => (s.questions as unknown[]).length,
   mindmeld: (s) => s.maxRounds as number,
   percentile: (s) => s.maxRounds as number,
-  archery: (s) => s.maxRounds as number,
+  darts: (s) => s.maxRounds as number,
   arena: (s) => s.rounds as number,
   poker: (s) => s.maxHands as number,
   racing: (s) => s.maxRaces as number,
@@ -179,7 +179,7 @@ describe("preset Rumble round counts", () => {
   test("no options keeps every enabled game's standalone rounds", async () => {
     // Covers the games whose standalone and Rumble counts differ (bluff,
     // writevote, survive, mostlikely, stowaway, fakin, blather, slideroulette,
-    // sloganshirts, percentile, mindmeld, drawful, quiz, poker, archery,
+    // sloganshirts, percentile, mindmeld, drawful, quiz, poker, darts,
     // racing, arena) and the rest of the roster.
     for (const entry of ENABLED) {
       const plugin = await loadPlugin(entry.id);

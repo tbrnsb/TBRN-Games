@@ -64,24 +64,27 @@ function isFinished(instance: unknown): boolean {
  */
 const SCORE_KEY = /(score|raw|chips|stack|pots|points|gain)/i;
 
-function badNumbers(value: unknown, path = "$", out: string[] = []): string[] {
+function badNumbers(value: unknown, path = "$", out: string[] = [], checkNegative = true): string[] {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) out.push(`${path} = ${String(value)} (non-finite)`);
     return out;
   }
   if (Array.isArray(value)) {
-    value.forEach((v, i) => badNumbers(v, `${path}[${i}]`, out));
+    value.forEach((v, i) => badNumbers(v, `${path}[${i}]`, out, checkNegative));
     return out;
   }
   if (value && typeof value === "object") {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       const childPath = `${path}.${k}`;
       // Only score-like numeric keys are range-checked; other numbers (times,
-      // counts, coordinates, angles) may legitimately be negative.
-      if (typeof v === "number" && Number.isFinite(v) && v < 0 && SCORE_KEY.test(k)) {
+      // counts, coordinates, angles) may legitimately be negative. The
+      // non-negative rule applies to ENABLED games only: retired code such as
+      // knifethrow subtracts 5 per clash by design, and `--all` still has to
+      // run it without a false finding. Finite checks stay on for every game.
+      if (checkNegative && typeof v === "number" && Number.isFinite(v) && v < 0 && SCORE_KEY.test(k)) {
         out.push(`${childPath} = ${v} (negative score)`);
       }
-      badNumbers(v, childPath, out);
+      badNumbers(v, childPath, out, checkNegative);
     }
   }
   return out;
@@ -299,6 +302,9 @@ for (const gameId of gameIds) {
     countStats.runs++;
 
     const issues: string[] = [];
+    // A retired game may keep a deliberately negative score (knifethrow's -5
+    // clash), so the non-negative score rule is scoped to enabled games.
+    const checkNegativeScores = isGameEnabled(gameId);
     const players = mkPlayers(n);
     const inst = plugin.onStart(mkRoom(players, gameId), players);
     const budget = budgets[gameId] ?? 5000;
@@ -331,7 +337,7 @@ for (const gameId of gameIds) {
       try {
         const screen = plugin.screenState(inst);
         checkWire(`screen`, screen, issues);
-        for (const bad of badNumbers(screen)) issues.push(`screen bad number ${bad}`);
+        for (const bad of badNumbers(screen, "$", [], checkNegativeScores)) issues.push(`screen bad number ${bad}`);
       } catch (e) {
         issues.push(`screenState threw: ${(e as Error).message}`);
       }
@@ -340,7 +346,7 @@ for (const gameId of gameIds) {
         try {
           const cs = plugin.controllerState(inst, p.id);
           checkWire(`controller(${p.id})`, cs, issues);
-          for (const bad of badNumbers(cs)) issues.push(`controller(${p.id}) bad number ${bad}`);
+          for (const bad of badNumbers(cs, "$", [], checkNegativeScores)) issues.push(`controller(${p.id}) bad number ${bad}`);
         } catch (e) {
           issues.push(`controllerState threw for ${p.id}: ${(e as Error).message}`);
         }

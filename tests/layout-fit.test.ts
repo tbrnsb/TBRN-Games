@@ -655,9 +655,9 @@ interface MatrixEntry {
  */
 const TV_MATRIX: Record<string, MatrixEntry> = {
   // custom renderers
-  archery: { mode: "custom" },
   bluff: { mode: "custom" },
   bracket: { mode: "custom" },
+  darts: { mode: "custom" },
   guessimposter: { mode: "custom" },
   mindmeld: { mode: "custom" },
   mostlikely: { mode: "custom" },
