@@ -299,3 +299,40 @@ body::after {
   height: 100%;
 }
 .text-input textarea { flex: 1 1 auto; min-height: 96px; }
+
+/* Darts read-only aim: the server drives both markers; lock them in ink. */
+.slider-wrap.locked .slider-label { color: var(--ink-1); }
+.slider-wrap.locked .slider-label::after { content: " · LOCKED"; }
+.slider-wrap.locked .slider-track {
+  border-color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.slider-wrap.locked .slider-knob {
+  background: var(--ink-1);
+  border: 3px solid var(--ink);
+  box-shadow: none;
+}
+.slider-wrap.locked .slider-readout { color: var(--ink-1); }
+.slider-track.is-readonly { cursor: default; }
+
+/* Darts read-only aim: compact both tracks so the lock button stays on screen. */
+.dual-slider.readonly { gap: 6px; padding: 2px; }
+.dual-slider.readonly .slider-wrap.x .slider-track {
+  height: 56px;
+  min-height: 56px;
+  flex: 0 0 56px;
+}
+.dual-slider.readonly .slider-wrap.y .slider-track {
+  width: 68px;
+  height: 88px;
+  min-height: 88px;
+  flex: 0 0 88px;
+}
+.dual-slider.readonly .slider-readout {
+  width: 66px;
+  align-self: center;
+  border-radius: 999px;
+  padding: 1px 0;
+  font-size: 18px;
+}
+.dual-slider.readonly .dual-action { min-height: 48px; padding: 12px; font-size: 16px; }

@@ -43,8 +43,9 @@ screen renderer and is skinned in the paper system.
   `text`/`textMuted`.
 - 20 games export `showsScores` and suppress the duplicate platform ticker;
   only Bracket and Mind Meld rely on it.
-- All 22 TVs and controllers re-shot at 1280/1920 and 390: `design/shots-v3/`.
-- Host states re-shot: `design/host-shots/` (lobby 1280/1920, Rumble picker,
+- All 22 TVs and controllers re-shot at 1280/1920 and 390 after the Darts
+  swap: `design/shots-v8/`.
+- Host states re-shot: `design/host-shots-v8/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
 ## Audio verification
@@ -53,8 +54,9 @@ Instrumented Chromium checks:
 - TV sound: Most Likely To reveal created 1 AudioContext and 3 oscillators;
   Quiz produced 2 notes per reveal and a 3-note win at the finish.
 - Sound off (`tbrn_screen_sound=off`): 0 oscillators across a reveal.
-- Speech on: Imposter spoke “P3, you're up”; Archery spoke “S0, you're up”
-  through the turn fallback. Speech off: 0 utterances.
+- Speech on: Imposter spoke “P3, you're up”; the generic turn fallback was
+  verified first on Archery (“S0, you're up”) and again on Darts after the
+  swap (`currentPlayer` field). Speech off: 0 utterances.
 - Phone haptic: one `navigator.vibrate` call on the join tap.
 - All 22 games publish `sound` cues; audio is synthesised offline, no assets.
 
@@ -99,7 +101,17 @@ stitched betting line; the pot has a paper chip stack; seat panels gained seat
 badges and larger D/SB/BB pills; the active seat has a thicker timer bar and the
 header shows the countdown. Evidence: `design/shots-v3/poker/`.
 
-## Archery rebuild
+## Darts rebuild
+
+Darts replaced Archery on the 2026-11-08 roster swap. `games/darts/screen.ts`
+draws a cream-rimmed paper board with an ink face, sun/bubblegum bands, cream
+numbers and a hard offset shadow; the shared paper header sits above its own
+score rail (`showsScores`). The server-owned two-stage timing lock is read-only
+on the phone; compact CSS keeps both tracks and the lock button visible above
+the reaction bar at 390x844, and a locked axis reads as inked rather than
+disabled.
+
+## Archery rebuild (retired game, kept for history)
 
 `games/archery/screen.ts` now draws a paper range scene instead of an empty
 white card: sky and field bands, paper sun/clouds, a picket-fence line of

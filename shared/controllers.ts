@@ -797,7 +797,7 @@ export function createDualSliderLayout(): ControllerLayout {
     render(container, state, onInput) {
       const v = dualView(state);
       container.innerHTML = `
-        <div class="dual-slider">
+        <div class="dual-slider${v.readOnly ? " readonly" : ""}">
           ${v.hint ? `<div class="dual-hint">${escapeHtml(v.hint)}</div>` : ""}
           ${renderSliderBlock("axis-x", "x", v.x.value, v.x.label, v.x.readout, { disabled: v.disabled, readOnly: v.readOnly, locked: v.xLocked })}
           ${renderSliderBlock("axis-y", "y", v.y.value, v.y.label, v.y.readout, { disabled: v.disabled, readOnly: v.readOnly, locked: v.yLocked })}

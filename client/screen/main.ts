@@ -1624,6 +1624,17 @@ function spokenTurnLine(record: Record<string, unknown>): string {
   if (turn) return `${turn}, you're up`;
   const current = typeof record.currentPlayerName === "string" ? record.currentPlayerName.trim() : "";
   if (current) return `${current}, you're up`;
+  // Darts and other legacy screen states publish the active name directly.
+  const active = typeof record.currentPlayer === "string" ? record.currentPlayer.trim() : "";
+  if (active) return `${active}, you're up`;
+  // Some renderers publish a player list with the active seat flagged.
+  if (Array.isArray(record.players)) {
+    const current = record.players.find((entry): entry is { name: string; isCurrent: boolean } =>
+      typeof entry === "object" && entry !== null
+      && (entry as { isCurrent?: unknown }).isCurrent === true
+      && typeof (entry as { name?: unknown }).name === "string");
+    if (current && current.name.trim()) return `${current.name.trim()}, you're up`;
+  }
   const waiting = Array.isArray(record.waitingOn)
     ? record.waitingOn.filter((name): name is string => typeof name === "string" && name.trim().length > 0)
     : [];

@@ -18,6 +18,7 @@ import {
   type RankedEntry,
   clamp,
 } from "../../client/screen/kit/index.ts";
+import { paperTitle, paperMeta } from "../../client/screen/kit/header.ts";
 
 interface DartPlayer {
   name: string;
@@ -76,6 +77,9 @@ function createDartsRenderState(): DartsRenderState {
 }
 
 const renderState = (globalThis as any)._dartsRenderState ||= createDartsRenderState();
+
+/** This renderer draws its own score rail; the platform ticker stays off. */
+export const showsScores = true;
 
 const BOARD_R = 170;
 const SECTOR_VALUES = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
@@ -222,8 +226,7 @@ function drawHeader(
   const margin = scaledSize(48, scale);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 ${scaledSize(28, scale)}px ${fonts.title.family}`;
-  ctx.fillStyle = colors.text;
+  paperTitle(ctx, scale);
   ctx.fillText("DARTS", margin, margin + scaledSize(26, scale));
   const w = ctx.measureText("DARTS").width;
 
@@ -231,8 +234,7 @@ function drawHeader(
   const aimHint = !state.finished && state.aim?.active
     ? state.aim.phase === "aimX" ? "lock the horizontal marker" : "lock the vertical marker"
     : "";
-  ctx.font = `600 ${scaledSize(18, scale)}px ${fonts.body.family}`;
-  ctx.fillStyle = colors.textMuted;
+  paperMeta(ctx, scale);
   ctx.fillText(
     `${state.gameMode}${current ? `  ·  ${current.name} to throw` : ""}${aimHint ? `  ·  ${aimHint}` : ""}`,
     margin + w + scaledSize(18, scale),
@@ -251,24 +253,29 @@ function drawBoard(
 ): void {
   const { cx, cy, r } = boardRect(width, height, scale);
 
-  // Spotlight behind the board instead of a big empty card. Clamp the glow so
-  // the translucent fill never spills past the canvas at 1080p or 720p; the
-  // layout-fit matrix asserts every fill stays inside the canvas.
-  const haloR = Math.min(r * 1.45, cx, width - cx, cy, height - cy);
-  const halo = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, haloR);
-  halo.addColorStop(0, "rgba(255,46,151,0.14)");
-  halo.addColorStop(0.65, "rgba(255,46,151,0.05)");
-  halo.addColorStop(1, "rgba(255,46,151,0)");
-  ctx.fillStyle = halo;
+  // A cream paper board on the chalkboard page, with a hard ink shadow.
+  const rimR = r * 1.06;
+  ctx.save();
+  ctx.shadowColor = colors.border;
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = Math.max(4, scaledSize(8, scale));
+  ctx.shadowOffsetY = Math.max(4, scaledSize(8, scale));
+  ctx.fillStyle = "#F4EBD9";
   ctx.beginPath();
-  ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+  ctx.arc(cx, cy, rimR, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.strokeStyle = "rgba(0,229,255,0.16)";
-  ctx.lineWidth = Math.max(1, scaledSize(2, scale));
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 1.06, 0, Math.PI * 2);
+  ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(3, scaledSize(4, scale));
   ctx.stroke();
+
+  // Dark ink face inside the cream rim.
+  ctx.fillStyle = colors.border;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -279,12 +286,12 @@ function drawBoard(
     const end = start + (18 * Math.PI) / 180;
     const even = i % 2 === 0;
 
-    // Single bed.
+    // Single bed: a printed ink face, with the skin inks only in the bands.
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, r, start, end);
     ctx.closePath();
-    ctx.fillStyle = even ? "#1B1545" : "#120D2E";
+    ctx.fillStyle = colors.border;
     ctx.fill();
 
     // Triple band.
@@ -306,7 +313,7 @@ function drawBoard(
     // Sector number on the rim, kept upright for readability.
     const mid = (start + end) / 2;
     ctx.font = `700 ${Math.max(scaledSize(12, scale), r * 0.075)}px ${fonts.display.family}`;
-    ctx.fillStyle = "rgba(245,243,255,0.82)";
+    ctx.fillStyle = "#F4EBD9";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(SECTOR_VALUES[i]), Math.cos(mid) * r * 0.87, Math.sin(mid) * r * 0.87);
@@ -323,7 +330,7 @@ function drawBoard(
   ctx.fill();
 
   // Rim.
-  ctx.strokeStyle = "rgba(245,243,255,0.28)";
+  ctx.strokeStyle = "#F4EBD9";
   ctx.lineWidth = Math.max(1, scaledSize(2, scale));
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
