@@ -51,6 +51,15 @@ screen renderer and is skinned in the paper system.
 - Host states re-shot: `design/host-shots-v8/` (lobby 1280/1920, Rumble picker,
   session slots, finale 1280/1920, settings, pause, interlude).
 
+## Final post-darts audit
+
+Image-capable critic (glm-5.3-flash, different family from the DeepSeek author):
+**10/10** after three rounds. Evidence: `design/shots-v8/` (22 TVs, starts,
+controllers), `design/host-shots-v8/` (9 host states), and
+`design/review/final/` (darts host-phone active, locked-X, locked-XY and
+360x640 captures). The critic withdrew its only round-1 finding (a claimed
+greyed playlist row) after the high-resolution crop showed solid ink.
+
 ## Audio verification
 
 Instrumented Chromium checks:

@@ -7,14 +7,14 @@ paper-and-ink system; Darts has replaced Archery on the shelf (Archery stays in
 the tree, disabled).
 
 Last gate: `npm test` 1039/1039 · `npx tsc --noEmit` clean · `npm run lint`
-0 errors (warnings only).
+0 errors (warnings only). Final visual audit: 10/10.
 
 ## Last commit
-Darts paper adaptation: the TV draws the board as a cream-rimmed ink chalkboard
-with sun/bubblegum bands and a paper header; the phone uses the read-only
-two-stage timing lock with a compact layout so both tracks and the lock button
-fit above the reaction bar at 390x844. `showsScores` suppresses the duplicate
-ticker. The merge of the darts timing-lock mechanic and roster swap came from
+Controller fit pass: the darts read-only aim fits a 390x844 host phone (both
+tracks, readouts and LOCK above reactions) and short phones hide reactions so
+the aim still fits; drawing phones hide reactions while the canvas is up and
+keep their ink swatches. The darts TV is a cream-rimmed ink chalkboard with a
+paper header and its own score rail. Roster swap and timing lock came from
 `Games-expansion` (`ebbe48a`).
 
 ## Done
@@ -47,12 +47,13 @@ ticker. The merge of the darts timing-lock mechanic and roster swap came from
   roster swap and darts rules.
 
 ## In progress
-Final image-capable critic pass on the post-swap roster, darts board and host.
+None. Image-capable critic: **10/10** (round 3, final). All requested visual
+states have image evidence; the single round-1 finding was withdrawn.
 
 ## Next three actions
-1. Apply any concrete critic findings, re-review to 10/10 (max 3 rounds).
-2. Commit the darts paper adaptation and docs (after secret scan).
-3. Human gate: review, push, merge. Do not push without being asked.
+1. Human gate: review, push, merge. Do not push without being asked.
+2. Optional: delete the unused archery parity fixtures if the roster stays.
+3. Next planned phase from the brief.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: random starting letter with dictionary
