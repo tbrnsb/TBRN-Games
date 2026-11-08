@@ -23,6 +23,9 @@ screen renderer and is skinned in the paper system.
   Frankenanswers, Dumb Inventions, Stowaway, Fakin' It, Blather Round,
   Slide Roulette, Drawful, Slogan Shirts, Slingshot Arena.
 - **Retired games** (15) have no lobby entry and were not migrated.
+- **Canvas phone**: while a drawing canvas is active the reaction bar steps
+  aside so the palette, Clear and Done stay above the fold at 390x844; the
+  paper button rule no longer repaints the colour swatches.
 - **Post-merge polish**: the 8-seat roster and finale fit 1280x720, shelf names
   wrap instead of ellipsising, the picker has a visible scrollbar, the canvas
   controller gained a Done action, and the washi tape moved off the game title.

@@ -269,9 +269,15 @@ body::after {
 .play::-webkit-scrollbar-thumb { background: rgba(29, 27, 38, .35); border-radius: 3px; }
 
 /* Keep the sketch surface square but short enough that the colour tools and
-   the Done action stay near the fold on a 360dp phone. */
-.draw-surface { max-width: min(100%, 38vh); align-self: center; }
+   the Done action stay above the reaction bar at 390x844. */
+#controllerContainer[data-layout="canvas"] {
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+.draw-surface { max-width: min(100%, 30vh); align-self: center; }
 .canvas-tools .canvas-done { flex: 1 1 120px; }
+/* The shared paper-button rule would repaint the palette; keep the inks. */
+.canvas-tools .canvas-swatch { background: var(--swatch); }
 
 /* Waiting states get one centred paper card instead of an empty middle. */
 .wait-card {
@@ -315,24 +321,36 @@ body::after {
 .slider-wrap.locked .slider-readout { color: var(--ink-1); }
 .slider-track.is-readonly { cursor: default; }
 
-/* Darts read-only aim: compact both tracks so the lock button stays on screen. */
-.dual-slider.readonly { gap: 6px; padding: 2px; }
+/* Darts read-only aim: compact both tracks so the lock button stays on
+   screen on a 390x844 phone even when this is the host phone (the host bar
+   takes ~90px). The live hint and lock label replace the static how-to. */
+.play.layout-dual-slider #howTo { display: none; }
+#controllerContainer[data-layout="dual-slider"] {
+  /* Never let centred overflow slide under the host bar; scroll instead. */
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+.dual-slider.readonly { gap: 4px; padding: 2px; }
+.dual-slider.readonly .slider-wrap { gap: 4px; }
+.dual-slider.readonly .slider-wrap .slider-label { font-size: 11px; }
 .dual-slider.readonly .slider-wrap.x .slider-track {
-  height: 56px;
-  min-height: 56px;
-  flex: 0 0 56px;
+  height: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
 }
 .dual-slider.readonly .slider-wrap.y .slider-track {
-  width: 68px;
-  height: 88px;
-  min-height: 88px;
-  flex: 0 0 88px;
+  width: 64px;
+  height: 64px;
+  min-height: 64px;
+  flex: 0 0 64px;
 }
 .dual-slider.readonly .slider-readout {
-  width: 66px;
+  width: 60px;
   align-self: center;
   border-radius: 999px;
-  padding: 1px 0;
-  font-size: 18px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 24px;
 }
-.dual-slider.readonly .dual-action { min-height: 48px; padding: 12px; font-size: 16px; }
+.dual-slider.readonly .dual-action { min-height: 44px; padding: 10px; font-size: 15px; }
+.dual-slider.readonly .dual-hint { font-size: 13px; line-height: 1.2; }

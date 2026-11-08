@@ -7,6 +7,7 @@ import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "./game-catal
 import type { GameResult } from "./scoring.ts";
 import type { ReactionId } from "./reactions.ts";
 import type { SeatIdentity } from "./seat-identity.ts";
+import type { ControllerType } from "./controllers.ts";
 
 // --- Base message envelope ---
 export interface BaseMessage {
@@ -287,14 +288,9 @@ export interface GameManifest {
   scale?: (playerCount: number, mode: ScaleMode) => GameScale;
 }
 
-export type ControllerType =
-  | "one-button"
-  | "left-right"
-  | "dpad"
-  | "text"
-  | "choice"
-  | "private-grid"
-  | "card-hand";
+// Controller layouts live in shared/controllers.ts; re-export the union so
+// server, games and the controller client cannot drift apart.
+export type { ControllerType };
 
 // Generic plugin interface for type-safe game implementations
 export interface GamePlugin<

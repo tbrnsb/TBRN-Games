@@ -251,6 +251,11 @@ function handleMessage(msg: ServerMessage) {
         lastSignature = signature;
         controllerContainer.innerHTML = "";
         controllerContainer.dataset.layout = newType;
+        // Darts' read-only aim is a tall stack; the play column styles it
+        // compactly and drops the static how-to card, which the live hint and
+        // the lock label already explain.
+        controllerContainer.closest<HTMLElement>(".play")
+          ?.classList.toggle("layout-dual-slider", newType === "dual-slider");
         currentLayout.render(controllerContainer, controller, sendInput);
       } else {
         currentLayout.update(controllerContainer, controller);
@@ -362,7 +367,9 @@ function renderSeatState(playing: boolean): void {
     if (!playing) controllerContainer.classList.remove("hidden");
   }
 
-  const canReact = !!playerId && !left;
+  // Drawing needs the whole phone: the canvas, palette and Done must fit
+  // above the fold, so reactions step aside while the canvas layout runs.
+  const canReact = !!playerId && !left && controllerContainer.dataset.layout !== "canvas";
   reactionBar.classList.toggle("hidden", !canReact);
   reactionHint.classList.toggle("hidden", !canReact);
   leaveBtn.classList.toggle("hidden", !playerId || left);

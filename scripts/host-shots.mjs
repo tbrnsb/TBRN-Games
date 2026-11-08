@@ -130,7 +130,8 @@ try {
     () => !document.querySelector("#interlude")?.classList.contains("hidden"),
     { timeout: 120000 },
   ).catch(() => {});
-  await page.waitForTimeout(800);
+  // Let the winner card and confetti settle; 800ms captured a fade frame.
+  await page.waitForTimeout(3200);
   await page.screenshot({ path: join(out, "interlude-1280.png") });
   }
 

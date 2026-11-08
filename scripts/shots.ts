@@ -93,7 +93,11 @@ try {
     window.__shots = { token: tokenScreen.msg.payload.hostToken, bots };
   }, { roomId });
 
-  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  // A real phone has its own browser storage. Using the TV's context would
+  // leak the host token into the controller and stack host controls over the
+  // game layout, which is not what players see.
+  const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const phone = await phoneContext.newPage();
   await phone.goto(`${base}/controller?room=${roomId}`, { waitUntil: "networkidle" });
   await phone.fill("#nameInput", "Dee");
   await phone.click("#joinBtn");
@@ -166,6 +170,7 @@ ${index.map((entry) => entry.error
   } else {
     console.log(`[shots] wrote ${games.length} games to ${outRoot}`);
   }
+  await phoneContext.close();
   await browser.close();
 } finally {
   server.kill();
