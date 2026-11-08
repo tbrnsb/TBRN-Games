@@ -29,7 +29,8 @@ ticker. The merge of the darts timing-lock mechanic and roster swap came from
   `dpad`, `choice`, `text`, `card-hand`, `private-grid`, `slider`, `rank`,
   `draw`, `chat`, `role`, `aim`, `numpad`, `race`, `board`, `dual-slider`),
   seat badge, reactions, haptics, "Eyes on the TV" wait card. Drawing phones
-  hide reactions while the canvas is up so the palette and Done fit.
+  hide reactions while the canvas is up so the palette and Done fit; short
+  phones (<=700px tall) hide them for Darts so both aim tracks fit.
 - **Renderers**: one paper header (`paperTitle`/`paperMeta`) across all 22;
   shared paper board for the 11 new games; poker felt, race track and imposter
   panels repainted; shared finish celebration and winner card.

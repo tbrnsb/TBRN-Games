@@ -354,3 +354,10 @@ body::after {
 }
 .dual-slider.readonly .dual-action { min-height: 44px; padding: 10px; font-size: 15px; }
 .dual-slider.readonly .dual-hint { font-size: 13px; line-height: 1.2; }
+
+/* Short phones cannot show two tracks, the lock button, reactions and the
+   leave action at once. Reactions step aside so the aim always fits. */
+@media (max-height: 700px) {
+  .play.layout-dual-slider .reaction-bar,
+  .play.layout-dual-slider .reaction-hint { display: none; }
+}
