@@ -63,6 +63,12 @@ runs, 0 issues.
   seven suites that load game modules), so Node's ESM loader accepts
   `file:///D:/...` on Windows. Ubuntu was already green; the CI re-run on this
   commit is the Windows evidence.
+- Cross-platform run hardening: static-file containment now uses
+  `path.relative` (Windows-safe, and closes a `startsWith` prefix traversal
+  edge), font MIME types are served correctly, `npm start`/`npm run dev` stop
+  with a clear message below Node 26, and `npm run smoke` boots the real
+  server and checks the TV shell, controller shell, enabled roster, a font and
+  a type-stripped renderer. CI runs that smoke on Ubuntu and Windows.
 
 ## In progress
 None. Repository released: public on GitHub, default branch Games-expansion,
@@ -71,7 +77,7 @@ paper-overhaul are pushed too; a fresh clone installs, typechecks and passes
 all 1028 tests.
 
 ## Next three actions
-1. Confirm the Windows and Ubuntu CI runs for the ESM URL fix.
+1. Confirm the Windows and Ubuntu CI runs for the smoke commit.
 2. Decide whether paper-overhaul should become the showcase default.
 3. Pick the next feature phase from the brief.
 

@@ -30,6 +30,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run smoke
       - name: Deep probe every enabled game at every player count
         run: npm run probe
 

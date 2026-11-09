@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import { WebSocketServer, WebSocket } from "ws";
 import { randomBytes, randomInt } from "node:crypto";
-import { join, normalize } from "node:path";
+import { join, relative, isAbsolute } from "node:path";
 import { readFileSync } from "node:fs";
 import {
   getLanUrls,
@@ -714,7 +714,12 @@ function serveStatic(pathname: string, res: ServerResponse): boolean {
 
   const cwd = process.cwd();
   const full = join(cwd, rel);
-  if (!normalize(full).startsWith(cwd)) {
+  // path.relative is the containment test that works on both platforms: a
+  // sibling directory such as C:\repo-evil escapes as ".." instead of passing
+  // a raw startsWith("C:\repo") prefix check, and Windows drive/letter casing
+  // is handled by the platform path logic rather than by string comparison.
+  const relativePath = relative(cwd, full);
+  if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
     return false;
   }
 
@@ -737,6 +742,14 @@ function serveStatic(pathname: string, res: ServerResponse): boolean {
       mime = "application/json; charset=utf-8";
     } else if (ext === "svg") {
       mime = "image/svg+xml";
+    } else if (ext === "woff2") {
+      mime = "font/woff2";
+    } else if (ext === "woff") {
+      mime = "font/woff";
+    } else if (ext === "ttf") {
+      mime = "font/ttf";
+    } else if (ext === "otf") {
+      mime = "font/otf";
     }
 
     res.writeHead(200, { "Content-Type": mime, "Cache-Control": "no-store" });

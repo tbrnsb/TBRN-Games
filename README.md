@@ -50,10 +50,17 @@ TLS_CERT=./localhost+1.pem TLS_KEY=./localhost+1-key.pem npm start
 
 The screen and controllers switch to `https` and `wss` automatically.
 
+On Windows PowerShell, set the variables for the session, then start the server. Use a backslash path:
+
+```powershell
+$env:TLS_CERT=".\localhost+1.pem"; $env:TLS_KEY=".\localhost+1-key.pem"; npm start
+```
+
 ## Develop
 
 ```bash
 npm test                # full test suite
+npm run smoke           # boot the server and check the pages it serves
 npx tsc --noEmit        # type check
 npm run lint            # ESLint
 npm run probe           # every enabled game at every player count
