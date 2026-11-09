@@ -1,9 +1,10 @@
 # HANDOFF
 
 ## Current state
-Platform expansion phases 2-6, branch `Games-expansion`. Phase 1 audit is
-committed (`docs/EXPANSION_AUDIT.md`). 37 games in the tree: 22 enabled and
-15 retired but kept, one catalog entry per game directory (no aliases).
+Platform expansion phases 2-6, public repository at
+`https://github.com/tbrnsb/TBRN-Games`, default branch `Games-expansion`.
+Phase 1 audit is committed (`docs/EXPANSION_AUDIT.md`). 37 games in the tree:
+22 enabled and 15 retired but kept, one catalog entry per game directory.
 
 Last gate: `npm test` 1028/1028 · typecheck clean · lint 0 errors (warnings
 only) · `npm run probe` 126 runs, 0 issues · `npm run probe -- --all` 176
@@ -59,12 +60,15 @@ runs, 0 issues.
   dirs are ignored; stale branches and unused fixtures are gone.
 
 ## In progress
-None. Repository prepared for the public release.
+None. Repository released: public on GitHub, default branch Games-expansion,
+MIT license detected, description set, README rewritten. Main and
+paper-overhaul are pushed too; a fresh clone installs, typechecks and passes
+all 1028 tests.
 
 ## Next three actions
-1. Push all branches and set the default branch to Games-expansion.
-2. Flip the GitHub repository to public with the new description.
-3. Verify a fresh clone installs and the suite passes.
+1. Watch the first CI runs (Ubuntu and Windows) for the pushed branches.
+2. Decide whether paper-overhaul should become the showcase default.
+3. Pick the next feature phase from the brief.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: random starting letter with dictionary
