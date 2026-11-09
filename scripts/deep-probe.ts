@@ -9,6 +9,7 @@
  */
 import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import assert from "node:assert";
 import { isGameEnabled } from "../shared/game-catalog.ts";
 
@@ -295,7 +296,7 @@ let failingRuns = 0;
 let totalIssues = 0;
 
 for (const gameId of gameIds) {
-  const plugin = (await import(join(gamesDir, gameId, "server.ts"))).default;
+  const plugin = (await import(pathToFileURL(join(gamesDir, gameId, "server.ts")).href)).default;
   for (const n of playerCounts(plugin.manifest)) {
     totalRuns++;
     const countStats = perCount.get(n) ?? { runs: 0, failing: 0 };

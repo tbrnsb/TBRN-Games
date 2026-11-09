@@ -39,7 +39,7 @@
  */
 import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import { GAME_CATALOG } from "../shared/game-catalog.ts";
 import { MAX_ROUND_SCORE, scalePayout, withinRoundBound } from "../shared/scoring.ts";
@@ -81,7 +81,7 @@ const moduleCache = new Map<string, ModuleNs>();
 async function loadModule(gameId: string): Promise<ModuleNs> {
   let mod = moduleCache.get(gameId);
   if (!mod) {
-    mod = (await import(join(GAMES_DIR, gameId, "server.ts"))) as ModuleNs;
+    mod = (await import(pathToFileURL(join(GAMES_DIR, gameId, "server.ts")).href)) as ModuleNs;
     moduleCache.set(gameId, mod);
   }
   return mod;

@@ -56,7 +56,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { GAME_CATALOG } from "../shared/game-catalog.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -89,7 +89,7 @@ interface GamePlugin {
 }
 
 async function loadPlugin(gameId: string): Promise<GamePlugin> {
-  const mod = (await import(join(gamesDir, gameId, "server.ts"))) as { default: GamePlugin };
+  const mod = (await import(pathToFileURL(join(gamesDir, gameId, "server.ts")).href)) as { default: GamePlugin };
   return mod.default;
 }
 

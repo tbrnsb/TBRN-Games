@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { DropoutPolicy, GameKind, GameScale, ScaleMode } from "../shared/game-catalog.ts";
 import type { GameResult } from "../shared/scoring.ts";
 
@@ -100,7 +101,7 @@ export async function createPluginLoader(gamesDir: string): Promise<PluginLoader
       if (!existsSync(serverPath)) continue;
 
       try {
-        const module = await import(`file://${serverPath}`);
+        const module = await import(pathToFileURL(serverPath).href);
         const plugin = module.default;
         if (plugin && plugin.manifest) {
           plugins.set(plugin.manifest.id, plugin);

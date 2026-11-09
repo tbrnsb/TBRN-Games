@@ -58,6 +58,11 @@ runs, 0 issues.
   games, preset Rumble, install steps); package.json carries the MIT license
   and repository metadata; the brief is committed; local-only audit/playground
   dirs are ignored; stale branches and unused fixtures are gone.
+- Windows CI fix: every absolute-path dynamic import now uses
+  `pathToFileURL(...).href` (the server plugin loader, the deep probe, and the
+  seven suites that load game modules), so Node's ESM loader accepts
+  `file:///D:/...` on Windows. Ubuntu was already green; the CI re-run on this
+  commit is the Windows evidence.
 
 ## In progress
 None. Repository released: public on GitHub, default branch Games-expansion,
@@ -66,7 +71,7 @@ paper-overhaul are pushed too; a fresh clone installs, typechecks and passes
 all 1028 tests.
 
 ## Next three actions
-1. Watch the first CI runs (Ubuntu and Windows) for the pushed branches.
+1. Confirm the Windows and Ubuntu CI runs for the ESM URL fix.
 2. Decide whether paper-overhaul should become the showcase default.
 3. Pick the next feature phase from the brief.
 

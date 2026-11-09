@@ -85,7 +85,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert";
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { GAME_CATALOG, type GameCatalogEntry } from "../shared/game-catalog.ts";
 import { drawVoteOptions, type VoteOption } from "../client/screen/kit/vote.ts";
 import {
@@ -180,14 +180,14 @@ function makeRoom(players: Player[], gameId: string): Record<string, unknown> {
 }
 
 async function loadPlugin(gameId: string): Promise<GamePlugin> {
-  const mod = (await import(join(gamesDir, gameId, "server.ts"))) as { default: GamePlugin };
+  const mod = (await import(pathToFileURL(join(gamesDir, gameId, "server.ts")).href)) as { default: GamePlugin };
   return mod.default;
 }
 
 type Renderer = (ctx: CanvasRenderingContext2D, width: number, height: number, state: unknown) => void;
 
 async function loadRenderer(gameId: string): Promise<Renderer> {
-  const mod = (await import(join(gamesDir, gameId, "screen.ts"))) as Record<string, unknown>;
+  const mod = (await import(pathToFileURL(join(gamesDir, gameId, "screen.ts")).href)) as Record<string, unknown>;
   const names = Object.keys(mod).filter((name) => name.startsWith("render") && typeof mod[name] === "function");
   assert.strictEqual(names.length, 1, `${gameId}: expected exactly one render* export, found ${names.join(", ")}`);
   return mod[names[0]] as Renderer;

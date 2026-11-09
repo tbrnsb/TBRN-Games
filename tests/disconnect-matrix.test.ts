@@ -30,7 +30,7 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { WebSocket } from "ws";
 import { startServer, type ServerFixture } from "./fixtures/server-fixture.ts";
 
@@ -251,7 +251,7 @@ function gameSeatOf(phone: Phone, playerId: string, label: string): number {
 /** The plugin manifest is the source of truth for a game's minimum. */
 async function gameMinPlayers(gameId: GameId): Promise<number> {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-  const mod = (await import(join(repoRoot, "games", gameId, "server.ts"))) as {
+  const mod = (await import(pathToFileURL(join(repoRoot, "games", gameId, "server.ts")).href)) as {
     default: { manifest: { minPlayers: number } };
   };
   return mod.default.manifest.minPlayers;

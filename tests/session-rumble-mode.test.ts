@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { after, before, describe, test } from "node:test";
 import { GAME_CATALOG } from "../shared/game-catalog.ts";
 import { RUMBLE_PRESETS } from "../shared/rumble-presets.ts";
@@ -54,7 +54,7 @@ const moduleCache = new Map<string, ModuleNs>();
 async function loadPlugin(gameId: string): Promise<Plugin> {
   let mod = moduleCache.get(gameId);
   if (!mod) {
-    mod = (await import(join(GAMES_DIR, gameId, "server.ts"))) as ModuleNs;
+    mod = (await import(pathToFileURL(join(GAMES_DIR, gameId, "server.ts")).href)) as ModuleNs;
     moduleCache.set(gameId, mod);
   }
   return mod.default;

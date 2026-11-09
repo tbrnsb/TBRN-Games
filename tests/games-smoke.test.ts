@@ -12,7 +12,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const gamesDir = join(repoRoot, "games");
@@ -223,7 +223,7 @@ function tickBudget(gameId: string): number {
 }
 
 async function loadPlugin(gameId: string): Promise<GamePlugin> {
-  const mod = (await import(join(gamesDir, gameId, "server.ts"))) as { default: GamePlugin };
+  const mod = (await import(pathToFileURL(join(gamesDir, gameId, "server.ts")).href)) as { default: GamePlugin };
   return mod.default;
 }
 

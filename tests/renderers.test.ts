@@ -10,7 +10,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert";
 import { readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const gamesDir = join(repoRoot, "games");
@@ -82,12 +82,12 @@ function makeContext(): CanvasRenderingContext2D {
 }
 
 async function loadPlugin(gameId: string): Promise<GamePlugin> {
-  const mod = (await import(join(gamesDir, gameId, "server.ts"))) as { default: GamePlugin };
+  const mod = (await import(pathToFileURL(join(gamesDir, gameId, "server.ts")).href)) as { default: GamePlugin };
   return mod.default;
 }
 
 async function loadRenderer(gameId: string): Promise<((...args: unknown[]) => void) | null> {
-  const mod = (await import(join(gamesDir, gameId, "screen.ts"))) as Record<string, unknown>;
+  const mod = (await import(pathToFileURL(join(gamesDir, gameId, "screen.ts")).href)) as Record<string, unknown>;
   const names = Object.keys(mod).filter((name) => name.startsWith("render") && typeof mod[name] === "function");
   return names.length === 1 ? (mod[names[0]] as (...args: unknown[]) => void) : null;
 }
