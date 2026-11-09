@@ -13,28 +13,25 @@ runs, 0 issues.
 - Phase 2: catalog/enabled registry, eight seats with colour+shape, shared
   scoring (`f(N)`, rank points), vote layouts, presence/spectators/reactions,
   below-min pause, results/awards, interlude/ticker, sound/TTS.
-- Phase 3 (all 21 existing games): widened to eight where the game supports
-  it, scaled payouts, secrecy and reveal fixes, result stats; one commit per
-  game (detail in `.orchestrator/STATE.md`).
+- Phase 3 (all 21 existing games): widened to eight where possible, scaled
+  payouts, secrecy/reveal fixes, result stats; one commit per game.
 - Phase 4: Guess the Imposter content pack (168 entries / 14 categories),
   engine (39 tests), TV renderer, host settings panel, phone paths.
-- Phase 5 (presets/engine/transport/UI): five Rumble playlists as data;
-  resolver with bench then kind fallback and TV swap lines for N=3..8; preset
-  session state, per-game re-resolution, interlude, double-last, late joiners
-  and summary; preset start/skip/next/end API with slot options and on-disk
-  save; TV preset picker, slot progress and host controls, podium +
-  leaderboard + awards finale, phone interlude/finale cards; vote UI removed.
+- Phase 5 (presets/engine/transport/UI): five Rumble playlists; resolver with
+  bench then kind fallback and TV swap lines; preset session state, interlude,
+  double-last, late joiners, start/skip/next/end API and on-disk save; TV
+  preset picker, slot progress, host controls, podium/leaderboard/awards
+  finale; phone interlude/finale cards. Vote UI removed.
 - Phase 6 probe: every enabled game at every valid count (126 runs after the
   roster swap), `--all` for retired games (176 runs); 0 issues.
 - Phase 6 secrets: `tests/tv-secrets.test.ts` scans every enabled game at min
   and max count; a coverage matrix fails if a newly enabled game is missed.
 - Phase 6 docs: `docs/PLAYER_COUNTS.md` (22 enabled, 15 disabled, 37 total)
   plus Rumble TV/phone UI and secret-scanner decisions.
-- Phase 6 parity: `tests/parity-34.test.ts` compares seeded 3-4 standalone
-  runs against fixtures from baseline `085eeec`; 14 exact-compared, 7 on a
-  fail-closed exemption list, `guessimposter` skipped. Four round counts were
-  restored to baseline at 3-4 (Dumb Inventions 2, Fakin' It 3, Frankenanswers
-  2, Stowaway 4) with brief counts from five up; the `Parity` row records it.
+- Phase 6 parity: `tests/parity-34.test.ts` replays seeded 3-4 standalone
+  runs against baseline `085eeec` fixtures; 14 exact, 7 exempt with written
+  reasons, `guessimposter` skipped. Dumb Inventions/Fakin'/Frankenanswers/
+  Stowaway keep baseline rounds at 3-4 with brief counts from five up.
 - Phase 6 cap alignment: Survive's 1500 round-gain cap applies from five
   players up, like Frankenanswers/Dumb Inventions/Bracket/Slogan Shirts; 3-4
   keep uncapped totals for parity.
@@ -52,20 +49,22 @@ runs, 0 issues.
   (a slot's own mode wins, e.g. quiz `fast`) and `rounds` from the catalog;
   all 22 games treat `options.rounds` as authoritative, so presets run the
   brief's shorter Rumble lengths. Standalone play is unchanged.
-- Darts (2026-11-08): aim is a constant-speed two-stage timing lock
-  (`AIM_SWEEP_MS = 1200`, X then Y), 3 darts a turn and 501 unchanged. The
-  roster swapped Darts in for Archery (Archery kept but disabled), Darts runs
-  20 standalone / 8 Rumble rounds and both presets list it. Catalog, preset,
-  TV-secrets, layout, Rumble-mode, parity and scaling suites updated; parity
-  keeps Darts EXEMPT with the 20-round count, 180 ceiling and a throw-score probe.
+- Darts (2026-11-08): constant-speed two-stage timing lock (X then Y,
+  `AIM_SWEEP_MS = 1200`), 3 darts a turn, 501 unchanged. Darts replaced
+  Archery on the shelf (Archery kept but disabled): 20 standalone / 8 Rumble
+  rounds, both presets list it, and all coverage suites pin the new roster.
+- Release prep: README rewritten for the current platform (8 players, 22
+  games, preset Rumble, install steps); package.json carries the MIT license
+  and repository metadata; the brief is committed; local-only audit/playground
+  dirs are ignored; stale branches and unused fixtures are gone.
 
 ## In progress
-None. Roster swap is complete and the full gate is green.
+None. Repository prepared for the public release.
 
 ## Next three actions
-1. Human gates: review, push, merge.
-2. Optional: delete the unused archery parity fixtures if the roster stays.
-3. Next planned phase from the brief.
+1. Push all branches and set the default branch to Games-expansion.
+2. Flip the GitHub repository to public with the new description.
+3. Verify a fresh clone installs and the suite passes.
 
 ## Known issues
 - `tests/wordchain.test.ts` can flake: random starting letter with dictionary

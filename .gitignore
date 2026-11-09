@@ -10,3 +10,7 @@ Thumbs.db
 .screenshots/
 .orchestrator/
 data/
+
+# Local-only artefacts (design audits, scratch playgrounds)
+visual_audit_tbrngames/
+anime-playground/

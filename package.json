@@ -3,6 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "description": "Free, open-source local party games. Laptop host + phone controllers via QR.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tbrnsb/TBRN-Games.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=26.0.0"
